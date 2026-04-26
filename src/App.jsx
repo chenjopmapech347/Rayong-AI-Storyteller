@@ -48,7 +48,7 @@ import {
   saveTeamScores,
   subscribeToTeamScores,
   getMyTeamScores
-} from './api-rest';
+} from './api';
 
 // The five evaluation dimensions used in BOTH the Pitching Evaluator
 // and the EVAL-MATRIX. Keep these in sync so scores entered in one

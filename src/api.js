@@ -169,6 +169,10 @@ export async function adminDeleteUser(id) {
   await deleteDoc(doc(db, "users", id));
 }
 
+export async function adminUpdateUser(id, data) {
+  await updateDoc(doc(db, "users", id), data);
+}
+
 // ─── Admin: Teams CRUD ──────────────────────────────────
 export async function adminCreateTeam(t) {
   return await addDoc(collection(db, "teams"), {
@@ -205,6 +209,61 @@ export async function saveGoodPrompt(p) {
 
 export async function deleteGoodPrompt(id) {
   await deleteDoc(doc(db, "good_prompts", id));
+}
+
+// ─── Team Scores ────────────────────────────────────────
+export async function saveTeamScores(teamId, scores, comment) {
+  const user = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const evaluatorId = user.id;
+  const evaluatorRole = user.role;
+
+  for (const [dim, score] of Object.entries(scores)) {
+    const docId = `${teamId}_${dim}_${evaluatorId}`;
+    await setDoc(doc(db, "team_scores", docId), {
+      team_id: teamId,
+      dimension: dim,
+      score: Number(score),
+      evaluator_id: evaluatorId,
+      evaluator_role: evaluatorRole,
+      comment: comment || '',
+      scored_at: serverTimestamp()
+    });
+  }
+}
+
+export function subscribeToTeamScores(callback) {
+  return onSnapshot(collection(db, "team_scores"), (snap) => {
+    const agg = {};
+    snap.docs.forEach(d => {
+      const row = d.data();
+      const key = `${row.team_id}-${row.dimension}`;
+      if (!agg[key]) {
+        agg[key] = { team_id: row.team_id, dimension: row.dimension, sum: 0, count: 0, roles: new Set(), last: row.scored_at?.toDate() };
+      }
+      agg[key].sum += row.score;
+      agg[key].count += 1;
+      agg[key].roles.add(row.evaluator_role);
+      const dDate = row.scored_at?.toDate();
+      if (dDate && dDate > agg[key].last) agg[key].last = dDate;
+    });
+
+    const result = Object.values(agg).map(v => ({
+      team_id: v.team_id,
+      dimension: v.dimension,
+      avg_score: v.sum / v.count,
+      n_evaluators: v.count,
+      roles: Array.from(v.roles).join(','),
+      last_scored_at: v.last
+    }));
+    callback(result);
+  });
+}
+
+export async function getMyTeamScores(teamId) {
+  const user = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const q = query(collection(db, "team_scores"), where("evaluator_id", "==", user.id), where("team_id", "==", teamId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 // ─── Initial Setup (Seed) ──────────────────────────────

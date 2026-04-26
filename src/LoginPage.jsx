@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, Leaf, Rocket, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { login, seedFirebase } from './api-rest';
+import { login, seedFirebase } from './api';
 
 const DEMO_HINTS = [
   { username: 'admin',   password: 'admin123',   label: 'Admin', color: '#7F77DD', bg: '#EEEDFE' },
