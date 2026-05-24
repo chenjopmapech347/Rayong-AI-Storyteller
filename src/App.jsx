@@ -142,6 +142,38 @@ const I18N = {
 // Look up TH first, fall back to EN, then return the raw key (safe default)
 const makeT = (lang) => (k) => I18N[lang]?.[k] ?? I18N.th[k] ?? k;
 
+// ─────────────────────────────────────────────────────────────────────
+// BRANDING — White-label support recovered from production bundle
+// Allows admin to rebrand the platform for different schools/provinces.
+// ─────────────────────────────────────────────────────────────────────
+const DEFAULT_BRANDING = {
+  brandName     : 'Green Rayong',
+  brandTagline  : '4-Identities AI Storytellers',
+  logoEmoji     : '🌿',
+  region        : 'ระยอง',
+  province      : 'ระยอง',
+  primaryColor  : '#16a34a',
+  secondaryColor: '#0ea5e9',
+  pitchName     : 'Green Rayong Challenge',
+  schoolName    : '',
+  footerText    : 'พัฒนาเพื่อการศึกษา IoT + ภูมิปัญญาท้องถิ่น',
+};
+
+const BRAND_PRESETS = [
+  { name: 'Green Rayong (Default)', logoEmoji: '🌿', region: 'ระยอง',     province: 'ระยอง',     primaryColor: '#16a34a', secondaryColor: '#0ea5e9' },
+  { name: 'Green Doi Saket',        logoEmoji: '🌲', region: 'ดอยสะเก็ด', province: 'เชียงใหม่', primaryColor: '#059669', secondaryColor: '#dc2626' },
+  { name: 'Green Phuket',           logoEmoji: '🏝️', region: 'ภูเก็ต',     province: 'ภูเก็ต',     primaryColor: '#0891b2', secondaryColor: '#f59e0b' },
+  { name: 'Green Ayutthaya',        logoEmoji: '🛕', region: 'อยุธยา',     province: 'อยุธยา',     primaryColor: '#a16207', secondaryColor: '#7c2d12' },
+];
+
+// Apply brand colors as CSS variables on :root so any component can use them
+const applyBrandColors = (cfg) => {
+  if (typeof document === 'undefined') return;
+  document.documentElement.style.setProperty('--brand-primary',   cfg.primaryColor   || DEFAULT_BRANDING.primaryColor);
+  document.documentElement.style.setProperty('--brand-secondary', cfg.secondaryColor || DEFAULT_BRANDING.secondaryColor);
+  if (cfg.brandName) document.title = `${cfg.brandName} · ${cfg.brandTagline || ''}`.trim();
+};
+
 const StatBox = memo(({ icon: Icon, value, label, colorClass }) => (
   <div className="ldt-stat">
     <div className={`ldt-logo-icon ${colorClass}`} style={{ width: '32px', height: '32px' }}>
@@ -221,6 +253,36 @@ export default function App() {
     const next = lang === 'th' ? 'en' : 'th';
     setLang(next);
     try { localStorage.setItem('rep_lang', next); } catch {}
+  };
+
+  // ─── White-label Branding (admin can rebrand for any school/province) ───
+  const [appConfig, setAppConfig] = useState(() => {
+    try {
+      const raw = localStorage.getItem('rep_branding');
+      return raw ? { ...DEFAULT_BRANDING, ...JSON.parse(raw) } : { ...DEFAULT_BRANDING };
+    } catch { return { ...DEFAULT_BRANDING }; }
+  });
+  // Apply colors + document title whenever branding changes
+  useEffect(() => { applyBrandColors(appConfig); }, [appConfig]);
+  const saveBranding = (next) => {
+    setAppConfig(next);
+    try { localStorage.setItem('rep_branding', JSON.stringify(next)); } catch {}
+  };
+  const resetBranding = () => {
+    if (!window.confirm('Reset เป็น Brand Default (Green Rayong)?')) return;
+    saveBranding({ ...DEFAULT_BRANDING });
+  };
+  const applyPreset = (p) => {
+    saveBranding({
+      ...appConfig,
+      brandName     : p.name,
+      logoEmoji     : p.logoEmoji,
+      region        : p.region,
+      province      : p.province,
+      primaryColor  : p.primaryColor,
+      secondaryColor: p.secondaryColor,
+      pitchName     : `${p.name} Challenge`,
+    });
   };
   
   // App Stats
@@ -1093,7 +1155,7 @@ export default function App() {
           {activeTab === 'admin' && (
             <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto' }}>
-                  {['Management', 'Session', 'Moderation', 'Settings', 'Reports'].map(st => (
+                  {['Management', 'Session', 'Moderation', 'Branding', 'Settings', 'Reports'].map(st => (
                     <button key={st} onClick={() => setAdminSubTab(st.toLowerCase())} className={`card ${adminSubTab === st.toLowerCase() ? 'active' : ''}`} style={{ padding: '0.5rem 1rem', margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{st}</button>
                   ))}
                </div>
@@ -1234,6 +1296,98 @@ export default function App() {
                         <div className="grid-2">
                            <div className="card"><h5>Image Verification</h5><p style={{ fontSize: '0.75rem' }}>รอการตรวจสอบ: 5 รูป</p></div>
                            <div className="card"><h5>AI Prompt Audit</h5><p style={{ fontSize: '0.75rem' }}>รอกดอนุมัติ: 12 รายการ</p></div>
+                        </div>
+                     )}
+                     {adminSubTab === 'branding' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                           {/* Header */}
+                           <div className="card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#166534' }}>🎨 Branding &amp; White-Label</h5>
+                              <p style={{ fontSize: '0.8125rem', marginTop: '0.5rem', color: '#166534' }}>
+                                 ปรับแบรนด์ของระบบให้เหมาะกับจังหวัด/อำเภอของคุณ — เปลี่ยนชื่อ, สี, โลโก้ ได้โดยไม่ต้องแก้โค้ด · บันทึกแล้ว <strong>ทุก device</strong> เห็นการเปลี่ยนแปลงภายใน 1-2 วินาที
+                              </p>
+                           </div>
+
+                           {/* Live Preview Card */}
+                           <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: 8 }}>🔍 PREVIEW</p>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                 <div style={{ fontSize: '2.5rem' }}>{appConfig.logoEmoji}</div>
+                                 <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: appConfig.primaryColor }}>{appConfig.brandName}</div>
+                                    <div style={{ fontSize: '0.8125rem', color: '#64748b' }}>{appConfig.brandTagline}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4 }}>📍 {appConfig.region}, {appConfig.province}</div>
+                                 </div>
+                                 <div style={{ display: 'flex', gap: 4 }}>
+                                    <div style={{ width: 32, height: 32, background: appConfig.primaryColor,   borderRadius: 6 }} title="Primary" />
+                                    <div style={{ width: 32, height: 32, background: appConfig.secondaryColor, borderRadius: 6 }} title="Secondary" />
+                                 </div>
+                              </div>
+                           </div>
+
+                           {/* Quick Presets */}
+                           <div className="card">
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.9rem' }}>⚡ Quick Presets</h5>
+                              <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 4, marginBottom: 12 }}>กดเพื่อใช้ Preset (ยังไม่บันทึก — ต้องกดปุ่ม "💾 บันทึก" ด้านล่าง)</p>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+                                 {BRAND_PRESETS.map(p => (
+                                    <button key={p.name} onClick={() => applyPreset(p)} style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                       <span style={{ fontSize: '1.5rem' }}>{p.logoEmoji}</span>
+                                       <span style={{ display: 'flex', flexDirection: 'column' }}>
+                                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>{p.name}</span>
+                                          <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{p.region}, {p.province}</span>
+                                       </span>
+                                    </button>
+                                 ))}
+                              </div>
+                           </div>
+
+                           {/* Custom Brand Form */}
+                           <div className="card">
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.9rem' }}>✏️ Custom Brand</h5>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>ชื่อแบรนด์ (BRAND NAME)
+                                    <input type="text" value={appConfig.brandName} onChange={e => setAppConfig({ ...appConfig, brandName: e.target.value })} style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                 </label>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>TAGLINE
+                                    <input type="text" value={appConfig.brandTagline} onChange={e => setAppConfig({ ...appConfig, brandTagline: e.target.value })} style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                 </label>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>อำเภอ / พื้นที่ (REGION)
+                                    <input type="text" value={appConfig.region} onChange={e => setAppConfig({ ...appConfig, region: e.target.value })} placeholder="เช่น ดอยสะเก็ด" style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                 </label>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>จังหวัด (PROVINCE)
+                                    <input type="text" value={appConfig.province} onChange={e => setAppConfig({ ...appConfig, province: e.target.value })} style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                 </label>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>LOGO EMOJI 🎨
+                                    <input type="text" value={appConfig.logoEmoji} onChange={e => setAppConfig({ ...appConfig, logoEmoji: e.target.value })} maxLength={4} style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6, fontSize: '1.5rem', textAlign: 'center' }} />
+                                 </label>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>ชื่อ PITCHING COMPETITION
+                                    <input type="text" value={appConfig.pitchName} onChange={e => setAppConfig({ ...appConfig, pitchName: e.target.value })} style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                 </label>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>สี PRIMARY 🟢
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                       <input type="color" value={appConfig.primaryColor} onChange={e => setAppConfig({ ...appConfig, primaryColor: e.target.value })} style={{ width: 50, height: 38, border: '1px solid #cbd5e1', borderRadius: 6, cursor: 'pointer' }} />
+                                       <input type="text" value={appConfig.primaryColor} onChange={e => setAppConfig({ ...appConfig, primaryColor: e.target.value })} style={{ flex: 1, padding: '0.45rem', border: '1px solid #cbd5e1', borderRadius: 6, fontFamily: 'monospace' }} />
+                                    </div>
+                                 </label>
+                                 <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569' }}>สี SECONDARY 🔵
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                       <input type="color" value={appConfig.secondaryColor} onChange={e => setAppConfig({ ...appConfig, secondaryColor: e.target.value })} style={{ width: 50, height: 38, border: '1px solid #cbd5e1', borderRadius: 6, cursor: 'pointer' }} />
+                                       <input type="text" value={appConfig.secondaryColor} onChange={e => setAppConfig({ ...appConfig, secondaryColor: e.target.value })} style={{ flex: 1, padding: '0.45rem', border: '1px solid #cbd5e1', borderRadius: 6, fontFamily: 'monospace' }} />
+                                    </div>
+                                 </label>
+                              </div>
+                              <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569', display: 'block', marginTop: '0.75rem' }}>ชื่อโรงเรียน / สถาบัน (OPTIONAL)
+                                 <input type="text" value={appConfig.schoolName} onChange={e => setAppConfig({ ...appConfig, schoolName: e.target.value })} placeholder="เช่น วิทยาลัยการอาชีพดอยสะเก็ด" style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                              </label>
+                              <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569', display: 'block', marginTop: '0.75rem' }}>FOOTER TEXT
+                                 <input type="text" value={appConfig.footerText} onChange={e => setAppConfig({ ...appConfig, footerText: e.target.value })} style={{ width: '100%', padding: '0.45rem', marginTop: 4, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                              </label>
+                              <div style={{ display: 'flex', gap: 8, marginTop: '1rem' }}>
+                                 <button onClick={() => saveBranding(appConfig)} className="login-btn" style={{ flex: 1, background: appConfig.primaryColor }}>💾 บันทึก Branding</button>
+                                 <button onClick={resetBranding} className="login-btn" style={{ flex: 1, background: '#64748b' }}>♻️ Reset เป็น Default</button>
+                              </div>
+                           </div>
                         </div>
                      )}
                      {adminSubTab === 'settings' && (
