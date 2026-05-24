@@ -2275,13 +2275,233 @@ export default function App() {
                         </button>
                      ))}
                   </div>
-                  <div className="card" style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fcfcfc', border: '1px dashed #ddd' }}>
-                     <div style={{ textAlign: 'center' }}>
-                        <FileSpreadsheet size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-                        <p>กำลังประมวลผลข้อมูล {reportType}...</p>
-                        {reportType === 'R6' && <p style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>[Public Link: https://r-eco-pilot.com/portfolio/team-id]</p>}
+                  {/* ───── R1: Score Summary ───── */}
+                  {reportType === 'R1' && (() => {
+                     const rows = (teams || []).filter(Boolean).map(tm => {
+                        const rolesAvg = {};
+                        ['self','peer','teacher','sage','ai'].forEach(r => {
+                           const vals = SCORE_DIMENSIONS.map(d => matrixCell(tm.id, r, d)).filter(v => v != null);
+                           rolesAvg[r] = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+                        });
+                        const overall = matrixOverall(tm.id);
+                        return { team: tm.name, ...rolesAvg, overall };
+                     });
+                     return (
+                        <div className="card" style={{ overflowX: 'auto' }}>
+                           <h5>📊 R1 — สรุปคะแนนรวมทุกทีม</h5>
+                           <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>เฉลี่ยคะแนน 5 ด้าน × 5 ผู้ประเมิน</p>
+                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                              <thead>
+                                 <tr style={{ background: '#f1f5f9' }}>
+                                    <th style={{ padding: '0.5rem', textAlign: 'left' }}>ทีม</th>
+                                    {['self','peer','teacher','sage','ai'].map(r => (
+                                       <th key={r} style={{ padding: '0.5rem', textAlign: 'center' }}>{t('eval_' + r)}</th>
+                                    ))}
+                                    <th style={{ padding: '0.5rem', textAlign: 'center' }}>⭐ รวม</th>
+                                 </tr>
+                              </thead>
+                              <tbody>
+                                 {rows.length === 0 ? (
+                                    <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>ยังไม่มีทีมในระบบ</td></tr>
+                                 ) : rows.map((r, i) => (
+                                    <tr key={i} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                       <td style={{ padding: '0.5rem', fontWeight: 600 }}>{r.team}</td>
+                                       {['self','peer','teacher','sage','ai'].map(role => {
+                                          const v = r[role];
+                                          const c = cellColor(v);
+                                          return <td key={role} style={{ padding: '0.5rem', textAlign: 'center', background: c.bg, color: c.fg, fontWeight: 600 }}>{v == null ? '—' : v.toFixed(1)}</td>;
+                                       })}
+                                       <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 800, background: cellColor(r.overall).bg, color: cellColor(r.overall).fg }}>{r.overall == null ? '—' : r.overall.toFixed(2)}</td>
+                                    </tr>
+                                 ))}
+                              </tbody>
+                           </table>
+                        </div>
+                     );
+                  })()}
+
+                  {/* ───── R2: Idea & AI Prompt ───── */}
+                  {reportType === 'R2' && (
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {(teams || []).filter(Boolean).map(tm => {
+                           const gw = (allSubmissionsModeration || []).find(s => String(s.team_id) === String(tm.id) && s.step === 'gateway')?.content || {};
+                           const prompts = (gw.aiLogs || '').split('\n').filter(Boolean);
+                           return (
+                              <div key={tm.id} className="card">
+                                 <h5>👥 {tm.name}</h5>
+                                 <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}><strong>💡 ไอเดียที่เลือก:</strong> {gw.selectedIdea || gw.wisdom || '— ยังไม่มีข้อมูล —'}</p>
+                                 <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#64748b' }}>📝 AI Prompts ทั้งหมด: <strong>{prompts.length}</strong> รายการ · เฉลี่ยยาว <strong>{prompts.length ? Math.round(prompts.reduce((a,p)=>a+p.length,0)/prompts.length) : 0}</strong> ตัวอักษร</p>
+                                 {prompts.length > 0 && (
+                                    <details style={{ marginTop: '0.5rem' }}>
+                                       <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: '#7c3aed', fontWeight: 600 }}>ดู Prompts ทั้งหมด ▾</summary>
+                                       <ol style={{ marginTop: '0.5rem', paddingLeft: '1.2rem', fontSize: '0.75rem' }}>
+                                          {prompts.slice(0, 10).map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}
+                                       </ol>
+                                    </details>
+                                 )}
+                              </div>
+                           );
+                        })}
                      </div>
-                  </div>
+                  )}
+
+                  {/* ───── R3: Finance Integration (BMC) ───── */}
+                  {reportType === 'R3' && (
+                     <div className="card" style={{ overflowX: 'auto' }}>
+                        <h5>💰 R3 — บูรณาการการเงิน (BMC)</h5>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', marginTop: '0.75rem' }}>
+                           <thead>
+                              <tr style={{ background: '#f1f5f9' }}>
+                                 <th style={{ padding: '0.5rem', textAlign: 'left' }}>ทีม</th>
+                                 <th style={{ padding: '0.5rem' }}>กลุ่มลูกค้า (Customer)</th>
+                                 <th style={{ padding: '0.5rem' }}>ช่องทาง (Channel)</th>
+                                 <th style={{ padding: '0.5rem', textAlign: 'right' }}>ต้นทุน (บาท)</th>
+                                 <th style={{ padding: '0.5rem', textAlign: 'right' }}>ราคา (บาท)</th>
+                                 <th style={{ padding: '0.5rem', textAlign: 'right' }}>กำไร %</th>
+                              </tr>
+                           </thead>
+                           <tbody>
+                              {(teams || []).filter(Boolean).map(tm => {
+                                 const gw = (allSubmissionsModeration || []).find(s => String(s.team_id) === String(tm.id) && s.step === 'gateway')?.content || {};
+                                 const cost  = parseFloat(gw.bmcCost  || gw.cost  || 0);
+                                 const price = parseFloat(gw.bmcPrice || gw.price || 0);
+                                 const margin = (cost && price) ? (((price - cost) / price) * 100) : null;
+                                 return (
+                                    <tr key={tm.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                       <td style={{ padding: '0.5rem', fontWeight: 600 }}>{tm.name}</td>
+                                       <td style={{ padding: '0.5rem', fontSize: '0.75rem' }}>{gw.bmcCustomer || '—'}</td>
+                                       <td style={{ padding: '0.5rem', fontSize: '0.75rem' }}>{gw.bmcChannel || '—'}</td>
+                                       <td style={{ padding: '0.5rem', textAlign: 'right' }}>{cost ? cost.toLocaleString() : '—'}</td>
+                                       <td style={{ padding: '0.5rem', textAlign: 'right' }}>{price ? price.toLocaleString() : '—'}</td>
+                                       <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700, color: margin == null ? '#94a3b8' : margin > 30 ? '#16a34a' : margin > 0 ? '#d97706' : '#dc2626' }}>{margin == null ? '—' : margin.toFixed(1) + '%'}</td>
+                                    </tr>
+                                 );
+                              })}
+                           </tbody>
+                        </table>
+                     </div>
+                  )}
+
+                  {/* ───── R4: Activity Progress ───── */}
+                  {reportType === 'R4' && (() => {
+                     const steps = [
+                        { id: 'team-setup',    label: 'ตั้งทีม' },
+                        { id: 'mission-inbox', label: 'รับโจทย์' },
+                        { id: 'collector',     label: 'ลงพื้นที่' },
+                        { id: 'gateway',       label: 'ส่งงาน' }
+                     ];
+                     return (
+                        <div className="card" style={{ overflowX: 'auto' }}>
+                           <h5>📅 R4 — ความคืบหน้ากิจกรรม (รายทีม)</h5>
+                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', marginTop: '0.75rem' }}>
+                              <thead>
+                                 <tr style={{ background: '#f1f5f9' }}>
+                                    <th style={{ padding: '0.5rem', textAlign: 'left' }}>ทีม</th>
+                                    {steps.map(s => <th key={s.id} style={{ padding: '0.5rem' }}>{s.label}</th>)}
+                                    <th style={{ padding: '0.5rem' }}>ความคืบหน้า</th>
+                                    <th style={{ padding: '0.5rem' }}>🚩 Flags</th>
+                                 </tr>
+                              </thead>
+                              <tbody>
+                                 {(teams || []).filter(Boolean).map(tm => {
+                                    const stepsDone = new Set((allSubmissionsModeration || []).filter(s => String(s.team_id) === String(tm.id)).map(s => s.step));
+                                    const completed = steps.filter(s => stepsDone.has(s.id)).length;
+                                    const pct = (completed / steps.length) * 100;
+                                    const teamFlags = moderationFlags.filter(f => String(f.team_id) === String(tm.id) && f.status === 'pending').length;
+                                    return (
+                                       <tr key={tm.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                          <td style={{ padding: '0.5rem', fontWeight: 600 }}>{tm.name}</td>
+                                          {steps.map(s => (
+                                             <td key={s.id} style={{ padding: '0.5rem', textAlign: 'center' }}>{stepsDone.has(s.id) ? '✅' : '⬜'}</td>
+                                          ))}
+                                          <td style={{ padding: '0.5rem' }}>
+                                             <div style={{ background: '#e2e8f0', borderRadius: 6, overflow: 'hidden', height: 8 }}>
+                                                <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#16a34a' : '#0ea5e9' }} />
+                                             </div>
+                                             <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{completed}/{steps.length}</span>
+                                          </td>
+                                          <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: teamFlags > 0 ? '#dc2626' : '#94a3b8' }}>{teamFlags}</td>
+                                       </tr>
+                                    );
+                                 })}
+                              </tbody>
+                           </table>
+                        </div>
+                     );
+                  })()}
+
+                  {/* ───── R5: Individual Summary (Peer Scores per member) ───── */}
+                  {reportType === 'R5' && (
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <p style={{ fontSize: '0.8rem', color: '#64748b' }}>คะแนน Peer Evaluation รายบุคคล (จาก {peerScoresAll.length} รายการ)</p>
+                        {(teams || []).filter(Boolean).map(tm => {
+                           const teamPeerScores = peerScoresAll.filter(p => String(p.target_team_id) === String(tm.id));
+                           const byTarget = teamPeerScores.reduce((acc, p) => {
+                              const k = p.target_user_id || p.target_name || 'unknown';
+                              if (!acc[k]) acc[k] = { name: p.target_name || k, scores: [] };
+                              acc[k].scores.push(Number(p.score));
+                              return acc;
+                           }, {});
+                           const members = Object.values(byTarget);
+                           return (
+                              <div key={tm.id} className="card">
+                                 <h5>👥 {tm.name}</h5>
+                                 {members.length === 0 ? (
+                                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem' }}>ยังไม่มี Peer evaluation</p>
+                                 ) : (
+                                    <table style={{ width: '100%', marginTop: '0.5rem', fontSize: '0.8rem' }}>
+                                       <thead>
+                                          <tr style={{ background: '#f8fafc' }}>
+                                             <th style={{ padding: '0.4rem', textAlign: 'left' }}>สมาชิก</th>
+                                             <th style={{ padding: '0.4rem', textAlign: 'center' }}>จำนวน peer ที่ประเมิน</th>
+                                             <th style={{ padding: '0.4rem', textAlign: 'center' }}>คะแนนเฉลี่ย</th>
+                                          </tr>
+                                       </thead>
+                                       <tbody>
+                                          {members.map((m, i) => {
+                                             const avg = m.scores.reduce((a,b)=>a+b,0) / m.scores.length;
+                                             const c = cellColor(avg);
+                                             return (
+                                                <tr key={i} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                                   <td style={{ padding: '0.4rem' }}>{m.name}</td>
+                                                   <td style={{ padding: '0.4rem', textAlign: 'center' }}>{m.scores.length}</td>
+                                                   <td style={{ padding: '0.4rem', textAlign: 'center', background: c.bg, color: c.fg, fontWeight: 700 }}>{avg.toFixed(2)}</td>
+                                                </tr>
+                                             );
+                                          })}
+                                       </tbody>
+                                    </table>
+                                 )}
+                              </div>
+                           );
+                        })}
+                     </div>
+                  )}
+
+                  {/* ───── R6: Portfolio (Public Showcase) ───── */}
+                  {reportType === 'R6' && (
+                     <div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>[Public Link: https://ai-storyteller-9dc3a.web.app/]</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                           {(teams || []).filter(Boolean).map(tm => {
+                              const gw = (allSubmissionsModeration || []).find(s => String(s.team_id) === String(tm.id) && s.step === 'gateway')?.content || {};
+                              const overall = matrixOverall(tm.id);
+                              const c = cellColor(overall);
+                              return (
+                                 <div key={tm.id} className="card" style={{ borderLeft: `4px solid ${c.fg}`, padding: '1rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                       <h5 style={{ margin: 0 }}>👥 {tm.name}</h5>
+                                       <span style={{ background: c.bg, color: c.fg, padding: '0.2rem 0.6rem', borderRadius: 12, fontSize: '0.75rem', fontWeight: 700 }}>⭐ {overall == null ? '—' : overall.toFixed(2)}</span>
+                                    </div>
+                                    <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#475569' }}><strong>ไอเดีย:</strong> {gw.selectedIdea || '—'}</p>
+                                    <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#64748b' }}>{(gw.wisdom || gw.traditionalWisdom || '').slice(0, 120)}{(gw.wisdom || '').length > 120 ? '...' : ''}</p>
+                                    {gw.videoUrl && <a href={gw.videoUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#0ea5e9', display: 'inline-block', marginTop: '0.5rem' }}>▶ ดูวิดีโอ Pitching</a>}
+                                 </div>
+                              );
+                           })}
+                        </div>
+                     </div>
+                  )}
                </div>
             </motion.div>
           )}
