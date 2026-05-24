@@ -64,7 +64,11 @@ import {
   seedDefaultPhasesIfEmpty,
   subscribeToAppConfig as subscribeToRemoteAppConfig,
   setAppConfig          as setRemoteAppConfig,
-  resetAndSeedDemoData
+  resetAndSeedDemoData,
+  // AI Audit
+  aiAuditTeam,
+  subscribeToAiAudits,
+  aiFeedbackOnPrompt
 } from './api';
 
 // Ethics category metadata (Thai labels + emojis) — mirrors api.js zt rules
@@ -399,6 +403,65 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (e) { window.alert('Backup failed: ' + (e?.message || e)); }
   };
+  // ─── AI Audit Logbook (full integration) ───
+  const [aiAudits, setAiAudits] = useState([]);
+  const [selectedAuditTeam, setSelectedAuditTeam] = useState('');
+  const [auditingAi, setAuditingAi] = useState(false);
+  const [lastAuditResult, setLastAuditResult] = useState(null);
+  const [promptToTest, setPromptToTest] = useState('');
+  const [promptTesting, setPromptTesting] = useState(false);
+  const [promptFeedback, setPromptFeedback] = useState(null);
+  useEffect(() => {
+    const unsub = subscribeToAiAudits(setAiAudits);
+    return () => unsub?.();
+  }, []);
+  const runAiAuditOnTeam = async () => {
+    if (!selectedAuditTeam) { window.alert('กรุณาเลือกทีมก่อน'); return; }
+    setAuditingAi(true);
+    setLastAuditResult(null);
+    try {
+      const team = teams.find(t => String(t.id) === String(selectedAuditTeam));
+      // Aggregate team's content from all known submission steps
+      const teamSubs = (allSubmissionsModeration || []).filter(s => String(s.team_id) === String(selectedAuditTeam));
+      const collector = teamSubs.find(s => s.step === 'collector')?.content || {};
+      const gateway   = teamSubs.find(s => s.step === 'gateway')?.content   || {};
+      const mission   = teamSubs.find(s => s.step === 'mission-inbox')?.content || {};
+      const payload = {
+        teamName    : team?.name || selectedAuditTeam,
+        iotModule   : mission.iotModule || '',
+        product     : mission.product || '',
+        selectedIdea: gateway.selectedIdea || '',
+        strengths   : gateway.strengths || '',
+        wisdom      : gateway.wisdom || gateway.traditionalWisdom || '',
+        interview   : collector.interview || '',
+        cost        : gateway.bmcCost || '',
+        price       : gateway.bmcPrice || '',
+        customer    : gateway.bmcCustomer || '',
+        aiLogs      : gateway.aiLogs || ''
+      };
+      const result = await aiAuditTeam(selectedAuditTeam, payload);
+      setLastAuditResult({ team_name: payload.teamName, ...result });
+      window.alert('✅ AI Audit เสร็จสิ้น');
+    } catch (e) {
+      window.alert('❌ Audit ล้มเหลว: ' + (e?.message || e));
+    } finally {
+      setAuditingAi(false);
+    }
+  };
+  const testPromptFeedback = async () => {
+    if (!promptToTest.trim()) return;
+    setPromptTesting(true);
+    setPromptFeedback(null);
+    try {
+      const fb = await aiFeedbackOnPrompt(promptToTest.trim());
+      setPromptFeedback(fb);
+    } catch (e) {
+      setPromptFeedback({ error: e?.message || String(e) });
+    } finally {
+      setPromptTesting(false);
+    }
+  };
+
   const handleResetSeed = async () => {
     if (!window.confirm('⚠️ ลบข้อมูลทั้งหมดและสร้าง demo data ใหม่? (ไม่สามารถ undo ได้)')) return;
     setResetting(true);
@@ -2058,59 +2121,121 @@ export default function App() {
 
           {activeTab === 'ai-audit-log' && (
             <motion.div key="aal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane">
-               <div className="lane-header bg-blue-light"><ShieldCheck size={16} /> AI Audit Logbook — บันทึกการใช้ AI อย่างมีจริยธรรม</div>
+               <div className="lane-header bg-blue-light"><ShieldCheck size={16} /> AI Audit Logbook — Anti-Hallucination &amp; Prompt Quality</div>
                <div className="lane-content" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Intro */}
                   <div className="card" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                     <h5 style={{ color: '#1e40af' }}>🛡️ ทำไมต้องบันทึก AI Usage?</h5>
+                     <h5 style={{ color: '#1e40af' }}>🛡️ AI Audit — Heuristic + AI Analysis</h5>
                      <p style={{ fontSize: '0.8125rem', marginTop: '0.5rem', color: '#1e40af' }}>
-                        การใช้ AI อย่างโปร่งใส (Transparency) และมีความรับผิดชอบ (Accountability) เป็นหลัก ESG ที่ Pitching Judges ให้คะแนนสูง — ทีมที่ใช้ AI แล้วบันทึกได้ครบ จะได้คะแนนหมวด "AI Prompting" และ "Fact-Checking" เต็ม
+                        ระบบจะวิเคราะห์ Prompt ของทีม (Role / Context / Format) · เช็ค Hallucination (ภูมิปัญญา vs สัมภาษณ์) · ให้คะแนน Tier (L1-L4 → TPQI) · แนะนำการพัฒนา · บันทึกผลลง Firestore (ai_audits)
+                     </p>
+                     <p style={{ fontSize: '0.7rem', marginTop: '0.5rem', color: '#1e3a8a' }}>
+                        💡 <strong>Demo Mode:</strong> ถ้ายังไม่ได้ตั้ง Claude API Key ใน Admin → Settings ระบบจะใช้ Mock Audit จาก heuristic locally (ไม่เรียก API)
                      </p>
                   </div>
 
+                  {/* Run Audit on Team */}
                   <div className="card">
-                     <h5>📝 ฟอร์มบันทึกการใช้ AI (Quick Log)</h5>
-                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                        <div>
-                           <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>AI Tool ที่ใช้</label>
-                           <select style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
-                              <option>ChatGPT</option>
-                              <option>Claude</option>
-                              <option>Gemini</option>
-                              <option>Perplexity</option>
-                              <option>อื่น ๆ</option>
-                           </select>
-                        </div>
-                        <div>
-                           <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>วัตถุประสงค์</label>
-                           <select style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
-                              <option>หาข้อมูล (Research)</option>
-                              <option>เขียนเนื้อหา (Content)</option>
-                              <option>แปลภาษา (Translation)</option>
-                              <option>สร้างภาพ (Image)</option>
-                              <option>วิเคราะห์ (Analysis)</option>
-                           </select>
-                        </div>
+                     <h5 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>🔍 Run Full AI Audit</h5>
+                     <div style={{ display: 'flex', gap: 8, marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                        <select value={selectedAuditTeam} onChange={e => setSelectedAuditTeam(e.target.value)} style={{ flex: 1, padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, minWidth: 200 }}>
+                           <option value="">-- เลือกทีม --</option>
+                           {(teams || []).map(tm => <option key={tm.id} value={tm.id}>{tm.name}</option>)}
+                        </select>
+                        <button onClick={runAiAuditOnTeam} disabled={auditingAi || !selectedAuditTeam} className="login-btn" style={{ background: '#7c3aed', width: 'auto', padding: '0.5rem 1.5rem' }}>
+                           {auditingAi ? '⏳ กำลัง Audit...' : '🚀 Run AI Audit'}
+                        </button>
                      </div>
-                     <div style={{ marginTop: '0.75rem' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Prompt ที่ใช้ (สรุปสั้น ๆ)</label>
-                        <textarea rows={2} placeholder="เช่น: ขอข้อมูลแหล่งท่องเที่ยวเชิงนิเวศในระยอง พร้อมแหล่งอ้างอิง" style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontFamily: 'inherit' }} />
-                     </div>
-                     <div style={{ marginTop: '0.75rem' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>✅ Fact-Check แล้ว? (ตรวจ AI Hallucination)</label>
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
-                           <label style={{ fontSize: '0.8125rem' }}><input type="radio" name="factcheck" /> ตรวจแล้ว มี source</label>
-                           <label style={{ fontSize: '0.8125rem' }}><input type="radio" name="factcheck" /> ยังไม่ได้ตรวจ</label>
-                           <label style={{ fontSize: '0.8125rem' }}><input type="radio" name="factcheck" /> ตรวจแล้ว AI ผิด — แก้แล้ว</label>
-                        </div>
-                     </div>
-                     <button className="login-btn" style={{ marginTop: '1rem', width: 'auto' }}>+ บันทึก Log</button>
                   </div>
 
+                  {/* Latest Audit Result Preview */}
+                  {lastAuditResult && (
+                    <div className="card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                       <h5 style={{ color: '#166534' }}>✅ ผล Audit ล่าสุด — {lastAuditResult.team_name}</h5>
+                       <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#166534', fontStyle: 'italic' }}>{lastAuditResult.summary}</p>
+                       {lastAuditResult.strengths?.length > 0 && (
+                          <div style={{ marginTop: '0.75rem' }}>
+                             <strong style={{ fontSize: '0.75rem', color: '#166534' }}>💪 จุดแข็ง:</strong>
+                             <ul style={{ fontSize: '0.75rem', marginTop: 4, paddingLeft: '1.2rem', color: '#166534' }}>
+                                {lastAuditResult.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                             </ul>
+                          </div>
+                       )}
+                       {lastAuditResult.concerns?.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                             <strong style={{ fontSize: '0.75rem', color: '#991b1b' }}>⚠️ ข้อกังวล:</strong>
+                             <ul style={{ fontSize: '0.75rem', marginTop: 4, paddingLeft: '1.2rem', color: '#991b1b' }}>
+                                {lastAuditResult.concerns.map((s, i) => <li key={i}>{s}</li>)}
+                             </ul>
+                          </div>
+                       )}
+                       {lastAuditResult.recommendations?.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                             <strong style={{ fontSize: '0.75rem', color: '#0369a1' }}>📝 ข้อเสนอแนะ:</strong>
+                             <ul style={{ fontSize: '0.75rem', marginTop: 4, paddingLeft: '1.2rem', color: '#0369a1' }}>
+                                {lastAuditResult.recommendations.map((s, i) => <li key={i}>{s}</li>)}
+                             </ul>
+                          </div>
+                       )}
+                       {lastAuditResult.teaching_points?.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                             <strong style={{ fontSize: '0.75rem', color: '#7c2d12' }}>👩‍🏫 ครู:</strong>
+                             <ul style={{ fontSize: '0.75rem', marginTop: 4, paddingLeft: '1.2rem', color: '#7c2d12' }}>
+                                {lastAuditResult.teaching_points.map((s, i) => <li key={i}>{s}</li>)}
+                             </ul>
+                          </div>
+                       )}
+                    </div>
+                  )}
+
+                  {/* Quick Prompt Feedback Tool */}
                   <div className="card">
-                     <h5>📚 ประวัติการใช้ AI (Audit Trail)</h5>
-                     <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                        ยังไม่มี log — เริ่มบันทึกจากฟอร์มด้านบนได้เลย
-                     </p>
+                     <h5 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>⚡ ทดสอบคุณภาพ Prompt</h5>
+                     <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 4 }}>วาง prompt ใด ๆ → AI จะให้ feedback ทันที (ไม่บันทึก)</p>
+                     <textarea
+                        value={promptToTest}
+                        onChange={e => setPromptToTest(e.target.value)}
+                        rows={3}
+                        placeholder='เช่น: "Act as a marine biologist. Given that we are in Rayong, list 5 species of mangrove crabs..."'
+                        style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, fontFamily: 'inherit', fontSize: '0.8rem' }}
+                      />
+                     <button onClick={testPromptFeedback} disabled={promptTesting || !promptToTest.trim()} className="login-btn" style={{ marginTop: '0.5rem', width: 'auto', background: '#0891b2', padding: '0.4rem 1rem' }}>
+                        {promptTesting ? '⏳ กำลังคิด...' : '💡 Get AI Feedback'}
+                     </button>
+                     {promptFeedback && (
+                        <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: promptFeedback.error ? '#fef2f2' : '#f0fdfa', borderRadius: 6, fontSize: '0.8rem', color: promptFeedback.error ? '#991b1b' : '#134e4a', whiteSpace: 'pre-wrap' }}>
+                           {promptFeedback.error ? `❌ ${promptFeedback.error}` : (typeof promptFeedback === 'string' ? promptFeedback : JSON.stringify(promptFeedback, null, 2))}
+                        </div>
+                     )}
+                  </div>
+
+                  {/* Audit History */}
+                  <div className="card">
+                     <h5>📚 ประวัติ AI Audit ({aiAudits.length})</h5>
+                     {aiAudits.length === 0 ? (
+                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                           ยังไม่มี audit ในระบบ — เลือกทีมแล้วกด "Run AI Audit" ด้านบน
+                        </p>
+                     ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: '0.75rem' }}>
+                           {aiAudits.slice(0, 20).map(a => {
+                              const t = a.audit_at?.seconds ? new Date(a.audit_at.seconds * 1000) : null;
+                              return (
+                                 <details key={a.id} style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.5rem 0.75rem' }}>
+                                    <summary style={{ cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>
+                                       👥 {a.team_name || a.team_id} <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: '0.7rem' }}>· {t ? t.toLocaleString('th-TH') : ''}</span>
+                                    </summary>
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#475569' }}>
+                                       <p style={{ fontStyle: 'italic' }}>{a.summary}</p>
+                                       {a.strengths?.length > 0 && <div><strong>💪 จุดแข็ง:</strong> {a.strengths.join(' · ')}</div>}
+                                       {a.concerns?.length > 0  && <div><strong>⚠️ กังวล:</strong> {a.concerns.join(' · ')}</div>}
+                                       {a.recommendations?.length > 0 && <div><strong>📝 แนะนำ:</strong> {a.recommendations.join(' · ')}</div>}
+                                    </div>
+                                 </details>
+                              );
+                           })}
+                        </div>
+                     )}
                   </div>
                </div>
             </motion.div>
