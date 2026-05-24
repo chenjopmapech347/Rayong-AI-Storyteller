@@ -727,20 +727,34 @@ export default function App() {
       <header className="live-dashboard-top">
         <div className="ldt-header">
           <div className="ldt-title-wrap">
-            <div className="ldt-logo-icon"><Zap size={20} /></div>
+            <div className="ldt-logo-icon" style={{ background: appConfig.primaryColor }}>
+               <span style={{ fontSize: 18 }}>{appConfig.logoEmoji || '🌿'}</span>
+            </div>
             <div>
-              <div className="ldt-title">Green Rayong: {!user ? 'Public Dashboard' : (user.role === 'student' ? 'Explorer UI' : 'Assessor UI')}</div>
-              <div className="ldt-sub">4-Identities AI Storytellers | {!user ? 'โหมดบุคคลทั่วไป' : `ระบบนิเวศการเรียนรู้ ${user.role === 'student' ? 'นักเรียน' : 'ครู/Facilitator'}`}</div>
+              <div className="ldt-title" style={{ color: appConfig.primaryColor }}>{appConfig.brandName}: {!user ? (lang === 'th' ? 'มุมมองสาธารณะ' : 'Public Dashboard') : (user.role === 'student' ? (lang === 'th' ? 'จัดการทีม' : 'Explorer UI') : (lang === 'th' ? 'แดชบอร์ดผู้ประเมิน' : 'Assessor UI'))}</div>
+              <div className="ldt-sub">{appConfig.brandTagline} | {!user ? (lang === 'th' ? 'โหมดบุคคลทั่วไป' : 'Public Mode') : (lang === 'th' ? `ระบบนิเวศการเรียนรู้ ${user.role === 'student' ? 'นักเรียน' : 'ครู/Facilitator'}` : `Learning Ecosystem · ${user.role === 'student' ? 'Student' : 'Teacher/Facilitator'}`)}</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+             {/* ─── Inline TH/EN language toggle (always visible) ─── */}
+             <div className="card" style={{ padding: '0.3rem 0.5rem', margin: 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <button onClick={() => { if (lang !== 'th') toggleLang(); }} title="ภาษาไทย"
+                   style={{ background: lang === 'th' ? appConfig.primaryColor : 'transparent', color: lang === 'th' ? '#fff' : '#475569', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 4, cursor: 'pointer', fontWeight: lang === 'th' ? 700 : 500, fontSize: '0.75rem' }}>
+                   Thai <strong>TH</strong>
+                </button>
+                <span style={{ color: '#cbd5e1' }}>|</span>
+                <button onClick={() => { if (lang !== 'en') toggleLang(); }} title="English"
+                   style={{ background: lang === 'en' ? appConfig.secondaryColor : 'transparent', color: lang === 'en' ? '#fff' : '#475569', border: 'none', padding: '0.25rem 0.6rem', borderRadius: 4, cursor: 'pointer', fontWeight: lang === 'en' ? 700 : 500, fontSize: '0.75rem' }}>
+                   English <strong>EN</strong>
+                </button>
+             </div>
              {user ? (
                <>
                  <div className="card" style={{ padding: '0.4rem 0.8rem', margin: 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <User size={14} /> {user.name} ({user.role})
                  </div>
                  <button onClick={handleLogout} className="card" style={{ padding: '0.4rem 0.8rem', margin: 0, fontSize: '0.75rem', cursor: 'pointer' }}>
-                    <LogOut size={14} /> ออก
+                    <LogOut size={14} /> {t('Logout')}
                  </button>
                </>
              ) : (
@@ -826,25 +840,6 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Reports R1-R6')}</div>
           </>
         )}
-        {/* ─── Language switcher (TH ↔ EN) — always visible on right side ─── */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem', padding: '0 0.75rem' }}>
-          <button
-            onClick={toggleLang}
-            title={lang === 'th' ? t('Switch to English') : t('Switch to Thai')}
-            style={{
-              padding: '0.35rem 0.75rem',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px',
-              background: '#fff',
-              cursor: 'pointer',
-              color: '#475569'
-            }}
-          >
-            🌐 {lang === 'th' ? 'TH ▾' : 'EN ▾'}
-          </button>
-        </div>
       </nav>
 
       <main className="user-area">
