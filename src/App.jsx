@@ -416,17 +416,17 @@ export default function App() {
   }, []);
   // Helper: get all scores for a (team, evaluatorRole, dimension) combination → returns numeric avg or null
   const matrixCell = (teamId, role, dim) => {
+    if (teamId == null) return null;
     const tid = String(teamId);
     let vals = [];
     if (role === 'peer') {
-      vals = peerScoresAll.filter(p => String(p.target_team_id) === tid && p.dimension === dim).map(p => Number(p.score)).filter(v => !isNaN(v));
+      vals = (peerScoresAll || []).filter(p => p && String(p.target_team_id) === tid && p.dimension === dim).map(p => Number(p.score)).filter(v => !isNaN(v));
     } else if (role === 'ai') {
-      // Pull from ai_audits — use heuristic score if present in audit doc
-      const audit = aiAudits.find(a => String(a.team_id) === tid);
-      if (audit?.ai_score && audit?.ai_score[dim]) return Number(audit.ai_score[dim]);
+      const audit = (aiAudits || []).find(a => a && String(a.team_id) === tid);
+      if (audit?.ai_score && audit.ai_score[dim] != null) return Number(audit.ai_score[dim]);
       return null;
     } else {
-      vals = teamScoresRaw.filter(s => String(s.team_id) === tid && s.dimension === dim && (s.evaluator_role === role || (role === 'teacher' && (s.evaluator_role === 'facilitator' || s.evaluator_role === 'admin')) || (role === 'self' && s.evaluator_role === 'student'))).map(s => Number(s.score)).filter(v => !isNaN(v));
+      vals = (teamScoresRaw || []).filter(s => s && String(s.team_id) === tid && s.dimension === dim && (s.evaluator_role === role || (role === 'teacher' && (s.evaluator_role === 'facilitator' || s.evaluator_role === 'admin')) || (role === 'self' && s.evaluator_role === 'student'))).map(s => Number(s.score)).filter(v => !isNaN(v));
     }
     if (!vals.length) return null;
     return vals.reduce((a, b) => a + b, 0) / vals.length;
@@ -1039,7 +1039,7 @@ export default function App() {
                <div className="lane-content grid-2" style={{ gridTemplateColumns: '250px 1fr', alignItems: 'start' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                      <h4 style={{ marginBottom: '1rem' }}>เลือกทีมที่ต้องการประเมิน</h4>
-                     {(user?.role === 'teacher' ? teams.filter(t => t.teacher_id === user.id) : teams).map(t => (
+                     {(user?.role === 'teacher' ? teams.filter(t => t && t.teacher_id === user?.id) : (teams || [])).filter(Boolean).map(t => (
                         <div key={t.id} onClick={()=>setSelectedTeam(t)} className={`card ${selectedTeam?.id === t.id ? 'active' : ''}`} style={{ cursor: 'pointer', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                            <Users size={16} color="var(--color-primary)" /> {t.name}
                         </div>
@@ -1158,11 +1158,11 @@ export default function App() {
                      {assessorSubTab === 'teams' && (
                         <div>
                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
-                              <h4>Managed Teams ({teams.filter(t => t.teacher_id === user.id || user.role === 'admin').length})</h4>
+                              <h4>Managed Teams ({teams.filter(t => t && (t.teacher_id === user?.id || user?.role === 'admin')).length})</h4>
                               <p style={{ fontSize: '0.75rem', color: '#64748b' }}>รายการทีมที่คุณได้รับมอบหมายให้ดูแล</p>
                            </div>
                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                              {teams.filter(t => t.teacher_id === user.id || user.role === 'admin').map(t => (
+                              {teams.filter(t => t && (t.teacher_id === user?.id || user?.role === 'admin')).map(t => (
                                  <div key={t.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
                                     <div>
                                        <div style={{ fontWeight: 600 }}>{t.name}</div>
@@ -1497,7 +1497,7 @@ export default function App() {
                                     <input className="login-input" style={{ fontSize: '0.75rem' }} placeholder="ชื่อทีม" value={newTeam.name} onChange={e=>setNewTeam({...newTeam, name: e.target.value})} />
                                     <select className="login-input" style={{ fontSize: '0.75rem' }} value={newTeam.teacherId} onChange={e=>setNewTeam({...newTeam, teacherId: e.target.value})}>
                                        <option value="">เลือกครูผู้ดูแล...</option>
-                                       {users.filter(u => u.role === 'teacher').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                       {(users || []).filter(u => u && u.role === 'teacher').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                     </select>
                                  </div>
                                  <button 
@@ -1537,7 +1537,7 @@ export default function App() {
                                                 }}
                                              >
                                                 <option value="">Assign Teacher...</option>
-                                                {users.filter(u => u.role === 'teacher' || u.role === 'facilitator').map(u => (
+                                                {(users || []).filter(u => u && (u.role === 'teacher' || u.role === 'facilitator')).map(u => (
                                                    <option key={u.id} value={u.id}>{u.name}</option>
                                                 ))}
                                              </select>
