@@ -68,7 +68,10 @@ import {
   // AI Audit
   aiAuditTeam,
   subscribeToAiAudits,
-  aiFeedbackOnPrompt
+  aiFeedbackOnPrompt,
+  // Peer evaluation (EVAL-MATRIX)
+  subscribeToPeerScores,
+  subscribeToTeamScoresRaw
 } from './api';
 
 // Ethics category metadata (Thai labels + emojis) — mirrors api.js zt rules
@@ -403,6 +406,55 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (e) { window.alert('Backup failed: ' + (e?.message || e)); }
   };
+  // ─── Pitching Evaluator EVAL-MATRIX (5×5: evaluators × dimensions) ───
+  const [peerScoresAll, setPeerScoresAll] = useState([]);
+  const [teamScoresRaw, setTeamScoresRaw] = useState([]);
+  useEffect(() => {
+    const u1 = subscribeToPeerScores(setPeerScoresAll);
+    const u2 = subscribeToTeamScoresRaw(setTeamScoresRaw);
+    return () => { u1?.(); u2?.(); };
+  }, []);
+  // Helper: get all scores for a (team, evaluatorRole, dimension) combination → returns numeric avg or null
+  const matrixCell = (teamId, role, dim) => {
+    const tid = String(teamId);
+    let vals = [];
+    if (role === 'peer') {
+      vals = peerScoresAll.filter(p => String(p.target_team_id) === tid && p.dimension === dim).map(p => Number(p.score)).filter(v => !isNaN(v));
+    } else if (role === 'ai') {
+      // Pull from ai_audits — use heuristic score if present in audit doc
+      const audit = aiAudits.find(a => String(a.team_id) === tid);
+      if (audit?.ai_score && audit?.ai_score[dim]) return Number(audit.ai_score[dim]);
+      return null;
+    } else {
+      vals = teamScoresRaw.filter(s => String(s.team_id) === tid && s.dimension === dim && (s.evaluator_role === role || (role === 'teacher' && (s.evaluator_role === 'facilitator' || s.evaluator_role === 'admin')) || (role === 'self' && s.evaluator_role === 'student'))).map(s => Number(s.score)).filter(v => !isNaN(v));
+    }
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
+  const matrixRowAvg = (teamId, role) => {
+    const cells = SCORE_DIMENSIONS.map(d => matrixCell(teamId, role, d)).filter(v => v != null);
+    if (!cells.length) return null;
+    return cells.reduce((a, b) => a + b, 0) / cells.length;
+  };
+  const matrixColAvg = (teamId, dim) => {
+    const cells = EVALUATOR_ROLES.map(r => matrixCell(teamId, r, dim)).filter(v => v != null);
+    if (!cells.length) return null;
+    return cells.reduce((a, b) => a + b, 0) / cells.length;
+  };
+  const matrixOverall = (teamId) => {
+    const cells = EVALUATOR_ROLES.flatMap(r => SCORE_DIMENSIONS.map(d => matrixCell(teamId, r, d))).filter(v => v != null);
+    if (!cells.length) return null;
+    return cells.reduce((a, b) => a + b, 0) / cells.length;
+  };
+  // Heatmap color based on score 0-5
+  const cellColor = (v) => {
+    if (v == null) return { bg: 'transparent', fg: '#94a3b8' };
+    if (v >= 4.0) return { bg: '#dcfce7', fg: '#166534' }; // green
+    if (v >= 3.0) return { bg: '#fef9c3', fg: '#854d0e' }; // yellow
+    if (v >= 2.0) return { bg: '#ffedd5', fg: '#9a3412' }; // orange
+    return                { bg: '#fee2e2', fg: '#991b1b' }; // red
+  };
+
   // ─── AI Audit Logbook (full integration) ───
   const [aiAudits, setAiAudits] = useState([]);
   const [selectedAuditTeam, setSelectedAuditTeam] = useState('');
@@ -1960,6 +2012,90 @@ export default function App() {
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button className="card" style={{ margin: 0, padding: '0.4rem 0.8rem', background: '#ecfdf5', color: '#065f46', border: 'none' }}>Approve</button>
                                 <button className="card" style={{ margin: 0, padding: '0.4rem 0.8rem', background: '#fee2e2', color: '#991b1b', border: 'none' }}>Reject</button>
+                              </div>
+                           </div>
+
+                           {/* ─── Performance Overview: Radar Chart + 5×5 Matrix ─── */}
+                           <div className="card" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%)', border: '1px solid #bbf7d0' }}>
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#166534' }}>📊 Performance Overview <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#65a30d' }}>(5 ด้าน × 5 ผู้ประเมิน = 25 ช่อง)</span></h5>
+                              <div className="grid-2" style={{ gridTemplateColumns: '1fr 1.4fr', gap: '1rem', marginTop: '0.75rem', alignItems: 'flex-start' }}>
+                                 {/* Radar */}
+                                 <div className="card" style={{ background: '#fff', textAlign: 'center' }}>
+                                    <h6 style={{ marginBottom: 4, fontSize: '0.75rem', color: '#475569' }}>📡 RADAR CHART · 5 ด้าน</h6>
+                                    <RadarChart
+                                       data={SCORE_DIMENSIONS.map(d => matrixColAvg(selectedTeam.id, d) || 0)}
+                                       labels={SCORE_DIMENSIONS.map(d => d.replace(' ', '\n'))}
+                                    />
+                                 </div>
+                                 {/* 5×5 Matrix */}
+                                 <div className="card" style={{ background: '#fff', overflowX: 'auto' }}>
+                                    <h6 style={{ marginBottom: 4, fontSize: '0.75rem', color: '#475569' }}>🔢 MATRIX · 5 × 5 (รายผู้ประเมิน)</h6>
+                                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 4, fontSize: '0.7rem' }}>
+                                       <thead>
+                                          <tr>
+                                             <th style={{ textAlign: 'left', padding: '4px', color: '#475569' }}>ผู้ประเมิน \ ด้าน</th>
+                                             {SCORE_DIMENSIONS.map(d => (
+                                                <th key={d} style={{ padding: '4px', color: '#475569', fontWeight: 600, textAlign: 'center' }}>{d.split(' ')[0]}</th>
+                                             ))}
+                                             <th style={{ padding: '4px', color: '#475569', textAlign: 'center' }}>เฉลี่ย</th>
+                                          </tr>
+                                       </thead>
+                                       <tbody>
+                                          {EVALUATOR_ROLES.map(role => {
+                                             const rowAvg = matrixRowAvg(selectedTeam.id, role);
+                                             return (
+                                                <tr key={role}>
+                                                   <td style={{ padding: '4px', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                                                      <span style={{ marginRight: 4 }}>{role === 'self' ? '🟢' : role === 'peer' ? '🟣' : role === 'teacher' ? '🟦' : role === 'sage' ? '🟡' : '🟪'}</span>
+                                                      {t('eval_' + role)}
+                                                   </td>
+                                                   {SCORE_DIMENSIONS.map(d => {
+                                                      const v = matrixCell(selectedTeam.id, role, d);
+                                                      const c = cellColor(v);
+                                                      return (
+                                                         <td key={d} style={{ padding: '6px 4px', background: c.bg, color: c.fg, textAlign: 'center', borderRadius: 4, fontWeight: 600 }}>
+                                                            {v == null ? '—' : v.toFixed(1)}
+                                                         </td>
+                                                      );
+                                                   })}
+                                                   <td style={{ padding: '6px 4px', background: cellColor(rowAvg).bg, color: cellColor(rowAvg).fg, textAlign: 'center', borderRadius: 4, fontWeight: 700 }}>
+                                                      {rowAvg == null ? '—' : rowAvg.toFixed(2)}
+                                                   </td>
+                                                </tr>
+                                             );
+                                          })}
+                                          {/* Column averages row */}
+                                          <tr style={{ borderTop: '2px solid #cbd5e1' }}>
+                                             <td style={{ padding: '6px 4px', fontWeight: 700, color: '#0f172a' }}>รวมเฉลี่ย</td>
+                                             {SCORE_DIMENSIONS.map(d => {
+                                                const v = matrixColAvg(selectedTeam.id, d);
+                                                const c = cellColor(v);
+                                                return (
+                                                   <td key={d} style={{ padding: '6px 4px', background: c.bg, color: c.fg, textAlign: 'center', borderRadius: 4, fontWeight: 700, border: '1px solid #cbd5e1' }}>
+                                                      {v == null ? '—' : v.toFixed(1)}
+                                                   </td>
+                                                );
+                                             })}
+                                             {(() => {
+                                                const v = matrixOverall(selectedTeam.id);
+                                                const c = cellColor(v);
+                                                return (
+                                                   <td style={{ padding: '6px 4px', background: c.bg, color: c.fg, textAlign: 'center', borderRadius: 4, fontWeight: 800, border: '2px solid #16a34a' }}>
+                                                      ⭐ {v == null ? '—' : v.toFixed(2)}
+                                                   </td>
+                                                );
+                                             })()}
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <div style={{ marginTop: 6, fontSize: '0.65rem', color: '#94a3b8', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                       <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#dcfce7', borderRadius: 2, marginRight: 3 }} />ดี (≥ 4.0)</span>
+                                       <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#fef9c3', borderRadius: 2, marginRight: 3 }} />ปานกลาง (3.0)</span>
+                                       <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ffedd5', borderRadius: 2, marginRight: 3 }} />ต้องพัฒนา (2.0)</span>
+                                       <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#fee2e2', borderRadius: 2, marginRight: 3 }} />ปรับปรุง (&lt; 2)</span>
+                                       <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'transparent', border: '1px solid #cbd5e1', borderRadius: 2, marginRight: 3 }} />ยังไม่ประเมิน</span>
+                                    </div>
+                                 </div>
                               </div>
                            </div>
 
