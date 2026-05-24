@@ -54,7 +54,17 @@ import {
   subscribeToModerationFlags,
   setModerationFlagStatus,
   deleteModerationFlag,
-  subscribeToAllSubmissions
+  subscribeToAllSubmissions,
+  // Phases + remote config + reset
+  subscribeToPhases,
+  createPhase,
+  updatePhase,
+  deletePhase,
+  setPhaseState,
+  seedDefaultPhasesIfEmpty,
+  subscribeToAppConfig as subscribeToRemoteAppConfig,
+  setAppConfig          as setRemoteAppConfig,
+  resetAndSeedDemoData
 } from './api';
 
 // Ethics category metadata (Thai labels + emojis) — mirrors api.js zt rules
@@ -301,6 +311,102 @@ export default function App() {
     } finally {
       setAuditRunning(false);
     }
+  };
+
+  // ─── Phase / Session manager (Activity Phases CRUD) ───
+  const [phases, setPhases] = useState([]);
+  const [newPhaseLabel, setNewPhaseLabel] = useState('');
+  const [newPhaseDeadline, setNewPhaseDeadline] = useState('');
+  useEffect(() => {
+    const unsub = subscribeToPhases(setPhases);
+    // Auto-seed default phases if collection is empty (only runs once)
+    seedDefaultPhasesIfEmpty().catch(() => {});
+    return () => unsub?.();
+  }, []);
+  const addPhase = async () => {
+    if (!newPhaseLabel.trim()) return;
+    const nextOrder = (phases[phases.length - 1]?.order || 0) + 1;
+    await createPhase({ label: newPhaseLabel.trim(), order: nextOrder, open: true, deadline: newPhaseDeadline || null });
+    setNewPhaseLabel('');
+    setNewPhaseDeadline('');
+  };
+  const movePhase = async (idx, dir) => {
+    const target = idx + dir;
+    if (target < 0 || target >= phases.length) return;
+    const a = phases[idx], b = phases[target];
+    await updatePhase(a.id, { order: b.order ?? target });
+    await updatePhase(b.id, { order: a.order ?? idx });
+  };
+  const editPhase = async (id, label) => {
+    const next = window.prompt('แก้ไขชื่อ Phase:', label);
+    if (next == null) return;
+    if (next.trim()) await updatePhase(id, { label: next.trim() });
+  };
+  const removePhase = async (id, label) => {
+    if (window.confirm(`ลบ Phase "${label}"?`)) await deletePhase(id);
+  };
+
+  // ─── Remote App Config (shared across all devices via Firestore) ───
+  // Currently used for: Looker Studio Embed URL, Claude API proxy URL
+  const [remoteConfig, setRemoteConfig] = useState({});
+  const [lookerUrlDraft, setLookerUrlDraft] = useState('');
+  const [claudeKeyDraft, setClaudeKeyDraft] = useState(() => {
+    try { return localStorage.getItem('eco_anthropic_key') || ''; } catch { return ''; }
+  });
+  const [claudeProxyDraft, setClaudeProxyDraft] = useState('');
+  useEffect(() => {
+    const unsub = subscribeToRemoteAppConfig((cfg) => {
+      setRemoteConfig(cfg || {});
+      if (cfg?.looker_url) setLookerUrlDraft(cfg.looker_url);
+      if (cfg?.claude_proxy) setClaudeProxyDraft(cfg.claude_proxy);
+    });
+    return () => unsub?.();
+  }, []);
+  const saveLookerUrl = async () => {
+    await setRemoteAppConfig({ looker_url: lookerUrlDraft.trim() });
+    window.alert('💾 บันทึก Looker Studio URL แล้ว — ทุก device เห็นทันที');
+  };
+  const saveClaudeConfig = async () => {
+    // API key stored locally per-browser (security); proxy URL shared via Firestore
+    try { localStorage.setItem('eco_anthropic_key', claudeKeyDraft.trim()); } catch {}
+    await setRemoteAppConfig({ claude_proxy: claudeProxyDraft.trim() });
+    window.alert('💾 บันทึก AI Config สำเร็จ');
+  };
+
+  // ─── Backup / Export / Reset Demo ───
+  const [resetting, setResetting] = useState(false);
+  const downloadBackup = async () => {
+    try {
+      // Combine current local snapshots into one JSON
+      const backup = {
+        version: '1.0',
+        exported_at: new Date().toISOString(),
+        teams: teams || [],
+        submissions: allSubmissionsModeration || [],
+        moderation_flags: moderationFlags || [],
+        phases: phases || [],
+        config: remoteConfig || {},
+        branding: appConfig
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rep-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { window.alert('Backup failed: ' + (e?.message || e)); }
+  };
+  const handleResetSeed = async () => {
+    if (!window.confirm('⚠️ ลบข้อมูลทั้งหมดและสร้าง demo data ใหม่? (ไม่สามารถ undo ได้)')) return;
+    setResetting(true);
+    try {
+      const r = await resetAndSeedDemoData();
+      window.alert('✅ Reset & Seed สำเร็จ — รีโหลดหน้าเพื่อเห็นข้อมูลใหม่');
+    } catch (e) { window.alert('Reset ล้มเหลว: ' + (e?.message || e)); }
+    finally { setResetting(false); }
   };
 
   // ─── White-label Branding (admin can rebrand for any school/province) ───
@@ -1335,9 +1441,57 @@ export default function App() {
                         </div>
                      )}
                      {adminSubTab === 'session' && (
-                        <div className="grid-2">
-                           <div className="card"><h5>Activity Phase Control</h5><hr/><div style={{ marginTop: '1rem' }}>Phase 1: Open <br/>Phase 2: Closed</div></div>
-                           <div className="card"><h5>Deadlines</h5><hr/><div style={{ marginTop: '1rem' }}>Final Submission: 30 April</div></div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                           <div className="card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                              <h5 style={{ color: '#166534' }}>📅 Activity Phases / Deadlines</h5>
+                              <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#166534' }}>เพิ่ม / แก้ไข / ลบ phases · เปิด-ปิด submission · กำหนด deadline</p>
+                           </div>
+
+                           {/* Add new phase */}
+                           <div className="card" style={{ background: '#f0fdf4' }}>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                 <input
+                                    type="text"
+                                    value={newPhaseLabel}
+                                    onChange={e => setNewPhaseLabel(e.target.value)}
+                                    placeholder="ชื่อ Phase ใหม่ (เช่น Phase 6 · Public Showcase)"
+                                    style={{ flex: 2, padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, minWidth: 220 }}
+                                  />
+                                 <input
+                                    type="date"
+                                    value={newPhaseDeadline}
+                                    onChange={e => setNewPhaseDeadline(e.target.value)}
+                                    style={{ flex: 1, padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, minWidth: 140 }}
+                                  />
+                                 <button onClick={addPhase} className="login-btn" style={{ background: '#16a34a', width: 'auto', padding: '0.5rem 1rem' }}>+ Add Phase</button>
+                              </div>
+                           </div>
+
+                           {/* Phase list */}
+                           {phases.length === 0 ? (
+                              <div className="card" style={{ borderStyle: 'dashed', textAlign: 'center', padding: '2rem' }}>
+                                 <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>ยังไม่มี Phase — ระบบจะสร้าง default ให้อัตโนมัติ หรือกดเพิ่มเองด้านบน</p>
+                              </div>
+                           ) : (
+                              phases.map((p, idx) => (
+                                 <div key={p.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.6rem 1rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                       <button onClick={() => movePhase(idx, -1)} disabled={idx === 0}                style={{ border: 'none', background: 'transparent', cursor: idx === 0 ? 'default' : 'pointer', color: idx === 0 ? '#cbd5e1' : '#475569', fontSize: '0.8rem', padding: 0 }}>▲</button>
+                                       <button onClick={() => movePhase(idx, 1)}  disabled={idx === phases.length - 1} style={{ border: 'none', background: 'transparent', cursor: idx === phases.length - 1 ? 'default' : 'pointer', color: idx === phases.length - 1 ? '#cbd5e1' : '#475569', fontSize: '0.8rem', padding: 0 }}>▼</button>
+                                    </div>
+                                    <div style={{ background: '#e0f2fe', color: '#0369a1', padding: '0.25rem 0.6rem', borderRadius: 12, fontSize: '0.75rem', fontWeight: 700, minWidth: 28, textAlign: 'center' }}>{p.order ?? idx + 1}</div>
+                                    <div style={{ flex: 1, fontWeight: 500 }}>
+                                       {p.label}
+                                       {p.deadline && <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#dc2626' }}>⏰ {p.deadline}</span>}
+                                    </div>
+                                    <button onClick={() => setPhaseState(p.id, !p.open)} style={{ padding: '0.3rem 0.7rem', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600, border: '1px solid', cursor: 'pointer', background: p.open ? '#dcfce7' : '#fee2e2', color: p.open ? '#166534' : '#991b1b', borderColor: p.open ? '#86efac' : '#fecaca' }}>
+                                       {p.open ? 'Open' : 'Closed'}
+                                    </button>
+                                    <button onClick={() => editPhase(p.id, p.label)}   style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 4, cursor: 'pointer' }}>✏️</button>
+                                    <button onClick={() => removePhase(p.id, p.label)} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
+                                 </div>
+                              ))
+                           )}
                         </div>
                      )}
                      {adminSubTab === 'moderation' && (() => {
@@ -1557,39 +1711,92 @@ export default function App() {
                         </div>
                      )}
                      {adminSubTab === 'settings' && (
-                        <div className="card">
-                           <h5>System Config & Setup</h5>
-                           <p style={{ fontSize: '0.75rem', margin: '0.5rem 0 1.5rem', color: '#64748b' }}>
-                              API Key: G-Sheets / Looker <br/>
-                              Backup Status: Last 1hr ago
-                           </p>
-                           <hr style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
-                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                           {/* System Config */}
+                           <div className="card">
+                              <h5>System Config & Setup</h5>
+                              <p style={{ fontSize: '0.75rem', margin: '0.5rem 0 1.5rem', color: '#64748b' }}>
+                                 API Key: G-Sheets / Looker <br/>
+                                 Backup Status: Last 1hr ago
+                              </p>
+                              <hr style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
                               <div style={{ padding: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-                                 <h6 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}><Cpu size={14} color="var(--color-purple)" /> AI Assessment Settings</h6>
+                                 <h6 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}><Cpu size={14} color="var(--color-purple)" /> AI Assessment (Claude API)</h6>
+                                 <p style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '0.5rem' }}>กรอก Claude API Key — เก็บใน localStorage บน browser นี้เท่านั้น</p>
                                  <div className="grid-2" style={{ gap: '0.5rem' }}>
-                                    <input className="login-input" style={{ fontSize: '0.75rem' }} placeholder="Claude API Key..." />
-                                    <input className="login-input" style={{ fontSize: '0.75rem' }} placeholder="System Prompt (ประเมิน 5 ด้าน)..." />
+                                    <input className="login-input" style={{ fontSize: '0.75rem' }} placeholder="sk-ant-... (เก็บใน browser นี้เท่านั้น)" value={claudeKeyDraft}   onChange={e => setClaudeKeyDraft(e.target.value)} />
+                                    <input className="login-input" style={{ fontSize: '0.75rem' }} placeholder="Proxy URL (Cloudflare Worker — แชร์ทุกคน)" value={claudeProxyDraft} onChange={e => setClaudeProxyDraft(e.target.value)} />
                                  </div>
-                                 <p style={{ fontSize: '0.625rem', color: '#64748b', marginTop: '0.5rem' }}>Token Usage: 15,420 tokens (this month)</p>
-                                 <button className="login-btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', marginTop: '0.5rem', width: 'fit-content', background: 'var(--color-purple)' }}>Save AI Config</button>
+                                 <p style={{ fontSize: '0.625rem', color: '#64748b', marginTop: '0.5rem' }}>
+                                    * <strong>API Key</strong> เก็บใน localStorage บน browser นี้เท่านั้น — เหมาะตอน dev<br/>
+                                    * <strong>Proxy URL</strong> sync ผ่าน Firestore — ตั้งครั้งเดียว ทุก admin/teacher ใช้ได้ (ดูวิธีสร้าง Worker ที่ cloudflare-worker/README.md)
+                                 </p>
+                                 <button onClick={saveClaudeConfig} className="login-btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', marginTop: '0.5rem', width: 'fit-content', background: 'var(--color-purple)' }}>Save AI Config</button>
                               </div>
-                              <hr style={{ opacity: 0.1 }} />
+                           </div>
+
+                           {/* Looker Studio Embed */}
+                           <div className="card">
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>📊 Looker Studio Embed</h5>
+                              <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#64748b' }}>1) สร้าง Report ใน Looker Studio · 2) Share → Embed report → Copy <strong>src URL</strong> · 3) วางที่นี่ · บันทึกครั้งเดียว ทุกคนเห็นในหน้า Real-Time Dashboard</p>
+                              <div style={{ display: 'flex', gap: 8, marginTop: '0.75rem' }}>
+                                 <input type="url" value={lookerUrlDraft} onChange={e => setLookerUrlDraft(e.target.value)} placeholder="https://lookerstudio.google.com/embed/reporting/..." style={{ flex: 1, padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, fontFamily: 'monospace', fontSize: '0.75rem' }} />
+                                 <button onClick={saveLookerUrl} className="login-btn" style={{ background: '#0ea5e9', width: 'auto', padding: '0.5rem 1rem' }}>Save</button>
+                              </div>
+                              {lookerUrlDraft && (
+                                 <div style={{ marginTop: '1rem', border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'hidden', aspectRatio: '16/9', background: '#f8fafc' }}>
+                                    <iframe src={lookerUrlDraft} title="Looker Studio Preview" style={{ width: '100%', height: '100%', border: 0 }} />
+                                 </div>
+                              )}
+                              {!lookerUrlDraft && (
+                                 <div style={{ marginTop: '1rem', padding: '1.5rem', border: '1px dashed #cbd5e1', borderRadius: 6, textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>
+                                    ยังไม่ได้ตั้ง URL — วาง embed URL แล้วกด Save เพื่อแสดง preview
+                                 </div>
+                              )}
+                           </div>
+
+                           {/* Backup & Export */}
+                           <div className="card" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#92400e' }}>💾 Backup &amp; Export Database</h5>
+                              <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#92400e' }}>Export ข้อมูลทั้งหมด (users, teams, submissions, scores, prompts) เป็นไฟล์ JSON</p>
+                              <button onClick={downloadBackup} className="login-btn" style={{ background: '#f59e0b', marginTop: '0.75rem', width: 'auto', padding: '0.5rem 1rem' }}>📥 Download Backup JSON</button>
+                           </div>
+
+                           {/* Initial Setup */}
+                           <div className="card">
                               <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>ฐานข้อมูลเริ่มต้น (Initial Setup)</p>
                               <p style={{ fontSize: '0.75rem', color: '#64748b' }}>หากคุณเริ่มโปรเจกต์ใหม่และฐานข้อมูลยังว่างอยู่ สามารถกดปุ่มด้านล่างเพื่อสร้างข้อมูลตัวอย่าง (Teams, Rubrics, Admin Accounts)</p>
-                              <button 
+                              <button
                                  onClick={async () => {
-                                    if(confirm('คุณต้องการสร้างข้อมูลตัวอย่างเริ่มต้นใช่หรือไม่?')) {
+                                    if (confirm('คุณต้องการสร้างข้อมูลตัวอย่างเริ่มต้นใช่หรือไม่?')) {
                                        try {
                                           await seedFirebase();
                                           alert('สร้างข้อมูลเริ่มต้นสำเร็จ! ข้อมูลจะปรากฏขึ้นบน Dashboard ทันที');
                                        } catch (err) { alert('Seeding failed: ' + err.message); }
                                     }
-                                 }} 
-                                 className="login-btn" 
-                                 style={{ background: 'var(--color-purple)', width: 'fit-content', padding: '0.6rem 1.2rem' }}
+                                 }}
+                                 className="login-btn"
+                                 style={{ background: 'var(--color-purple)', width: 'fit-content', padding: '0.6rem 1.2rem', marginTop: '0.5rem' }}
                               >
                                  <Database size={16} /> Seed Firebase Data
+                              </button>
+                           </div>
+
+                           {/* Reset & Seed Demo Data */}
+                           <div className="card" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                              <h5 style={{ color: '#991b1b' }}>⚠️ Reset &amp; Seed Demo Data</h5>
+                              <p style={{ fontSize: '0.8125rem', marginTop: '0.5rem', color: '#7f1d1d' }}>
+                                 <strong>ระวัง — ลบข้อมูลทั้งหมด!</strong> ใช้สำหรับเริ่มต้น demo set ใหม่:
+                              </p>
+                              <ul style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#7f1d1d', paddingLeft: '1.2rem' }}>
+                                 <li>ล้าง Firestore: users, teams, team_scores, peer_scores, submissions, ai_audits, feedback, activity_log</li>
+                                 <li>สร้าง 3 ทีม: ทีม นวัตกรเกาะกก (showcase) / กุลิสรา / อัญชลี</li>
+                                 <li>สร้าง 1 admin · 4 ครู · 2 ปราชญ์ · 12 นักเรียน · 3 บัญชี test</li>
+                                 <li>รหัสผ่าน default: admin123, teacher123, student123, sage123</li>
+                              </ul>
+                              <p style={{ fontSize: '0.7rem', marginTop: '0.5rem', color: '#7f1d1d', fontStyle: 'italic' }}>หมายเหตุ: Firebase Auth accounts เก่าที่ลบ Firestore doc แล้วยังคงอยู่ใน Authentication console (ลบ manual ที่ Console ถ้าต้องการ clean สมบูรณ์)</p>
+                              <button onClick={handleResetSeed} disabled={resetting} className="login-btn" style={{ background: '#dc2626', marginTop: '0.75rem', width: 'auto', padding: '0.5rem 1rem' }}>
+                                 {resetting ? '⏳ กำลัง Reset...' : '🔄 Reset & Seed Demo Data'}
                               </button>
                            </div>
                         </div>
