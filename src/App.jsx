@@ -22,7 +22,8 @@ import {
   LayoutDashboard,
   Target,
   Star,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPage from './LoginPage';
@@ -60,6 +61,86 @@ const EVALUATOR_ROLES = ['self', 'peer', 'teacher', 'sage', 'ai'];
 
 // Thai labels for rubric levels 1-4. Levels beyond 4 fall back to "ระดับที่ N".
 const RUBRIC_LEVEL_LABELS = ['ปรับปรุง', 'พอใช้', 'ดี', 'ดีเยี่ยม'];
+
+// ─────────────────────────────────────────────────────────────────────
+// I18N — Minimal bilingual dictionary (TH default, EN switcher)
+// Keys map to user-facing UI labels. App keeps Thai-first content,
+// EN is for international showcase / Pitching judges who prefer English.
+// ─────────────────────────────────────────────────────────────────────
+const I18N = {
+  th: {
+    // Menu labels
+    'Public View'         : 'มุมมองสาธารณะ',
+    'Explorer UI'         : 'จัดการทีม',
+    'Team Management'     : 'จัดการทีม',
+    'Mission Inbox'       : 'รับโจทย์',
+    'On-site Collector'   : 'เก็บข้อมูลภาคสนาม',
+    'Submission Gateway'  : 'ส่งงาน',
+    'Evaluation Hub'      : 'ศูนย์ประเมิน',
+    'AI Audit Logbook'    : 'บันทึก AI',
+    'Report (R6)'         : 'รายงาน (R6)',
+    'Real-Time Dashboard' : 'แดชบอร์ดเรียลไทม์',
+    'Mission Builder'     : 'สร้างโจทย์',
+    'Pitching Evaluator'  : 'ประเมิน Pitching',
+    'Report (R1-R6)'      : 'รายงาน (R1-R6)',
+    'Reports R1-R6'       : 'รายงาน R1-R6',
+    'Admin Panel'         : 'แผงผู้ดูแล',
+    // Header / Generic
+    'Logout'              : 'ออกจากระบบ',
+    'Language'            : 'ภาษา',
+    'Switch to English'   : 'เปลี่ยนเป็นอังกฤษ',
+    'Switch to Thai'      : 'เปลี่ยนเป็นไทย',
+    // Evaluator roles
+    'eval_self'           : 'ประเมินตนเอง',
+    'eval_peer'           : 'เพื่อนประเมิน',
+    'eval_teacher'        : 'ครูประเมิน',
+    'eval_sage'           : 'ปราชญ์ประเมิน',
+    'eval_ai'             : 'AI ประเมิน',
+    // Rubric levels
+    'level_improve'       : 'ปรับปรุง',
+    'level_fair'          : 'พอใช้',
+    'level_medium'        : 'ปานกลาง',
+    'level_good'          : 'ดี',
+    'level_excellent'     : 'ดีเยี่ยม',
+  },
+  en: {
+    // Menu labels (English — passthrough for menu names already in EN)
+    'Public View'         : 'Public View',
+    'Explorer UI'         : 'Team Management',
+    'Team Management'     : 'Team Management',
+    'Mission Inbox'       : 'Mission Inbox',
+    'On-site Collector'   : 'On-site Collector',
+    'Submission Gateway'  : 'Submission Gateway',
+    'Evaluation Hub'      : 'Evaluation Hub',
+    'AI Audit Logbook'    : 'AI Audit Logbook',
+    'Report (R6)'         : 'Report (R6)',
+    'Real-Time Dashboard' : 'Real-Time Dashboard',
+    'Mission Builder'     : 'Mission Builder',
+    'Pitching Evaluator'  : 'Pitching Evaluator',
+    'Report (R1-R6)'      : 'Reports (R1-R6)',
+    'Reports R1-R6'       : 'Reports R1-R6',
+    'Admin Panel'         : 'Admin Panel',
+    // Header / Generic
+    'Logout'              : 'Logout',
+    'Language'            : 'Language',
+    'Switch to English'   : 'Switch to English',
+    'Switch to Thai'      : 'Switch to Thai',
+    // Evaluator roles
+    'eval_self'           : 'Self-Evaluation',
+    'eval_peer'           : 'Peer Evaluation',
+    'eval_teacher'        : 'Teacher Evaluation',
+    'eval_sage'           : 'Sage Evaluation',
+    'eval_ai'             : 'AI Evaluation',
+    // Rubric levels
+    'level_improve'       : 'Needs Improvement',
+    'level_fair'          : 'Fair',
+    'level_medium'        : 'Medium',
+    'level_good'          : 'Good',
+    'level_excellent'     : 'Excellent',
+  },
+};
+// Look up TH first, fall back to EN, then return the raw key (safe default)
+const makeT = (lang) => (k) => I18N[lang]?.[k] ?? I18N.th[k] ?? k;
 
 const StatBox = memo(({ icon: Icon, value, label, colorClass }) => (
   <div className="ldt-stat">
@@ -130,6 +211,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('teacher-dashboard');
   const [adminSubTab, setAdminSubTab] = useState('management');
   const [reportType, setReportType] = useState('R1');
+
+  // ─── i18n: Thai default, EN toggle for international showcase ───
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('rep_lang') || 'th'; } catch { return 'th'; }
+  });
+  const t = makeT(lang);
+  const toggleLang = () => {
+    const next = lang === 'th' ? 'en' : 'th';
+    setLang(next);
+    try { localStorage.setItem('rep_lang', next); } catch {}
+  };
   
   // App Stats
   const [stats, setStats] = useState({ totalTeams: 0, submitted: 0, pending: 0, aiPrompts: 0 });
@@ -362,44 +454,66 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="tab-nav">
+      <nav className="tab-nav" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
         {!user && (
-          <div className="tab-item active"><LayoutDashboard size={16} /> Public View</div>
+          <div className="tab-item active"><LayoutDashboard size={16} /> {t('Public View')}</div>
         )}
         {user?.role === 'student' && (
           <>
-            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> Explorer UI</div>
-            <div className={`tab-item ${activeTab === 'mission-inbox' ? 'active' : ''}`} onClick={() => setActiveTab('mission-inbox')}><Inbox size={16} /> Mission Inbox</div>
-            <div className={`tab-item ${activeTab === 'collector' ? 'active' : ''}`} onClick={() => setActiveTab('collector')}><Camera size={16} /> On-site Collector</div>
-            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> Submission Gateway</div>
-            <div className={`tab-item ${activeTab === 'evaluation-hub' ? 'active' : ''}`} onClick={() => setActiveTab('evaluation-hub')}><Star size={16} /> Evaluation Hub</div>
-            <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> Report (R6)</div>
+            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> {t('Explorer UI')}</div>
+            <div className={`tab-item ${activeTab === 'mission-inbox' ? 'active' : ''}`} onClick={() => setActiveTab('mission-inbox')}><Inbox size={16} /> {t('Mission Inbox')}</div>
+            <div className={`tab-item ${activeTab === 'collector' ? 'active' : ''}`} onClick={() => setActiveTab('collector')}><Camera size={16} /> {t('On-site Collector')}</div>
+            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
+            <div className={`tab-item ${activeTab === 'evaluation-hub' ? 'active' : ''}`} onClick={() => setActiveTab('evaluation-hub')}><Star size={16} /> {t('Evaluation Hub')}</div>
+            <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
           </>
         )}
         {(user?.role === 'teacher' || user?.role === 'facilitator') && (
           <>
-            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> Real-Time Dashboard</div>
-            <div className={`tab-item ${activeTab === 'mission-builder' ? 'active' : ''}`} onClick={() => setActiveTab('mission-builder')}><Target size={16} /> Mission Builder</div>
-            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> Pitching Evaluator</div>
-            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> Report (R1-R6)</div>
+            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> {t('Real-Time Dashboard')}</div>
+            <div className={`tab-item ${activeTab === 'mission-builder' ? 'active' : ''}`} onClick={() => setActiveTab('mission-builder')}><Target size={16} /> {t('Mission Builder')}</div>
+            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
+            <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
+            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
+            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Report (R1-R6)')}</div>
           </>
         )}
         {user?.role === 'sage' && (
           <>
-            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> Pitching Evaluator</div>
-            <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> Report (R6)</div>
+            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
+            <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
           </>
         )}
         {user?.role === 'admin' && (
           <>
-            <div className={`tab-item ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}><Settings size={16} /> Admin Panel</div>
-            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> Assessor UI</div>
-            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> Pitching Evaluator</div>
-            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> Reports R1-R6</div>
-            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> Explorer UI</div>
-            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> Submission Gateway</div>
+            <div className={`tab-item ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}><Settings size={16} /> {t('Admin Panel')}</div>
+            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> {t('Team Management')}</div>
+            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> {t('Real-Time Dashboard')}</div>
+            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
+            <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
+            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
+            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Reports R1-R6')}</div>
           </>
         )}
+        {/* ─── Language switcher (TH ↔ EN) — always visible on right side ─── */}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem', padding: '0 0.75rem' }}>
+          <button
+            onClick={toggleLang}
+            title={lang === 'th' ? t('Switch to English') : t('Switch to Thai')}
+            style={{
+              padding: '0.35rem 0.75rem',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              background: '#fff',
+              cursor: 'pointer',
+              color: '#475569'
+            }}
+          >
+            🌐 {lang === 'th' ? 'TH ▾' : 'EN ▾'}
+          </button>
+        </div>
       </nav>
 
       <main className="user-area">
@@ -1410,6 +1524,66 @@ export default function App() {
                         <LayoutGrid size={32} style={{ opacity: 0.2 }} />
                         <p style={{ fontSize: '0.75rem', marginTop: '1rem' }}>เลือกทีมเพื่อดู Portfolio...</p>
                      </div>
+                  </div>
+               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'ai-audit-log' && (
+            <motion.div key="aal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane">
+               <div className="lane-header bg-blue-light"><ShieldCheck size={16} /> AI Audit Logbook — บันทึกการใช้ AI อย่างมีจริยธรรม</div>
+               <div className="lane-content" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="card" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                     <h5 style={{ color: '#1e40af' }}>🛡️ ทำไมต้องบันทึก AI Usage?</h5>
+                     <p style={{ fontSize: '0.8125rem', marginTop: '0.5rem', color: '#1e40af' }}>
+                        การใช้ AI อย่างโปร่งใส (Transparency) และมีความรับผิดชอบ (Accountability) เป็นหลัก ESG ที่ Pitching Judges ให้คะแนนสูง — ทีมที่ใช้ AI แล้วบันทึกได้ครบ จะได้คะแนนหมวด "AI Prompting" และ "Fact-Checking" เต็ม
+                     </p>
+                  </div>
+
+                  <div className="card">
+                     <h5>📝 ฟอร์มบันทึกการใช้ AI (Quick Log)</h5>
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                        <div>
+                           <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>AI Tool ที่ใช้</label>
+                           <select style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                              <option>ChatGPT</option>
+                              <option>Claude</option>
+                              <option>Gemini</option>
+                              <option>Perplexity</option>
+                              <option>อื่น ๆ</option>
+                           </select>
+                        </div>
+                        <div>
+                           <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>วัตถุประสงค์</label>
+                           <select style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                              <option>หาข้อมูล (Research)</option>
+                              <option>เขียนเนื้อหา (Content)</option>
+                              <option>แปลภาษา (Translation)</option>
+                              <option>สร้างภาพ (Image)</option>
+                              <option>วิเคราะห์ (Analysis)</option>
+                           </select>
+                        </div>
+                     </div>
+                     <div style={{ marginTop: '0.75rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Prompt ที่ใช้ (สรุปสั้น ๆ)</label>
+                        <textarea rows={2} placeholder="เช่น: ขอข้อมูลแหล่งท่องเที่ยวเชิงนิเวศในระยอง พร้อมแหล่งอ้างอิง" style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontFamily: 'inherit' }} />
+                     </div>
+                     <div style={{ marginTop: '0.75rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>✅ Fact-Check แล้ว? (ตรวจ AI Hallucination)</label>
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                           <label style={{ fontSize: '0.8125rem' }}><input type="radio" name="factcheck" /> ตรวจแล้ว มี source</label>
+                           <label style={{ fontSize: '0.8125rem' }}><input type="radio" name="factcheck" /> ยังไม่ได้ตรวจ</label>
+                           <label style={{ fontSize: '0.8125rem' }}><input type="radio" name="factcheck" /> ตรวจแล้ว AI ผิด — แก้แล้ว</label>
+                        </div>
+                     </div>
+                     <button className="login-btn" style={{ marginTop: '1rem', width: 'auto' }}>+ บันทึก Log</button>
+                  </div>
+
+                  <div className="card">
+                     <h5>📚 ประวัติการใช้ AI (Audit Trail)</h5>
+                     <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                        ยังไม่มี log — เริ่มบันทึกจากฟอร์มด้านบนได้เลย
+                     </p>
                   </div>
                </div>
             </motion.div>
