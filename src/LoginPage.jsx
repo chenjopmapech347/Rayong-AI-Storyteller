@@ -2,7 +2,17 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, Leaf, Rocket, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { login, seedFirebase } from './api';
+import { login, seedFirebase, resetUserPassword, subscribeToAppConfig } from './api';
+import { useToast } from './Toast';
+import { useEffect } from 'react';
+
+// Local copy of branding helper — หลีกเลี่ยง circular import กับ App.jsx
+const DEFAULT_BRANDING_LP = {
+  brandName: 'Green Rayong',
+  brandTagline: '4-Identities AI Storytellers',
+  logoEmoji: '🌿'
+};
+const getBrandingLP = (cfg) => ({ ...DEFAULT_BRANDING_LP, ...(cfg?.branding || {}) });
 
 const DEMO_HINTS = [
   { username: 'admin',   password: 'admin123',   label: 'Admin', color: '#7F77DD', bg: '#EEEDFE' },
@@ -12,12 +22,19 @@ const DEMO_HINTS = [
 ];
 
 export default function LoginPage({ onLogin }) {
+  const toast = useToast();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPw,   setShowPw]   = useState(false);
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
   const [setupMsg, setSetupMsg] = useState(null);
+  const [appCfg,   setAppCfg]   = useState({});
+  useEffect(() => {
+    const unsub = subscribeToAppConfig((cfg) => setAppCfg(cfg || {}));
+    return () => unsub && unsub();
+  }, []);
+  const branding = getBrandingLP(appCfg);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,9 +43,12 @@ export default function LoginPage({ onLogin }) {
     setLoading(true);
     try {
       const user = await login(username, password);
+      toast.success(`ยินดีต้อนรับ ${user.name || username}!`);
       onLogin(user);
     } catch (err) {
-      setError(err.message || 'Username หรือ Password ไม่ถูกต้อง');
+      const msg = err.message || 'Username หรือ Password ไม่ถูกต้อง';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -40,12 +60,17 @@ export default function LoginPage({ onLogin }) {
     try {
       const res = await seedFirebase();
       if (res.ok) {
-        setSetupMsg({ type: 'success', text: 'ตั้งค่าระบบสำเร็จ! คุณสามารถเข้าใช้งานได้ทันที' });
+        const msg = 'ตั้งค่าระบบสำเร็จ! คุณสามารถเข้าใช้งานได้ทันที';
+        setSetupMsg({ type: 'success', text: msg });
+        toast.success(msg);
       } else {
         setError(res.error);
+        toast.error(res.error);
       }
     } catch (err) {
-      setError('Setup ล้มเหลว: ' + err.message);
+      const msg = 'Setup ล้มเหลว: ' + err.message;
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -61,8 +86,8 @@ export default function LoginPage({ onLogin }) {
         <div className="login-logo">
           <div className="login-logo-icon"><Leaf size={28} /></div>
           <div>
-            <div className="login-logo-title">Green Rayong</div>
-            <div className="login-logo-sub">4-Identities AI Storytellers</div>
+            <div className="login-logo-title">{branding.brandName}</div>
+            <div className="login-logo-sub">{branding.brandTagline}</div>
           </div>
         </div>
 
@@ -120,7 +145,28 @@ export default function LoginPage({ onLogin }) {
           </button>
         </form>
 
-        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+        {/* Forgot password link */}
+        <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              const guess = username.includes('@') ? username : (username ? `${username}@eco.com` : '');
+              const email = window.prompt('กรอก email ที่จะส่งลิงก์รีเซ็ตรหัสผ่าน:', guess);
+              if (!email || !email.trim()) return;
+              try {
+                await resetUserPassword(email.trim());
+                toast.success(`ส่งลิงก์รีเซ็ตรหัสผ่านไปที่ ${email.trim()} แล้ว · ตรวจ inbox/spam`);
+              } catch (err) {
+                toast.error('ส่งลิงก์ไม่สำเร็จ: ' + err.message);
+              }
+            }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-blue)', fontSize: '0.7rem', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            ลืมรหัสผ่าน?
+          </button>
+        </div>
+
+        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
           {DEMO_HINTS.map(h => (
             <button 
               key={h.username}

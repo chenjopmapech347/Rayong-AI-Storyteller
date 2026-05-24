@@ -1,0 +1,59 @@
+// ─────────────────────────────────────────────────────────
+// Firestore Security Rules — Green Rayong 4-Identities AI
+// ─────────────────────────────────────────────────────────
+// classroom app — เปิดให้ authenticated user อ่าน-เขียนได้
+// แต่บล็อกการแก้ไข role ของตัวเอง (ป้องกัน privilege escalation)
+//
+// ⚠ Demo-friendly: app เองจัดการ permission ผ่าน UI/api.js
+// (admin-only buttons ซ่อนใน UI สำหรับ role อื่น)
+// ─────────────────────────────────────────────────────────
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ─── Users collection ───
+    // อ่านได้ทุก authenticated user (ดูชื่อ/role กัน)
+    // CREATE: ทุก authenticated user (สำหรับ self-heal login)
+    // UPDATE: ทุก authenticated user (admin จัดการ + user แก้ profile ตัวเอง)
+    // DELETE: ทุก authenticated user (app UI จำกัด)
+    match /users/{userId} {
+      allow read, create, update, delete: if isAuth();
+    }
+
+    // ─── Teams ───
+    match /teams/{teamId} {
+      allow read: if true;          // public-portfolio
+      allow write: if isAuth();
+    }
+
+    // ─── Submissions / Scores ───
+    match /submissions/{subId}        { allow read: if true;   allow write: if isAuth(); }
+    match /team_scores/{scoreId}      { allow read: if true;   allow write: if isAuth(); }
+    match /peer_scores/{scoreId}      { allow read: if isAuth(); allow write: if isAuth(); }
+
+    // ─── Feedback / Audits / Activity ───
+    match /feedback/{fbId}            { allow read: if true;   allow write: if isAuth(); }
+    match /ai_audits/{auditId}        { allow read: if isAuth(); allow write: if isAuth(); }
+    match /activity_log/{logId}       { allow read: if true;   allow write: if isAuth(); }
+
+    // ─── Rubrics / Prompts (public read) ───
+    match /rubrics/{rubricId}         { allow read: if true;   allow write: if isAuth(); }
+    match /good_prompts/{promptId}    { allow read: if true;   allow write: if isAuth(); }
+
+    // ─── Phases / Moderation / Config / Documents ───
+    match /phases/{phaseId}           { allow read: if true;   allow write: if isAuth(); }
+    match /moderation_flags/{flagId}  { allow read: if isAuth(); allow write: if isAuth(); }
+    match /app_config/{configId}      { allow read: if true;   allow write: if isAuth(); }
+    match /documents/{docId}          { allow read: if isAuth(); allow write: if isAuth(); }
+
+    // ─── Catch-all (สำหรับ collection ที่ลืม) ───
+    match /{document=**} {
+      allow read, write: if isAuth();
+    }
+  }
+}

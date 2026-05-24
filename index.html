@@ -4,10 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>r-eco-pilot</title>
+    <title>R-Eco-Pilot · Loading...</title>
+    <!-- Title จะถูกอัพเดทแบบ dynamic เมื่อ appConfig.branding โหลด (ดู App.jsx subscribeToAppConfig) -->
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.addEventListener('error', function(e) {
+        document.body.innerHTML += '<div style="color:red; padding:20px; z-index:9999; position:fixed; top:0; background:white; width:100%; border-bottom: 2px solid red;"><h3>Fatal Error:</h3><pre>' + e.error.stack + '</pre></div>';
+      });
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

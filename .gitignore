@@ -31,3 +31,8 @@ dist-ssr
 *.db-shm
 *.db-wal
 
+# Firebase deploy cache (auto-regenerated; don't commit)
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
