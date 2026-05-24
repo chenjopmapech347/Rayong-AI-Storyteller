@@ -140,6 +140,30 @@ const I18N = {
     'level_medium'        : 'ปานกลาง',
     'level_good'          : 'ดี',
     'level_excellent'     : 'ดีเยี่ยม',
+    // ── Admin sub-tabs ──
+    'admin_sub_management': 'จัดการระบบ',
+    'admin_sub_session'   : 'เซสชั่น',
+    'admin_sub_moderation': 'ตรวจสอบจริยธรรม',
+    'admin_sub_branding'  : 'ปรับแบรนด์',
+    'admin_sub_settings'  : 'ตั้งค่า',
+    'admin_sub_reports'   : 'รายงาน',
+    // ── Real-Time Dashboard sub-tabs ──
+    'dash_sub_live_feed'  : 'ฟีดสด',
+    'dash_sub_teams'      : 'จัดการทีม',
+    'dash_sub_prompts'    : 'คลัง Prompt ดี',
+    'dash_sub_rubrics'    : 'การจัดการ Rubric Score',
+    'dash_sub_matrix'     : 'การประเมินผล Matrix',
+    // ── Teacher Reports sub-tabs (R1-R6) ──
+    'report_R1'           : 'R1 สรุปคะแนน',
+    'report_R2'           : 'R2 ไอเดียและ AI Prompt',
+    'report_R3'           : 'R3 บูรณาการการเงิน',
+    'report_R4'           : 'R4 ความคืบหน้ากิจกรรม',
+    'report_R5'           : 'R5 สรุปรายบุคคล',
+    'report_R6'           : 'R6 พอร์ตโฟลิโอ (สาธารณะ)',
+    // ── Headers ──
+    'header_admin'        : 'ผู้ดูแล',
+    'header_assessor'     : 'ผู้ประเมิน',
+    'header_report_center': 'ศูนย์รายงาน (R1-R6)',
   },
   en: {
     // Menu labels (English — passthrough for menu names already in EN)
@@ -175,6 +199,30 @@ const I18N = {
     'level_medium'        : 'Medium',
     'level_good'          : 'Good',
     'level_excellent'     : 'Excellent',
+    // ── Admin sub-tabs ──
+    'admin_sub_management': 'Management',
+    'admin_sub_session'   : 'Session',
+    'admin_sub_moderation': 'Moderation',
+    'admin_sub_branding'  : 'Branding',
+    'admin_sub_settings'  : 'Settings',
+    'admin_sub_reports'   : 'Reports',
+    // ── Real-Time Dashboard sub-tabs ──
+    'dash_sub_live_feed'  : 'Live Feed',
+    'dash_sub_teams'      : 'Team Management',
+    'dash_sub_prompts'    : 'Good Prompt Library',
+    'dash_sub_rubrics'    : 'Rubric Score Management',
+    'dash_sub_matrix'     : 'Evaluation Matrix',
+    // ── Teacher Reports sub-tabs (R1-R6) ──
+    'report_R1'           : 'R1 Score Summary',
+    'report_R2'           : 'R2 Idea & AI Prompt',
+    'report_R3'           : 'R3 Finance Integration',
+    'report_R4'           : 'R4 Activity Progress',
+    'report_R5'           : 'R5 Individual Summary',
+    'report_R6'           : 'R6 Portfolio (Public)',
+    // ── Headers ──
+    'header_admin'        : 'Admin',
+    'header_assessor'     : 'Assessor',
+    'header_report_center': 'Report Center (R1-R6)',
   },
 };
 // Look up TH first, fall back to EN, then return the raw key (safe default)
@@ -1114,11 +1162,11 @@ export default function App() {
             <motion.div key="tdb" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                   {[
-                    { id: 'live-feed', label: 'Live Feed', icon: Activity },
-                    { id: 'teams', label: 'Team Management', icon: Users },
-                    { id: 'prompts', label: 'Good Prompt Library', icon: Zap },
-                    { id: 'rubrics', label: 'การจัดการ Rubric Score', icon: Target },
-                    { id: 'eval-matrix', label: 'การประเมินผล Matrix', icon: LayoutGrid }
+                    { id: 'live-feed',   label: t('dash_sub_live_feed'), icon: Activity },
+                    { id: 'teams',       label: t('dash_sub_teams'),     icon: Users },
+                    { id: 'prompts',     label: t('dash_sub_prompts'),   icon: Zap },
+                    { id: 'rubrics',     label: t('dash_sub_rubrics'),   icon: Target },
+                    { id: 'eval-matrix', label: t('dash_sub_matrix'),    icon: LayoutGrid }
                   ].map(st => (
                     <button key={st.id} onClick={() => setAssessorSubTab(st.id)} className={`card ${assessorSubTab === st.id ? 'active' : ''}`} style={{ padding: '0.5rem 1rem', margin: 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                        <st.icon size={14} /> {st.label}
@@ -1127,7 +1175,7 @@ export default function App() {
                </div>
 
                <div className="lane">
-                  <div className="lane-header bg-primary-light">Assessor: {assessorSubTab.toUpperCase()}</div>
+                  <div className="lane-header bg-primary-light">{t('header_assessor')}: {assessorSubTab.toUpperCase()}</div>
                   <div className="lane-content">
                      {assessorSubTab === 'live-feed' && (
                         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -1419,13 +1467,20 @@ export default function App() {
           {activeTab === 'admin' && (
             <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto' }}>
-                  {['Management', 'Session', 'Moderation', 'Branding', 'Settings', 'Reports'].map(st => (
-                    <button key={st} onClick={() => setAdminSubTab(st.toLowerCase())} className={`card ${adminSubTab === st.toLowerCase() ? 'active' : ''}`} style={{ padding: '0.5rem 1rem', margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{st}</button>
+                  {[
+                    { id: 'management', label: t('admin_sub_management') },
+                    { id: 'session',    label: t('admin_sub_session')    },
+                    { id: 'moderation', label: t('admin_sub_moderation') },
+                    { id: 'branding',   label: t('admin_sub_branding')   },
+                    { id: 'settings',   label: t('admin_sub_settings')   },
+                    { id: 'reports',    label: t('admin_sub_reports')    }
+                  ].map(st => (
+                    <button key={st.id} onClick={() => setAdminSubTab(st.id)} className={`card ${adminSubTab === st.id ? 'active' : ''}`} style={{ padding: '0.5rem 1rem', margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{st.label}</button>
                   ))}
                </div>
-               
+
                <div className="lane">
-                  <div className="lane-header bg-blue-light">Admin: {adminSubTab.toUpperCase()}</div>
+                  <div className="lane-header bg-blue-light">{t('header_admin')}: {t('admin_sub_' + adminSubTab) !== ('admin_sub_' + adminSubTab) ? t('admin_sub_' + adminSubTab) : adminSubTab.toUpperCase()}</div>
                   <div className="lane-content">
                      {adminSubTab === 'management' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -2204,16 +2259,16 @@ export default function App() {
 
           {activeTab === 'teacher-reports' && (
             <motion.div key="tr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane">
-               <div className="lane-header bg-blue-light">Report Center (R1-R6)</div>
+               <div className="lane-header bg-blue-light">{t('header_report_center')}</div>
                <div className="lane-content">
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                      {[
-                       { id: 'R1', label: 'R1 Score Summary', public: false },
-                       { id: 'R2', label: 'R2 Idea & AI Prompt', public: false },
-                       { id: 'R3', label: 'R3 Finance Integration', public: false },
-                       { id: 'R4', label: 'R4 Activity Progress', public: false },
-                       { id: 'R5', label: 'R5 Individual Summary', public: false },
-                       { id: 'R6', label: 'R6 Portfolio (Public)', public: true }
+                       { id: 'R1', label: t('report_R1'), public: false },
+                       { id: 'R2', label: t('report_R2'), public: false },
+                       { id: 'R3', label: t('report_R3'), public: false },
+                       { id: 'R4', label: t('report_R4'), public: false },
+                       { id: 'R5', label: t('report_R5'), public: false },
+                       { id: 'R6', label: t('report_R6'), public: true  }
                      ].map(r => (
                         <button key={r.id} onClick={()=>setReportType(r.id)} className={`card ${reportType === r.id ? 'active' : ''}`} style={{ padding: '0.5rem 1rem', margin: 0, fontSize: '0.75rem' }}>
                            {r.label}
