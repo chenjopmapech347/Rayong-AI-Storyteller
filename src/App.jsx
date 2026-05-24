@@ -891,21 +891,83 @@ export default function App() {
       </nav>
 
       <main className="user-area">
-        {!user && (
+        {!user && (() => {
+            // Compute global averages per dimension across ALL teams (public-safe data)
+            const dimAvgs = SCORE_DIMENSIONS.map(d => {
+              const teamAvgs = (teams || []).filter(Boolean).map(tm => matrixColAvg(tm.id, d)).filter(v => v != null);
+              if (!teamAvgs.length) return 0;
+              return teamAvgs.reduce((a,b)=>a+b,0) / teamAvgs.length;
+            });
+            const hasData = dimAvgs.some(v => v > 0);
+            return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div className="lane">
                <div className="lane-header bg-primary-light"><LayoutDashboard size={16} /> ภาพรวมทักษะรายทีม (Public Overview)</div>
-               <div className="lane-content">
-                  <div className="card" style={{ textAlign: 'center', maxWidth: '400px', margin: '0 auto' }}>
-                     <h4 style={{ marginBottom: '1rem' }}>Skill Chart (Average)</h4>
-                     <RadarChart data={[4, 3, 5, 2, 4]} labels={['AI', 'Wisdom', 'Creative', 'Business', 'Story']} />
-                     <p style={{ fontSize: '0.75rem', marginTop: '1rem', color: '#64748b' }}>สรุปขีดความสามารถเฉลี่ยของทุกทีมในขณะนี้</p>
+               <div className="lane-content" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Top: Radar (avg) + Stats */}
+                  <div className="grid-2" style={{ gridTemplateColumns: '1fr 1.2fr', gap: '1rem', alignItems: 'flex-start' }}>
+                     <div className="card" style={{ textAlign: 'center' }}>
+                        <h4 style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>📡 Skill Radar — เฉลี่ยทุกทีม</h4>
+                        <RadarChart data={hasData ? dimAvgs : [4, 3, 5, 2, 4]} labels={['AI', 'Wisdom', 'Creative', 'Business', 'Story']} />
+                        <p style={{ fontSize: '0.7rem', marginTop: '0.5rem', color: '#64748b' }}>
+                           {hasData ? `จาก ${teams.length} ทีม` : 'ข้อมูลตัวอย่าง (ยังไม่มีคะแนนจริง)'}
+                        </p>
+                     </div>
+                     {/* Public Matrix: Team x Dimension averages */}
+                     <div className="card" style={{ overflowX: 'auto' }}>
+                        <h4 style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>🔢 Skill Matrix — รายทีม × 5 ด้าน</h4>
+                        {teams.length === 0 ? (
+                           <p style={{ fontSize: '0.8rem', color: '#94a3b8', padding: '2rem 0', textAlign: 'center' }}>ยังไม่มีทีมในระบบ</p>
+                        ) : (
+                           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 3, fontSize: '0.75rem' }}>
+                              <thead>
+                                 <tr>
+                                    <th style={{ textAlign: 'left', padding: '4px', color: '#475569' }}>ทีม</th>
+                                    {SCORE_DIMENSIONS.map(d => (
+                                       <th key={d} style={{ padding: '4px', color: '#475569', textAlign: 'center' }}>{d.split(' ')[0]}</th>
+                                    ))}
+                                    <th style={{ padding: '4px', color: '#475569', textAlign: 'center' }}>⭐ เฉลี่ย</th>
+                                 </tr>
+                              </thead>
+                              <tbody>
+                                 {(teams || []).filter(Boolean).map(tm => {
+                                    const overall = matrixOverall(tm.id);
+                                    return (
+                                       <tr key={tm.id}>
+                                          <td style={{ padding: '4px 6px', fontWeight: 600, whiteSpace: 'nowrap' }}>{tm.name}</td>
+                                          {SCORE_DIMENSIONS.map(d => {
+                                             const v = matrixColAvg(tm.id, d);
+                                             const c = cellColor(v);
+                                             return (
+                                                <td key={d} style={{ padding: '5px 4px', background: c.bg, color: c.fg, textAlign: 'center', borderRadius: 4, fontWeight: 600 }}>
+                                                   {v == null ? '—' : v.toFixed(1)}
+                                                </td>
+                                             );
+                                          })}
+                                          <td style={{ padding: '5px 4px', background: cellColor(overall).bg, color: cellColor(overall).fg, textAlign: 'center', borderRadius: 4, fontWeight: 800 }}>
+                                             {overall == null ? '—' : overall.toFixed(2)}
+                                          </td>
+                                       </tr>
+                                    );
+                                 })}
+                              </tbody>
+                           </table>
+                        )}
+                        <div style={{ marginTop: 6, fontSize: '0.65rem', color: '#94a3b8', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                           <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#dcfce7', borderRadius: 2, marginRight: 3 }} />ดี (≥ 4.0)</span>
+                           <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#fef9c3', borderRadius: 2, marginRight: 3 }} />ปานกลาง (3.0)</span>
+                           <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ffedd5', borderRadius: 2, marginRight: 3 }} />ต้องพัฒนา (2.0)</span>
+                           <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#fee2e2', borderRadius: 2, marginRight: 3 }} />ปรับปรุง (&lt; 2)</span>
+                        </div>
+                     </div>
                   </div>
+                  <p style={{ fontSize: '0.75rem', textAlign: 'center', color: '#64748b' }}>สรุปขีดความสามารถเฉลี่ยของทุกทีมในขณะนี้ · เข้าสู่ระบบเพื่อดูรายละเอียดและบันทึกคะแนน</p>
                </div>
             </div>
             <LoginPage onLogin={setUser} />
           </div>
-        )}
+            );
+        })()}
 
         <AnimatePresence mode="wait">
           {activeTab === 'team-setup' && (
