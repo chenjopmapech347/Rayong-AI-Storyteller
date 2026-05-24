@@ -48,8 +48,29 @@ import {
   deleteGoodPrompt,
   saveTeamScores,
   subscribeToTeamScores,
-  getMyTeamScores
+  getMyTeamScores,
+  // Ethics / Moderation
+  runEthicsAuditAll,
+  subscribeToModerationFlags,
+  setModerationFlagStatus,
+  deleteModerationFlag,
+  subscribeToAllSubmissions
 } from './api';
+
+// Ethics category metadata (Thai labels + emojis) — mirrors api.js zt rules
+const ETHICS_CATEGORIES = {
+  privacy    : { label: 'ปกป้องข้อมูลส่วนบุคคล', emoji: '🔒', hint: 'เบอร์โทร, อีเมล, ที่อยู่ปราชญ์, Social ID' },
+  fabrication: { label: 'แต่งเติมภูมิปัญญา',     emoji: '🤖', hint: 'AI disclaimer ไม่ลบ, AI-typical phrasing' },
+  disrespect : { label: 'ไม่ให้เกียรติปราชญ์',   emoji: '🙏', hint: 'แก/มัน/กู/มึง, ลดทอนคุณค่าปราชญ์' },
+  cultural   : { label: 'คำหยาบ / Stereotype',    emoji: '⚠️', hint: 'คำหยาบ, stereotype เชื้อชาติ/ภูมิภาค' },
+  consent    : { label: 'การขออนุญาต',           emoji: '📋', hint: 'บันทึกสัมภาษณ์ยาวแต่ไม่มี consent statement' },
+  ai_misuse  : { label: 'AI Misuse / Deepfake',  emoji: '🚨', hint: 'Deepfake, voice clone, สร้างปราชญ์ปลอม' },
+};
+const SEVERITY_META = {
+  high  : { label: 'High',   color: '#dc2626', bg: '#fef2f2' },
+  medium: { label: 'Medium', color: '#d97706', bg: '#fffbeb' },
+  low   : { label: 'Low',    color: '#0891b2', bg: '#ecfeff' },
+};
 
 // The five evaluation dimensions used in BOTH the Pitching Evaluator
 // and the EVAL-MATRIX. Keep these in sync so scores entered in one
@@ -253,6 +274,33 @@ export default function App() {
     const next = lang === 'th' ? 'en' : 'th';
     setLang(next);
     try { localStorage.setItem('rep_lang', next); } catch {}
+  };
+
+  // ─── Cultural Ethics Audit (Moderation) — uses api.js Firestore backend ──
+  // Note: `teams` is already declared further below; we add only ethics-specific state here.
+  const [moderationFlags, setModerationFlags] = useState([]);
+  const [allSubmissionsModeration, setAllSubmissionsModeration] = useState([]);
+  const [flagFilterSeverity, setFlagFilterSeverity] = useState('all'); // all|high|medium|low
+  const [flagFilterStatus, setFlagFilterStatus] = useState('pending'); // all|pending|approved|fixed|rejected
+  const [flagFilterCategory, setFlagFilterCategory] = useState('all'); // all|<cat>
+  const [auditRunning, setAuditRunning] = useState(false);
+  useEffect(() => {
+    const unsubFlags = subscribeToModerationFlags(setModerationFlags);
+    const unsubSubs  = subscribeToAllSubmissions(setAllSubmissionsModeration);
+    return () => { unsubFlags?.(); unsubSubs?.(); };
+  }, []);
+  const handleRunAudit = async () => {
+    if (auditRunning) return;
+    if (!teams?.length) { window.alert('ยังไม่มีทีมในระบบ — กรุณาสร้างทีมก่อน'); return; }
+    setAuditRunning(true);
+    try {
+      const r = await runEthicsAuditAll(teams, allSubmissionsModeration);
+      window.alert(`✅ Audit เสร็จสิ้น — สแกน ${r.teamsScanned} ทีม, พบ ${r.totalFound} flags`);
+    } catch (e) {
+      window.alert('❌ Audit ล้มเหลว: ' + (e?.message || e));
+    } finally {
+      setAuditRunning(false);
+    }
   };
 
   // ─── White-label Branding (admin can rebrand for any school/province) ───
@@ -1292,12 +1340,130 @@ export default function App() {
                            <div className="card"><h5>Deadlines</h5><hr/><div style={{ marginTop: '1rem' }}>Final Submission: 30 April</div></div>
                         </div>
                      )}
-                     {adminSubTab === 'moderation' && (
-                        <div className="grid-2">
-                           <div className="card"><h5>Image Verification</h5><p style={{ fontSize: '0.75rem' }}>รอการตรวจสอบ: 5 รูป</p></div>
-                           <div className="card"><h5>AI Prompt Audit</h5><p style={{ fontSize: '0.75rem' }}>รอกดอนุมัติ: 12 รายการ</p></div>
+                     {adminSubTab === 'moderation' && (() => {
+                        const filtered = moderationFlags.filter(f =>
+                          (flagFilterSeverity === 'all' || f.severity === flagFilterSeverity) &&
+                          (flagFilterStatus   === 'all' || f.status   === flagFilterStatus  ) &&
+                          (flagFilterCategory === 'all' || f.category === flagFilterCategory)
+                        );
+                        const byTeam = filtered.reduce((acc, f) => {
+                          const k = `${f.team_name || f.team_id}|${f.team_id}`;
+                          (acc[k] = acc[k] || []).push(f);
+                          return acc;
+                        }, {});
+                        const counts = {
+                          total  : moderationFlags.length,
+                          high   : moderationFlags.filter(f => f.severity === 'high').length,
+                          medium : moderationFlags.filter(f => f.severity === 'medium').length,
+                          low    : moderationFlags.filter(f => f.severity === 'low').length,
+                          pending: moderationFlags.filter(f => f.status === 'pending').length,
+                        };
+                        return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          {/* Header */}
+                          <div className="card" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                <div>
+                                   <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#92400e' }}>🛡️ Cultural Respect &amp; Ethics Audit</h5>
+                                   <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#92400e' }}>เกณฑ์เน้น: เคารพปราชญ์ · ปกป้องความเป็นส่วนตัว · ความถูกต้องของภูมิปัญญา · จริยธรรม AI</p>
+                                </div>
+                                <button onClick={handleRunAudit} disabled={auditRunning} className="login-btn" style={{ background: '#dc2626', width: 'auto', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}>
+                                   {auditRunning ? '⏳ กำลัง Audit...' : '🔍 Run Ethics Audit on All Teams'}
+                                </button>
+                             </div>
+                             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                                <span style={{ padding: '0.2rem 0.6rem', background: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>ทั้งหมด {counts.total}</span>
+                                <span style={{ padding: '0.2rem 0.6rem', background: SEVERITY_META.high.color,   color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>High {counts.high}</span>
+                                <span style={{ padding: '0.2rem 0.6rem', background: SEVERITY_META.medium.color, color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>Medium {counts.medium}</span>
+                                <span style={{ padding: '0.2rem 0.6rem', background: SEVERITY_META.low.color,    color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>Low {counts.low}</span>
+                                <span style={{ padding: '0.2rem 0.6rem', background: '#64748b', color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>⏳ รอตรวจ {counts.pending}</span>
+                             </div>
+                          </div>
+
+                          {/* Filters */}
+                          <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', fontSize: '0.75rem' }}>
+                             <strong style={{ marginRight: 4 }}>กรอง:</strong>
+                             <select value={flagFilterStatus}   onChange={e => setFlagFilterStatus(e.target.value)} style={{ padding: '0.35rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                                <option value="pending">รอตรวจ</option>
+                                <option value="all">ทุกสถานะ</option>
+                                <option value="approved">Approved</option>
+                                <option value="fixed">Fixed</option>
+                                <option value="rejected">Rejected</option>
+                             </select>
+                             <select value={flagFilterSeverity} onChange={e => setFlagFilterSeverity(e.target.value)} style={{ padding: '0.35rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                                <option value="all">ทุกความรุนแรง</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                             </select>
+                             <select value={flagFilterCategory} onChange={e => setFlagFilterCategory(e.target.value)} style={{ padding: '0.35rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                                <option value="all">ทุกหมวด</option>
+                                {Object.entries(ETHICS_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                             </select>
+                          </div>
+
+                          {/* Flag list grouped by team */}
+                          {filtered.length === 0 ? (
+                             <div className="card" style={{ textAlign: 'center', borderStyle: 'dashed', padding: '2rem' }}>
+                                <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
+                                   {moderationFlags.length === 0 ? '🎉 ยังไม่มีการรัน Audit — กดปุ่ม "Run Ethics Audit" ด้านบน' : 'ไม่มี flag ที่ตรงกับ filter ปัจจุบัน'}
+                                </p>
+                             </div>
+                          ) : (
+                             Object.entries(byTeam).map(([key, flags]) => {
+                                const teamName = key.split('|')[0];
+                                return (
+                                  <div key={key} className="card" style={{ borderLeft: `3px solid ${SEVERITY_META[flags[0].severity]?.color || '#64748b'}` }}>
+                                     <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.9rem' }}>
+                                        👥 {teamName} <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 400 }}>({flags.length} flag)</span>
+                                     </h5>
+                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: '0.75rem' }}>
+                                        {flags.map(f => {
+                                           const sev = SEVERITY_META[f.severity] || SEVERITY_META.low;
+                                           const cat = ETHICS_CATEGORIES[f.category] || { label: f.category, emoji: '•' };
+                                           return (
+                                              <div key={f.id} style={{ padding: '0.6rem', background: sev.bg, borderRadius: 6, borderLeft: `4px solid ${sev.color}`, fontSize: '0.8rem' }}>
+                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+                                                    <div style={{ flex: 1, minWidth: 200 }}>
+                                                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                          <span style={{ padding: '0.1rem 0.4rem', background: sev.color, color: '#fff', borderRadius: 4, fontSize: '0.65rem', fontWeight: 600 }}>{sev.label}</span>
+                                                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{cat.emoji} {cat.label}</span>
+                                                          <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>· {f.source}/{f.source_id}</span>
+                                                       </div>
+                                                       <div style={{ marginTop: '0.35rem', fontWeight: 500 }}>{f.desc}</div>
+                                                       {f.evidence && <div style={{ marginTop: '0.35rem', padding: '0.3rem 0.5rem', background: 'rgba(255,255,255,0.6)', borderRadius: 4, fontFamily: 'monospace', fontSize: '0.7rem', color: '#475569' }}>{f.evidence}</div>}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 4 }}>
+                                                       <button onClick={() => setModerationFlagStatus(f.id, 'approved').catch(e => alert(e?.message || e))} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #16a34a', background: '#f0fdf4', color: '#16a34a', borderRadius: 4, cursor: 'pointer' }}>✓ Approve</button>
+                                                       <button onClick={() => setModerationFlagStatus(f.id, 'fixed').catch(e => alert(e?.message || e))}    style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #0891b2', background: '#ecfeff', color: '#0891b2', borderRadius: 4, cursor: 'pointer' }}>🔧 Fixed</button>
+                                                       <button onClick={() => setModerationFlagStatus(f.id, 'rejected').catch(e => alert(e?.message || e))} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #dc2626', background: '#fef2f2', color: '#dc2626', borderRadius: 4, cursor: 'pointer' }}>✗ Reject</button>
+                                                       <button onClick={() => { if (window.confirm('ลบ flag นี้?')) deleteModerationFlag(f.id).catch(e => alert(e?.message || e)); }} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #94a3b8', background: '#fff', color: '#64748b', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
+                                                    </div>
+                                                 </div>
+                                              </div>
+                                           );
+                                        })}
+                                     </div>
+                                  </div>
+                                );
+                             })
+                          )}
+
+                          {/* Rules reference */}
+                          <details className="card" style={{ background: '#f8fafc' }}>
+                             <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>📖 เกณฑ์ตรวจสอบ — 6 หมวด (กดเพื่อขยาย)</summary>
+                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: '0.75rem' }}>
+                                {Object.entries(ETHICS_CATEGORIES).map(([k, v]) => (
+                                   <div key={k} style={{ padding: '0.5rem', background: '#fff', borderRadius: 6, fontSize: '0.75rem' }}>
+                                      <strong>{v.emoji} {v.label}</strong>
+                                      <div style={{ color: '#64748b', fontSize: '0.7rem', marginTop: 4 }}>{v.hint}</div>
+                                   </div>
+                                ))}
+                             </div>
+                          </details>
                         </div>
-                     )}
+                        );
+                     })()}
                      {adminSubTab === 'branding' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                            {/* Header */}
