@@ -23,7 +23,10 @@ import {
   Target,
   Star,
   FileSpreadsheet,
-  ShieldCheck
+  ShieldCheck,
+  HelpCircle,
+  BookOpen,
+  Printer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPage from './LoginPage';
@@ -164,6 +167,9 @@ const I18N = {
     'header_admin'        : 'ผู้ดูแล',
     'header_assessor'     : 'ผู้ประเมิน',
     'header_report_center': 'ศูนย์รายงาน (R1-R6)',
+    // ── Help / Manual ──
+    'Help'                : 'คู่มือ',
+    'help_print'          : '🖨️ พิมพ์ / Save PDF',
   },
   en: {
     // Menu labels (English — passthrough for menu names already in EN)
@@ -223,6 +229,9 @@ const I18N = {
     'header_admin'        : 'Admin',
     'header_assessor'     : 'Assessor',
     'header_report_center': 'Report Center (R1-R6)',
+    // ── Help / Manual ──
+    'Help'                : 'Manual',
+    'help_print'          : '🖨️ Print / Save PDF',
   },
 };
 // Look up TH first, fall back to EN, then return the raw key (safe default)
@@ -849,7 +858,10 @@ export default function App() {
 
       <nav className="tab-nav" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
         {!user && (
-          <div className="tab-item active"><LayoutDashboard size={16} /> {t('Public View')}</div>
+          <>
+            <div className={`tab-item ${activeTab !== 'help' ? 'active' : ''}`} onClick={() => setActiveTab('public')}><LayoutDashboard size={16} /> {t('Public View')}</div>
+            <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
+          </>
         )}
         {user?.role === 'student' && (
           <>
@@ -859,6 +871,7 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
             <div className={`tab-item ${activeTab === 'evaluation-hub' ? 'active' : ''}`} onClick={() => setActiveTab('evaluation-hub')}><Star size={16} /> {t('Evaluation Hub')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
+            <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
         {(user?.role === 'teacher' || user?.role === 'facilitator') && (
@@ -869,12 +882,14 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
             <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
             <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Report (R1-R6)')}</div>
+            <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
         {user?.role === 'sage' && (
           <>
             <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
+            <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
         {user?.role === 'admin' && (
@@ -886,6 +901,7 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
             <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
             <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Reports R1-R6')}</div>
+            <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
       </nav>
@@ -2582,6 +2598,273 @@ export default function App() {
                         <LayoutGrid size={32} style={{ opacity: 0.2 }} />
                         <p style={{ fontSize: '0.75rem', marginTop: '1rem' }}>เลือกทีมเพื่อดู Portfolio...</p>
                      </div>
+                  </div>
+               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'help' && (
+            <motion.div key="help" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane manual-print">
+               <div className="lane-header bg-primary-light" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span><BookOpen size={16} /> คู่มือการใช้งาน R-Eco-Pilot · User Manual</span>
+                  <button onClick={() => window.print()} className="no-print" style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                     <Printer size={14} /> {t('help_print')}
+                  </button>
+               </div>
+               <div className="lane-content" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 1000, margin: '0 auto' }}>
+                  {/* ── Cover ── */}
+                  <div className="card" style={{ background: 'linear-gradient(135deg, ' + appConfig.primaryColor + '22 0%, ' + appConfig.secondaryColor + '22 100%)', border: '2px solid ' + appConfig.primaryColor, textAlign: 'center', padding: '2rem' }}>
+                     <div style={{ fontSize: '3rem', marginBottom: 4 }}>{appConfig.logoEmoji} 📖</div>
+                     <h2 style={{ color: appConfig.primaryColor, margin: '0.5rem 0' }}>{appConfig.brandName}</h2>
+                     <p style={{ color: '#475569', fontSize: '0.9rem' }}>{appConfig.brandTagline}</p>
+                     <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#64748b' }}>คู่มือการใช้งานสำหรับ <strong>นักเรียน · ครู · ปราชญ์ชาวบ้าน · ผู้ดูแลระบบ</strong></p>
+                     <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>v1.0 · 4-Identities AI Storytellers</p>
+                  </div>
+
+                  {/* ── TOC ── */}
+                  <div className="card">
+                     <h4>📚 สารบัญ (Table of Contents)</h4>
+                     <ol style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
+                        <li><a href="#quick-start"  style={{ color: '#0369a1' }}>🚀 เริ่มต้นใช้งาน (Quick Start)</a></li>
+                        <li><a href="#student"     style={{ color: '#0369a1' }}>👨‍🎓 สำหรับนักเรียน (Student)</a></li>
+                        <li><a href="#teacher"     style={{ color: '#0369a1' }}>👩‍🏫 สำหรับครู (Teacher / Facilitator)</a></li>
+                        <li><a href="#sage"        style={{ color: '#0369a1' }}>🧓 สำหรับปราชญ์ (Sage / Local Expert)</a></li>
+                        <li><a href="#admin"       style={{ color: '#0369a1' }}>⚙️ สำหรับผู้ดูแลระบบ (Admin)</a></li>
+                        <li><a href="#pitching"    style={{ color: '#0369a1' }}>🎤 เตรียม Pitching Presentation</a></li>
+                        <li><a href="#trouble"     style={{ color: '#0369a1' }}>🔧 แก้ปัญหา (Troubleshooting)</a></li>
+                        <li><a href="#faq"         style={{ color: '#0369a1' }}>❓ คำถามที่พบบ่อย (FAQ)</a></li>
+                     </ol>
+                  </div>
+
+                  {/* ── 1. Quick Start ── */}
+                  <div id="quick-start" className="card">
+                     <h3 style={{ color: appConfig.primaryColor, borderBottom: `3px solid ${appConfig.primaryColor}`, paddingBottom: 6 }}>🚀 1. เริ่มต้นใช้งาน (Quick Start)</h3>
+                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+                        {[
+                           { n: 1, icon: '🌐', title: 'เปิดเว็บ', desc: 'เข้า ai-storyteller-9dc3a.web.app' },
+                           { n: 2, icon: '🔐', title: 'เข้าสู่ระบบ', desc: 'ใช้ username + password ที่ครูสร้างให้' },
+                           { n: 3, icon: '🎯', title: 'ดู Mission', desc: 'รับโจทย์จาก Mission Inbox' },
+                           { n: 4, icon: '📸', title: 'ลงพื้นที่', desc: 'เก็บข้อมูล + สัมภาษณ์ปราชญ์' },
+                           { n: 5, icon: '🤖', title: 'ใช้ AI', desc: 'Prompt + บันทึก Audit Log' },
+                           { n: 6, icon: '📤', title: 'ส่งงาน', desc: 'Submit ผ่าน Gateway 7 ขั้นตอน' },
+                           { n: 7, icon: '🎤', title: 'Pitching', desc: 'นำเสนอ + รับคะแนน 5×5 Matrix' }
+                        ].map(s => (
+                           <div key={s.n} style={{ padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, textAlign: 'center' }}>
+                              <div style={{ background: appConfig.primaryColor, color: '#fff', width: 28, height: 28, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, marginBottom: 6 }}>{s.n}</div>
+                              <div style={{ fontSize: '1.5rem' }}>{s.icon}</div>
+                              <div style={{ fontWeight: 700, fontSize: '0.85rem', marginTop: 4 }}>{s.title}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 4 }}>{s.desc}</div>
+                           </div>
+                        ))}
+                     </div>
+                     <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '0.75rem', borderRadius: 6, marginTop: '0.75rem', fontSize: '0.8rem' }}>
+                        💡 <strong>Tip:</strong> ระบบรองรับ Thai/English — กดปุ่ม <strong>Thai TH | English EN</strong> ที่ header
+                     </div>
+                  </div>
+
+                  {/* ── 2. Student ── */}
+                  <div id="student" className="card">
+                     <h3 style={{ color: '#0ea5e9', borderBottom: '3px solid #0ea5e9', paddingBottom: 6 }}>👨‍🎓 2. สำหรับนักเรียน (Student)</h3>
+                     <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>คุณคือ <strong>AI Storyteller</strong> — นำเสนอภูมิปัญญาท้องถิ่นผ่านการเล่าเรื่องด้วย AI อย่างมีจริยธรรม</p>
+
+                     <h4 style={{ marginTop: '1rem', color: '#0369a1' }}>📋 เมนูที่คุณใช้</h4>
+                     <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                        <li><strong>จัดการทีม (Explorer UI)</strong> — ตั้งทีม, เลือก mascot, ดูสถานะ 4 ขั้นตอน</li>
+                        <li><strong>รับโจทย์ (Mission Inbox)</strong> — รับ mission ที่ครูมอบหมาย เลือก identity 1 ใน 4</li>
+                        <li><strong>เก็บข้อมูล (On-site Collector)</strong> — บันทึกการสัมภาษณ์ปราชญ์ + ภาพ + GPS</li>
+                        <li><strong>ส่งงาน (Submission Gateway)</strong> — 7 ขั้น: wisdom → environment → brainstorm → prototype → video → BMC → AI logs</li>
+                        <li><strong>ศูนย์ประเมิน (Evaluation Hub)</strong> — Self-assessment (5 ด้าน) + Peer evaluation</li>
+                        <li><strong>รายงาน R6</strong> — ดู portfolio ของทีม</li>
+                     </ul>
+
+                     <h4 style={{ marginTop: '1rem', color: '#0369a1' }}>🎯 4 Identities ของ Green Rayong</h4>
+                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: '0.5rem' }}>
+                        {[
+                           { emoji: '🌳', name: 'สวน', color: '#16a34a' },
+                           { emoji: '🌲', name: 'ป่า',  color: '#15803d' },
+                           { emoji: '🌾', name: 'นา',  color: '#ca8a04' },
+                           { emoji: '🌊', name: 'เล',  color: '#0ea5e9' }
+                        ].map(id => (
+                           <div key={id.name} style={{ padding: '0.6rem', background: id.color + '15', border: '1px solid ' + id.color, borderRadius: 6, textAlign: 'center' }}>
+                              <div style={{ fontSize: '1.8rem' }}>{id.emoji}</div>
+                              <div style={{ fontWeight: 700, color: id.color }}>{id.name}</div>
+                           </div>
+                        ))}
+                     </div>
+
+                     <h4 style={{ marginTop: '1rem', color: '#0369a1' }}>✅ Best Practices</h4>
+                     <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                        <li><strong>เคารพปราชญ์เสมอ</strong> — ขออนุญาตก่อนสัมภาษณ์ ใส่ชื่อใน citation</li>
+                        <li><strong>Cross-check ทุก AI output</strong> — AI hallucination เกิดได้ บันทึกใน AI Audit Log</li>
+                        <li><strong>Prompt = Role + Context + Format</strong> — สูตร 3 ส่วนทำให้ AI ตอบดีขึ้น 3 เท่า</li>
+                        <li><strong>อย่า Copy-Paste</strong> AI output — แก้ไข+ใส่ voice ของคุณเอง</li>
+                     </ul>
+                  </div>
+
+                  {/* ── 3. Teacher ── */}
+                  <div id="teacher" className="card">
+                     <h3 style={{ color: '#16a34a', borderBottom: '3px solid #16a34a', paddingBottom: 6 }}>👩‍🏫 3. สำหรับครู (Teacher / Facilitator)</h3>
+                     <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>คุณคือ <strong>AI Literacy Coach</strong> — สร้างโจทย์, ติดตามทีม, ประเมิน Pitching, และส่งเสริมจริยธรรม AI</p>
+
+                     <h4 style={{ marginTop: '1rem', color: '#166534' }}>📋 เมนูที่คุณใช้</h4>
+                     <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                        <li><strong>แดชบอร์ดเรียลไทม์</strong> — ดู Live Feed, จัดการทีม, Good Prompt Library, Rubric, EVAL-MATRIX</li>
+                        <li><strong>สร้างโจทย์ (Mission Builder)</strong> — Cascade dropdown: Identity → Area → Sub-area</li>
+                        <li><strong>ส่งงาน (Submission Gateway)</strong> — ดู submissions ของทุกทีม</li>
+                        <li><strong>บันทึก AI</strong> — Run AI Audit per team (heuristic + Claude) + Quick Prompt feedback</li>
+                        <li><strong>ประเมิน Pitching</strong> — ให้คะแนน 5 ด้าน + Radar + 5×5 Matrix</li>
+                        <li><strong>รายงาน R1-R6</strong> — สรุปคะแนน, ไอเดีย, การเงิน, ความคืบหน้า, รายบุคคล, portfolio</li>
+                     </ul>
+
+                     <h4 style={{ marginTop: '1rem', color: '#166534' }}>📊 Rubric 5 ด้าน × 5 ระดับ</h4>
+                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', marginTop: 8 }}>
+                        <thead>
+                           <tr style={{ background: '#f1f5f9' }}>
+                              <th style={{ padding: '0.4rem', textAlign: 'left' }}>ด้าน</th>
+                              <th style={{ padding: '0.4rem', textAlign: 'left' }}>เกณฑ์</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {[
+                              ['AI Prompting',  'Role-based + Context + Format · Audit Log ครบ'],
+                              ['Local Wisdom',  'สัมภาษณ์ปราชญ์จริง · Cross-check ไม่มี Hallucination'],
+                              ['Creativity',    'ไอเดียใหม่ · ใช้ AI ช่วย Iterate ไม่ใช่ Copy'],
+                              ['Business Plan', 'BMC ครบ · Cost/Price/Customer · SROI'],
+                              ['Storytelling',  '2 ภาษา · Soft Power ระยอง · Engagement']
+                           ].map(([dim, crit]) => (
+                              <tr key={dim} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                 <td style={{ padding: '0.4rem', fontWeight: 600 }}>{dim}</td>
+                                 <td style={{ padding: '0.4rem' }}>{crit}</td>
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                     <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 6 }}>5 ระดับ: ปรับปรุง · พอใช้ · ปานกลาง · ดี · ดีเยี่ยม (TPQI L4 = Impact Creator)</p>
+                  </div>
+
+                  {/* ── 4. Sage ── */}
+                  <div id="sage" className="card">
+                     <h3 style={{ color: '#ca8a04', borderBottom: '3px solid #ca8a04', paddingBottom: 6 }}>🧓 4. สำหรับปราชญ์ (Sage / Local Expert)</h3>
+                     <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>คุณคือ <strong>ภูมิปัญญาที่มีชีวิต</strong> — ผู้ส่งต่อความรู้และให้คะแนนความถูกต้องของเรื่องราว</p>
+
+                     <h4 style={{ marginTop: '1rem', color: '#854d0e' }}>📋 เมนูที่คุณใช้</h4>
+                     <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                        <li><strong>ประเมิน Pitching</strong> — ดูผลงานของแต่ละทีม + ให้คะแนน 5 ด้าน (focus: Local Wisdom)</li>
+                        <li><strong>รายงาน R6 (Portfolio)</strong> — ดูผลงานเด่นและความสำเร็จของทุกทีม</li>
+                     </ul>
+
+                     <h4 style={{ marginTop: '1rem', color: '#854d0e' }}>💡 จุดที่ปราชญ์ควรเน้น</h4>
+                     <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                        <li>ตรวจสอบความถูกต้องของข้อมูลภูมิปัญญา (Anti-Hallucination)</li>
+                        <li>ดูว่านักเรียนให้เครดิตปราชญ์ครบหรือไม่</li>
+                        <li>ประเมินวิธีนำเสนอ — เคารพวิถีชุมชน ไม่ใช้ภาพล้อเลียน</li>
+                     </ul>
+                  </div>
+
+                  {/* ── 5. Admin ── */}
+                  <div id="admin" className="card">
+                     <h3 style={{ color: '#7c3aed', borderBottom: '3px solid #7c3aed', paddingBottom: 6 }}>⚙️ 5. สำหรับผู้ดูแลระบบ (Admin)</h3>
+
+                     <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>📋 Sub-tabs ใน Admin Panel</h4>
+                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 8 }}>
+                        {[
+                           { name: 'Management',  emoji: '👥', desc: 'CRUD users + teams · Import CSV · Reset password' },
+                           { name: 'Session',     emoji: '📅', desc: 'Phase manager · Open/Close submission · Deadline' },
+                           { name: 'Moderation',  emoji: '🛡️', desc: 'Cultural Ethics Audit · 6 หมวด 17 rules · Approve/Reject' },
+                           { name: 'Branding',    emoji: '🎨', desc: 'White-label · 4 presets · Custom brand · Reset' },
+                           { name: 'Settings',    emoji: '⚙️', desc: 'Claude API key · Looker URL · Backup · Seed Demo' },
+                           { name: 'Reports',     emoji: '📊', desc: 'R1-R6 reports cross-team' }
+                        ].map(s => (
+                           <div key={s.name} style={{ padding: '0.6rem', background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 6 }}>
+                              <div style={{ fontSize: '1.3rem' }}>{s.emoji}</div>
+                              <div style={{ fontWeight: 700, color: '#5b21b6' }}>{s.name}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{s.desc}</div>
+                           </div>
+                        ))}
+                     </div>
+
+                     <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>🔧 ขั้นตอนตั้งระบบครั้งแรก</h4>
+                     <ol style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
+                        <li>Settings → Seed Firebase Data (สร้างข้อมูลเริ่มต้น)</li>
+                        <li>Branding → เลือก preset หรือ custom brand (ชื่อ, สี, logo)</li>
+                        <li>Session → เพิ่ม/แก้ phases ตามแผนการเรียน + ตั้ง deadline</li>
+                        <li>Management → Import users (admin/teacher/student/sage) ผ่าน CSV</li>
+                        <li>Settings → ตั้ง Claude API key (optional, เพราะมี Demo Mode)</li>
+                        <li>Settings → วาง Looker Studio Embed URL (optional)</li>
+                     </ol>
+                  </div>
+
+                  {/* ── 6. Pitching Prep ── */}
+                  <div id="pitching" className="card">
+                     <h3 style={{ color: '#dc2626', borderBottom: '3px solid #dc2626', paddingBottom: 6 }}>🎤 6. เตรียม Pitching Presentation</h3>
+
+                     <h4 style={{ marginTop: '1rem', color: '#991b1b' }}>📝 Checklist ก่อน Pitching</h4>
+                     <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
+                        <li>✅ <strong>ผลงานครบ 7 ขั้น</strong> ใน Submission Gateway</li>
+                        <li>✅ <strong>AI Audit Log ครบ</strong> ทุก prompt ที่ใช้ (เปิด AI Audit Logbook ดู score)</li>
+                        <li>✅ <strong>Self + Peer Evaluation</strong> เสร็จก่อนวัน Pitching</li>
+                        <li>✅ <strong>BMC สมบูรณ์</strong> — cost, price, customer, channel</li>
+                        <li>✅ <strong>วิดีโอ Pitching ≤ 5 นาที</strong> — link ใน Submission Gateway</li>
+                        <li>✅ <strong>ภาษา TH + EN</strong> — Sub-title หรือ Dual-language slide</li>
+                     </ul>
+
+                     <h4 style={{ marginTop: '1rem', color: '#991b1b' }}>📊 คะแนนรวม 100% มาจากไหน</h4>
+                     <div style={{ background: '#fef2f2', padding: '0.75rem', borderRadius: 6, fontSize: '0.85rem' }}>
+                        Self 10% · Peer 15% · Teacher 35% · Sage 25% · AI 15% = <strong>100%</strong><br/>
+                        × 5 ด้าน (AI Prompting · Local Wisdom · Creativity · Business · Storytelling)<br/>
+                        <strong>เป้าหมาย:</strong> ≥ 4.0/5.0 ในทุกด้าน = TPQI Level 4 (Impact Creator)
+                     </div>
+                  </div>
+
+                  {/* ── 7. Troubleshooting ── */}
+                  <div id="trouble" className="card">
+                     <h3 style={{ color: '#0891b2', borderBottom: '3px solid #0891b2', paddingBottom: 6 }}>🔧 7. แก้ปัญหา (Troubleshooting)</h3>
+                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginTop: 8 }}>
+                        <thead>
+                           <tr style={{ background: '#f0f9ff' }}>
+                              <th style={{ padding: '0.4rem', textAlign: 'left' }}>ปัญหา</th>
+                              <th style={{ padding: '0.4rem', textAlign: 'left' }}>วิธีแก้</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {[
+                              ['Login ไม่ได้', 'ติดต่อ admin · ใช้รหัส default: student123/teacher123 ถ้าใช้ Demo Mode'],
+                              ['ข้อมูลไม่อัพเดต', 'รีโหลดหน้า (F5) · Firestore ใช้ real-time แต่บางครั้งต้อง refresh'],
+                              ['AI Audit ไม่ทำงาน', 'ตั้ง Claude API Key ใน Admin → Settings · หรือใช้ Demo Mode (mock heuristic)'],
+                              ['คะแนนไม่ปรากฏใน Matrix', 'ต้องมี evaluator ครบทุก role: self + peer + teacher + sage + ai'],
+                              ['Looker Dashboard ว่าง', 'Admin → Settings → วาง embed URL จาก Looker Studio Share → Embed'],
+                              ['ภาษาไม่เปลี่ยน', 'กดปุ่ม Thai TH / English EN ใน header · บางหน้ายังไม่ i18n เต็ม']
+                           ].map(([p, s]) => (
+                              <tr key={p} style={{ borderTop: '1px solid #bae6fd' }}>
+                                 <td style={{ padding: '0.4rem', fontWeight: 600 }}>{p}</td>
+                                 <td style={{ padding: '0.4rem' }}>{s}</td>
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                  </div>
+
+                  {/* ── 8. FAQ ── */}
+                  <div id="faq" className="card">
+                     <h3 style={{ color: '#65a30d', borderBottom: '3px solid #65a30d', paddingBottom: 6 }}>❓ 8. คำถามที่พบบ่อย (FAQ)</h3>
+                     {[
+                        ['Demo Mode คืออะไร?', 'ระบบมี Mock AI Audit ที่ทำงานจาก heuristic locally โดยไม่ต้องมี Claude API Key — เหมาะสำหรับ demo presentation'],
+                        ['ข้อมูลเก็บที่ไหน?',     'Firebase Firestore (cloud database) · sync real-time ทุก device'],
+                        ['ใช้ฟรีไหม?',          'ใช้ฟรี (Firebase Spark plan) · ถ้าเปิด Claude API จะมีค่าใช้จ่ายตามจำนวน tokens'],
+                        ['Branding เปลี่ยนยังไง?', 'Admin → Branding → เลือก preset (Rayong/Doi Saket/Phuket/Ayutthaya) หรือ custom brand'],
+                        ['Backup ข้อมูลยังไง?',  'Admin → Settings → Download Backup JSON · ดาวน์โหลดทุกอย่างเป็นไฟล์ .json'],
+                        ['ลบทีม/นักเรียนได้ไหม?', 'Admin → Management → กดไอคอน 🗑 ข้างชื่อทีม/user (ระวัง — undo ไม่ได้)']
+                     ].map(([q, a]) => (
+                        <details key={q} style={{ marginTop: 8, padding: 8, background: '#f7fee7', borderRadius: 6 }}>
+                           <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>{q}</summary>
+                           <p style={{ marginTop: 6, fontSize: '0.85rem', color: '#475569' }}>{a}</p>
+                        </details>
+                     ))}
+                  </div>
+
+                  <div className="card no-print" style={{ background: '#f8fafc', textAlign: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+                     <p>💡 <strong>กดปุ่ม "{t('help_print')}"</strong> ด้านบนเพื่อพิมพ์หรือ save เป็น PDF</p>
+                     <p style={{ marginTop: 6 }}>🔗 GitHub: <a href="https://github.com/chenjopmapech347/Rayong-AI-Storyteller" target="_blank" rel="noreferrer">chenjopmapech347/Rayong-AI-Storyteller</a></p>
                   </div>
                </div>
             </motion.div>

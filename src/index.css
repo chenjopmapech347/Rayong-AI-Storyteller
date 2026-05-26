@@ -1,4 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+/* ─── Print styles for User Manual (Help tab) ───
+   When user clicks "Print / Save PDF", these rules apply. */
+@media print {
+  body * { visibility: hidden; }
+  .manual-print, .manual-print * { visibility: visible; }
+  .manual-print { position: absolute; left: 0; top: 0; width: 100%; padding: 1cm; font-family: 'Sarabun', sans-serif; }
+  .manual-print .lane-header { background: linear-gradient(90deg, #16a34a, #0ea5e9) !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0.5cm; }
+  .manual-print .card { page-break-inside: avoid; box-shadow: none !important; border: 1px solid #cbd5e1 !important; margin-bottom: 0.5cm; padding: 0.5cm; }
+  .manual-print h3, .manual-print h4 { page-break-after: avoid; }
+  .manual-print .no-print { display: none !important; }
+  .manual-print table { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .manual-print details { display: block !important; }
+  .manual-print details > summary { display: block; font-weight: 700; }
+  /* Color-keep for highlight boxes */
+  .manual-print [style*="background"] { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 
 :root {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
