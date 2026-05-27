@@ -192,6 +192,132 @@ const getTeamCourseIds = (team) => {
   return ['green-rayong'];
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// GENERIC FORM RENDERER (v2.0 Phase 4)
+// Renders a worksheet schema → React form. Used in:
+//  - Schema Editor preview (admin sees what students will see)
+//  - Future Phase 6: actual student worksheet entry
+// Supports 8 field types: text · textarea · number · date · select · radio · checkbox · list
+// Defer to Phase 5+: image · drawing · table · matrix-2x2 · categorize · signature · audio
+// ─────────────────────────────────────────────────────────────────────
+const FIELD_TYPES = [
+  { id: 'text',     label: 'Text (บรรทัดเดียว)' },
+  { id: 'textarea', label: 'Textarea (หลายบรรทัด)' },
+  { id: 'number',   label: 'Number' },
+  { id: 'date',     label: 'Date' },
+  { id: 'select',   label: 'Select (dropdown)' },
+  { id: 'radio',    label: 'Radio (เลือก 1)' },
+  { id: 'checkbox', label: 'Checkbox (boolean)' },
+  { id: 'list',     label: 'List (repeating group)' },
+  { id: 'image',    label: 'Image (เร็ว ๆ นี้)' },
+  { id: 'drawing',  label: 'Drawing (เร็ว ๆ นี้)' },
+  { id: 'table',    label: 'Table (เร็ว ๆ นี้)' },
+];
+
+const FieldRenderer = memo(function FieldRenderer({ field, value, onChange, disabled }) {
+  const common = {
+    style: { width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: '0.875rem', fontFamily: 'inherit' },
+    disabled
+  };
+  switch (field.type) {
+    case 'text':
+      return <input type="text" {...common} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || ''} maxLength={field.maxLength} />;
+    case 'textarea':
+      return <textarea {...common} rows={field.rows || 4} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || ''} />;
+    case 'number':
+      return <input type="number" {...common} value={value ?? ''} onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))} min={field.min} max={field.max} step={field.step || 1} />;
+    case 'date':
+      return <input type="date" {...common} value={value || ''} onChange={e => onChange(e.target.value)} />;
+    case 'select':
+      return (
+        <select {...common} value={value || ''} onChange={e => onChange(e.target.value)}>
+          <option value="">-- เลือก --</option>
+          {(field.options || []).map(opt => {
+            const v = typeof opt === 'string' ? opt : opt.value || opt.label;
+            const l = typeof opt === 'string' ? opt : opt.label || opt.value;
+            return <option key={v} value={v}>{l}</option>;
+          })}
+        </select>
+      );
+    case 'radio':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {(field.options || []).map(opt => {
+            const v = typeof opt === 'string' ? opt : opt.value || opt.label;
+            const l = typeof opt === 'string' ? opt : opt.label || opt.value;
+            return (
+              <label key={v} style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="radio" name={field.id} checked={value === v} onChange={() => onChange(v)} disabled={disabled} /> {l}
+              </label>
+            );
+          })}
+        </div>
+      );
+    case 'checkbox':
+      return (
+        <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} disabled={disabled} /> {field.checkboxLabel || 'ใช่'}
+        </label>
+      );
+    case 'list': {
+      const items = Array.isArray(value) ? value : [];
+      const itemSchema = field.itemSchema || [{ id: 'text', type: 'text', label: 'รายการ' }];
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {items.map((item, idx) => (
+            <div key={idx} style={{ padding: 8, background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>#{idx + 1}</span>
+                <button type="button" onClick={() => { const next = [...items]; next.splice(idx, 1); onChange(next); }} disabled={disabled} style={{ padding: '0.15rem 0.4rem', fontSize: '0.7rem', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
+              </div>
+              {itemSchema.map(sub => (
+                <div key={sub.id} style={{ marginTop: 4 }}>
+                  <label style={{ fontSize: '0.7rem', color: '#475569', fontWeight: 600 }}>{sub.label || sub.id}</label>
+                  <FieldRenderer field={sub} value={item?.[sub.id]} onChange={(v) => { const next = [...items]; next[idx] = { ...item, [sub.id]: v }; onChange(next); }} disabled={disabled} />
+                </div>
+              ))}
+            </div>
+          ))}
+          <button type="button" onClick={() => onChange([...items, {}])} disabled={disabled || (field.maxItems && items.length >= field.maxItems)} style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', border: '1px dashed #0ea5e9', background: '#f0f9ff', color: '#0369a1', borderRadius: 6, cursor: 'pointer', alignSelf: 'flex-start' }}>+ เพิ่มรายการ</button>
+          {field.minItems && items.length < field.minItems && <span style={{ fontSize: '0.7rem', color: '#dc2626' }}>⚠ ต้องมีอย่างน้อย {field.minItems} รายการ</span>}
+        </div>
+      );
+    }
+    case 'image':
+    case 'drawing':
+    case 'table':
+    case 'matrix-2x2':
+    case 'categorize':
+    case 'signature':
+    case 'audio':
+      return <div style={{ padding: '0.5rem', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 6, fontSize: '0.75rem', color: '#854d0e' }}>⏳ Field type <strong>{field.type}</strong> — รองรับใน Phase ถัดไป</div>;
+    default:
+      return <input type="text" {...common} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={`[${field.type} unknown]`} />;
+  }
+});
+
+const GenericForm = memo(function GenericForm({ schema, value, onChange, disabled, showInstruction = true }) {
+  if (!schema) return <div style={{ padding: '1rem', color: '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic' }}>ยังไม่มี schema</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {showInstruction && schema.instructionTH && (
+        <div style={{ padding: '0.6rem', background: '#eff6ff', borderRadius: 6, fontSize: '0.8rem', color: '#1e40af', borderLeft: '3px solid #0ea5e9' }}>
+          💡 {schema.instructionTH}
+        </div>
+      )}
+      {(schema.fields || []).map(field => (
+        <div key={field.id}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
+            {field.label} {field.required && <span style={{ color: '#dc2626' }}>*</span>}
+          </label>
+          {field.description && <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: 4 }}>{field.description}</p>}
+          <FieldRenderer field={field} value={(value || {})[field.id]} onChange={(v) => onChange({ ...(value || {}), [field.id]: v })} disabled={disabled} />
+        </div>
+      ))}
+    </div>
+  );
+});
+
 // All evaluator roles we display in the matrix legend / cell badges.
 const EVALUATOR_ROLES = ['self', 'peer', 'teacher', 'sage', 'ai'];
 
@@ -568,6 +694,88 @@ export default function App() {
       setEditingCourseId(null);
       setEditCourseDraft(null);
       window.alert('✅ บันทึกการแก้ไขแล้ว');
+    } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+  };
+
+  // ─── Worksheet Schema Editor (v2.0 Phase 3) ───
+  const [editingWorksheetsCourseId, setEditingWorksheetsCourseId] = useState(null);
+  const [worksheetsDraft, setWorksheetsDraft] = useState([]);
+  const [previewWorksheetIdx, setPreviewWorksheetIdx] = useState(null);
+  const [previewFormValue, setPreviewFormValue] = useState({});
+  const openWorksheetsEditor = (course) => {
+    setEditingWorksheetsCourseId(course.id);
+    setWorksheetsDraft(Array.isArray(course.worksheets) ? course.worksheets : []);
+    setPreviewWorksheetIdx(null);
+  };
+  const closeWorksheetsEditor = () => {
+    setEditingWorksheetsCourseId(null);
+    setWorksheetsDraft([]);
+    setPreviewWorksheetIdx(null);
+    setPreviewFormValue({});
+  };
+  const addWorksheet = () => {
+    const newIdx = worksheetsDraft.length;
+    setWorksheetsDraft([...worksheetsDraft, {
+      id: `WS-${newIdx + 1}`,
+      label: `Worksheet ${newIdx + 1}`,
+      labelTH: `ใบงาน ${newIdx + 1}`,
+      icon: '📝',
+      stageId: 'stage-empathize',
+      order: newIdx + 1,
+      instructionTH: '',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม', required: true },
+        { id: 'date', type: 'date', label: 'วันที่', required: true }
+      ]
+    }]);
+  };
+  const updateWorksheet = (idx, patch) => {
+    const next = [...worksheetsDraft];
+    next[idx] = { ...next[idx], ...patch };
+    setWorksheetsDraft(next);
+  };
+  const removeWorksheet = (idx) => {
+    if (!window.confirm(`ลบ Worksheet "${worksheetsDraft[idx].labelTH || worksheetsDraft[idx].label}"?`)) return;
+    setWorksheetsDraft(worksheetsDraft.filter((_, i) => i !== idx));
+    if (previewWorksheetIdx === idx) setPreviewWorksheetIdx(null);
+  };
+  const moveWorksheet = (idx, dir) => {
+    const target = idx + dir;
+    if (target < 0 || target >= worksheetsDraft.length) return;
+    const next = [...worksheetsDraft];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setWorksheetsDraft(next.map((w, i) => ({ ...w, order: i + 1 })));
+  };
+  const addField = (wsIdx) => {
+    const ws = worksheetsDraft[wsIdx];
+    const nextFieldId = `field_${(ws.fields?.length || 0) + 1}`;
+    updateWorksheet(wsIdx, { fields: [...(ws.fields || []), { id: nextFieldId, type: 'text', label: 'Field ใหม่' }] });
+  };
+  const updateField = (wsIdx, fieldIdx, patch) => {
+    const ws = worksheetsDraft[wsIdx];
+    const fields = [...(ws.fields || [])];
+    fields[fieldIdx] = { ...fields[fieldIdx], ...patch };
+    updateWorksheet(wsIdx, { fields });
+  };
+  const removeField = (wsIdx, fieldIdx) => {
+    const ws = worksheetsDraft[wsIdx];
+    if (!window.confirm(`ลบ field "${ws.fields[fieldIdx].label}"?`)) return;
+    updateWorksheet(wsIdx, { fields: ws.fields.filter((_, i) => i !== fieldIdx) });
+  };
+  const moveField = (wsIdx, fieldIdx, dir) => {
+    const ws = worksheetsDraft[wsIdx];
+    const fields = [...(ws.fields || [])];
+    const target = fieldIdx + dir;
+    if (target < 0 || target >= fields.length) return;
+    [fields[fieldIdx], fields[target]] = [fields[target], fields[fieldIdx]];
+    updateWorksheet(wsIdx, { fields });
+  };
+  const saveWorksheetsToFirestore = async () => {
+    if (!editingWorksheetsCourseId) return;
+    try {
+      await updateCourse(editingWorksheetsCourseId, { worksheets: worksheetsDraft });
+      window.alert(`✅ บันทึก ${worksheetsDraft.length} worksheets แล้ว`);
+      closeWorksheetsEditor();
     } catch (e) { window.alert('❌ ' + (e?.message || e)); }
   };
 
@@ -2123,7 +2331,8 @@ export default function App() {
                                           </div>
                                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                              {!c.isDefault && <button onClick={() => handleSetDefault(c.id)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #16a34a', background: '#f0fdf4', color: '#16a34a', borderRadius: 4, cursor: 'pointer' }} title="ตั้งเป็นหลักสูตรเริ่มต้น">⭐ Set Default</button>}
-                                             <button onClick={() => startEditCourse(c)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 4, cursor: 'pointer' }}>✏️ แก้ไข</button>
+                                             <button onClick={() => openWorksheetsEditor(c)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #c4b5fd', background: '#faf5ff', color: '#5b21b6', borderRadius: 4, cursor: 'pointer' }} title="แก้ไข Worksheets ของหลักสูตร">📝 Worksheets ({c.worksheets?.length || 0})</button>
+                                             <button onClick={() => startEditCourse(c)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 4, cursor: 'pointer' }}>✏️ ข้อมูลพื้นฐาน</button>
                                              <button onClick={() => handleCloneCourse(c.id)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1e40af', borderRadius: 4, cursor: 'pointer' }}>📋 Clone</button>
                                              {!isLegacy && <button onClick={() => handleDeleteCourse(c.id)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 4, cursor: 'pointer' }}>🗑 ลบ</button>}
                                           </div>
@@ -2151,8 +2360,88 @@ export default function App() {
                                                 <button onClick={() => { setEditingCourseId(null); setEditCourseDraft(null); }} className="login-btn" style={{ flex: 1, background: '#64748b', padding: '0.45rem' }}>ยกเลิก</button>
                                              </div>
                                              <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: 6, fontStyle: 'italic' }}>
-                                                💡 ตอนนี้แก้ไขได้แค่ข้อมูลพื้นฐาน — Phase ถัดไป (P3) จะมี <strong>Worksheet Schema Editor</strong> สำหรับสร้าง form ตามหลักสูตรของคุณ
+                                                💡 กดปุ่ม <strong>📝 Worksheets</strong> ในการ์ดด้านบนเพื่อเข้าสู่ Schema Editor
                                              </p>
+                                          </div>
+                                       )}
+                                       {editingWorksheetsCourseId === c.id && (
+                                          <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#faf5ff', borderRadius: 6, border: '2px solid #c4b5fd' }}>
+                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                                <h5 style={{ color: '#5b21b6', margin: 0 }}>📝 Worksheet Schema Editor ({worksheetsDraft.length} worksheets)</h5>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                   <button onClick={saveWorksheetsToFirestore} className="login-btn" style={{ background: '#16a34a', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>💾 บันทึกทั้งหมด</button>
+                                                   <button onClick={closeWorksheetsEditor} className="login-btn" style={{ background: '#64748b', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>ปิด</button>
+                                                </div>
+                                             </div>
+                                             <p style={{ fontSize: '0.7rem', color: '#5b21b6', marginBottom: 8 }}>📌 การเปลี่ยนแปลงจะถูก stage ไว้ — กด "💾 บันทึกทั้งหมด" เพื่อ commit ขึ้น Firestore</p>
+
+                                             {worksheetsDraft.length === 0 && (
+                                                <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem' }}>ยังไม่มี Worksheet — กด "+ เพิ่ม Worksheet" ด้านล่าง</div>
+                                             )}
+
+                                             {worksheetsDraft.map((ws, wsIdx) => (
+                                                <div key={wsIdx} style={{ background: '#fff', padding: '0.6rem', borderRadius: 6, border: '1px solid #ddd6fe', marginBottom: 8 }}>
+                                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                         <button onClick={() => moveWorksheet(wsIdx, -1)} disabled={wsIdx === 0} style={{ border: 'none', background: 'transparent', cursor: wsIdx === 0 ? 'default' : 'pointer', color: wsIdx === 0 ? '#cbd5e1' : '#5b21b6', fontSize: '0.7rem', padding: 0 }}>▲</button>
+                                                         <button onClick={() => moveWorksheet(wsIdx, 1)}  disabled={wsIdx === worksheetsDraft.length - 1} style={{ border: 'none', background: 'transparent', cursor: wsIdx === worksheetsDraft.length - 1 ? 'default' : 'pointer', color: wsIdx === worksheetsDraft.length - 1 ? '#cbd5e1' : '#5b21b6', fontSize: '0.7rem', padding: 0 }}>▼</button>
+                                                      </div>
+                                                      <input type="text" value={ws.icon || ''} onChange={e => updateWorksheet(wsIdx, { icon: e.target.value })} maxLength={4} placeholder="📝" style={{ width: 40, padding: '0.35rem', border: '1px solid #cbd5e1', borderRadius: 4, textAlign: 'center', fontSize: '1.1rem' }} />
+                                                      <input type="text" value={ws.id || ''} onChange={e => updateWorksheet(wsIdx, { id: e.target.value })} placeholder="WS-id" style={{ width: 100, padding: '0.35rem', border: '1px solid #cbd5e1', borderRadius: 4, fontFamily: 'monospace', fontSize: '0.75rem' }} />
+                                                      <input type="text" value={ws.labelTH || ''} onChange={e => updateWorksheet(wsIdx, { labelTH: e.target.value, label: e.target.value })} placeholder="ชื่อ Worksheet" style={{ flex: 1, padding: '0.35rem', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: '0.85rem' }} />
+                                                      <button onClick={() => setPreviewWorksheetIdx(previewWorksheetIdx === wsIdx ? null : wsIdx)} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1e40af', borderRadius: 4, cursor: 'pointer' }}>{previewWorksheetIdx === wsIdx ? '✕ ปิด Preview' : '👁 Preview'}</button>
+                                                      <button onClick={() => removeWorksheet(wsIdx)} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
+                                                   </div>
+                                                   <textarea value={ws.instructionTH || ''} onChange={e => updateWorksheet(wsIdx, { instructionTH: e.target.value })} placeholder="คำอธิบาย/วัตถุประสงค์ของ worksheet นี้ (แสดงให้นักเรียนเห็น)" rows={2} style={{ width: '100%', padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: '0.8rem', fontFamily: 'inherit', marginBottom: 6 }} />
+
+                                                   {/* Fields editor */}
+                                                   <div style={{ marginTop: 4, padding: '0.4rem', background: '#f8fafc', borderRadius: 4 }}>
+                                                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>📋 Fields ({ws.fields?.length || 0})</div>
+                                                      {(ws.fields || []).map((f, fIdx) => (
+                                                         <div key={fIdx} style={{ display: 'grid', gridTemplateColumns: 'auto 100px 1fr 130px auto auto', gap: 4, alignItems: 'center', padding: '0.3rem 0.4rem', background: '#fff', borderRadius: 4, marginBottom: 4, border: '1px solid #e2e8f0' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                               <button onClick={() => moveField(wsIdx, fIdx, -1)} disabled={fIdx === 0} style={{ border: 'none', background: 'transparent', cursor: fIdx === 0 ? 'default' : 'pointer', color: fIdx === 0 ? '#cbd5e1' : '#475569', fontSize: '0.65rem', padding: 0 }}>▲</button>
+                                                               <button onClick={() => moveField(wsIdx, fIdx, 1)}  disabled={fIdx === (ws.fields.length - 1)} style={{ border: 'none', background: 'transparent', cursor: fIdx === ws.fields.length - 1 ? 'default' : 'pointer', color: fIdx === ws.fields.length - 1 ? '#cbd5e1' : '#475569', fontSize: '0.65rem', padding: 0 }}>▼</button>
+                                                            </div>
+                                                            <input type="text" value={f.id} onChange={e => updateField(wsIdx, fIdx, { id: e.target.value })} placeholder="field_id" style={{ padding: '0.25rem', border: '1px solid #cbd5e1', borderRadius: 3, fontFamily: 'monospace', fontSize: '0.7rem' }} />
+                                                            <input type="text" value={f.label || ''} onChange={e => updateField(wsIdx, fIdx, { label: e.target.value })} placeholder="Label" style={{ padding: '0.25rem', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: '0.75rem' }} />
+                                                            <select value={f.type} onChange={e => updateField(wsIdx, fIdx, { type: e.target.value })} style={{ padding: '0.25rem', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: '0.7rem' }}>
+                                                               {FIELD_TYPES.map(ft => <option key={ft.id} value={ft.id}>{ft.label}</option>)}
+                                                            </select>
+                                                            <label style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                               <input type="checkbox" checked={!!f.required} onChange={e => updateField(wsIdx, fIdx, { required: e.target.checked })} /> req
+                                                            </label>
+                                                            <button onClick={() => removeField(wsIdx, fIdx)} style={{ padding: '0.2rem 0.35rem', fontSize: '0.65rem', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 3, cursor: 'pointer' }}>🗑</button>
+
+                                                            {(f.type === 'select' || f.type === 'radio') && (
+                                                               <input type="text" value={(f.options || []).join(', ')} onChange={e => updateField(wsIdx, fIdx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="ตัวเลือก (คั่นด้วย comma)" style={{ gridColumn: '2 / -1', padding: '0.25rem', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: '0.7rem', marginTop: 2 }} />
+                                                            )}
+                                                            {f.type === 'textarea' && (
+                                                               <div style={{ gridColumn: '2 / -1', display: 'flex', gap: 4, marginTop: 2 }}>
+                                                                  <label style={{ fontSize: '0.65rem' }}>Rows: <input type="number" min={1} max={20} value={f.rows || 3} onChange={e => updateField(wsIdx, fIdx, { rows: Number(e.target.value) })} style={{ width: 50, padding: '0.15rem', border: '1px solid #cbd5e1', borderRadius: 3 }} /></label>
+                                                                  <input type="text" value={f.placeholder || ''} onChange={e => updateField(wsIdx, fIdx, { placeholder: e.target.value })} placeholder="placeholder" style={{ flex: 1, padding: '0.2rem', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: '0.7rem' }} />
+                                                               </div>
+                                                            )}
+                                                         </div>
+                                                      ))}
+                                                      <button onClick={() => addField(wsIdx)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px dashed #5b21b6', background: 'transparent', color: '#5b21b6', borderRadius: 4, cursor: 'pointer' }}>+ เพิ่ม Field</button>
+                                                   </div>
+
+                                                   {/* Live preview */}
+                                                   {previewWorksheetIdx === wsIdx && (
+                                                      <div style={{ marginTop: 8, padding: 12, background: '#ffffff', border: '2px dashed #0ea5e9', borderRadius: 6 }}>
+                                                         <div style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 700, marginBottom: 8 }}>👁 PREVIEW — นักเรียนจะเห็นแบบนี้</div>
+                                                         <GenericForm schema={ws} value={previewFormValue} onChange={setPreviewFormValue} />
+                                                         <details style={{ marginTop: 8, fontSize: '0.7rem' }}>
+                                                            <summary style={{ cursor: 'pointer', color: '#64748b' }}>🔍 ดู Data ที่จะ save (JSON)</summary>
+                                                            <pre style={{ background: '#f8fafc', padding: 8, borderRadius: 4, marginTop: 4, fontSize: '0.7rem', overflow: 'auto', maxHeight: 200 }}>{JSON.stringify(previewFormValue, null, 2)}</pre>
+                                                         </details>
+                                                      </div>
+                                                   )}
+                                                </div>
+                                             ))}
+
+                                             <button onClick={addWorksheet} style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', border: '2px dashed #5b21b6', background: 'transparent', color: '#5b21b6', borderRadius: 6, cursor: 'pointer', width: '100%', marginTop: 8, fontWeight: 600 }}>+ เพิ่ม Worksheet</button>
                                           </div>
                                        )}
                                     </div>
