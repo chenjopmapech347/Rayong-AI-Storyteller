@@ -2095,6 +2095,39 @@ export async function seedLegacyGreenRayongCourse(courseData) {
   return { ok: true, created: true };
 }
 
+// ─── Multi-Course Worksheet Submissions (v2.0 Phase 7) ──────────────
+// Each submission is keyed by (team, course, worksheet) so a team can
+// fill the same worksheet under different courses without conflict.
+
+export async function saveWorksheetSubmission(teamId, courseId, worksheetId, data) {
+  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const safeWsId = String(worksheetId).replace(/[^\w-]/g, '_');
+  const submissionId = `${String(teamId)}_${courseId}_${safeWsId}`;
+  await setDoc(doc(db, 'submissions', submissionId), {
+    team_id      : String(teamId),
+    course_id    : courseId,
+    worksheet_id : worksheetId,
+    step         : worksheetId,  // legacy compat field
+    content      : data || {},
+    submitted_at : serverTimestamp(),
+    submitted_by_id   : me.id || null,
+    submitted_by_name : me.name || null
+  }, { merge: true });
+  return { ok: true, id: submissionId };
+}
+
+export function subscribeToWorksheetSubmissions(teamId, courseId, callback) {
+  // Returns all worksheet submissions for the given (team, course).
+  // We filter client-side from the existing global subscriptions to avoid
+  // requiring composite Firestore indexes.
+  return onSnapshot(collection(db, 'submissions'), (snap) => {
+    const rows = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(s => String(s.team_id) === String(teamId) && s.course_id === courseId);
+    callback(rows);
+  });
+}
+
 // ─── END Multi-Course CRUD ──────────────────────────────────────────
 
 

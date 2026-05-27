@@ -83,7 +83,10 @@ import {
   deleteCourse,
   cloneCourse,
   setDefaultCourse,
-  seedLegacyGreenRayongCourse
+  seedLegacyGreenRayongCourse,
+  // Phase 7: Worksheet submissions
+  saveWorksheetSubmission,
+  subscribeToWorksheetSubmissions
 } from './api';
 
 // Ethics category metadata (Thai labels + emojis) — mirrors api.js zt rules
@@ -599,6 +602,62 @@ export default function App() {
     } finally {
       setAuditRunning(false);
     }
+  };
+
+  // ─── Active Course (v2.0 Phase 7) — drives student worksheet UI + Pitching rubric ───
+  const [currentCourseId, setCurrentCourseId] = useState(() => {
+    try { return localStorage.getItem('rep_active_course') || 'green-rayong'; } catch { return 'green-rayong'; }
+  });
+  const switchCourse = (id) => {
+    setCurrentCourseId(id);
+    try { localStorage.setItem('rep_active_course', id); } catch {}
+    setSelectedWorksheetId(null); // close any open worksheet when switching
+  };
+  // Resolved current course object (Firestore doc merged with built-in fallback)
+  const currentCourse = (function getCurrentCourse() {
+    if (!coursesAll || coursesAll.length === 0) return LEGACY_GREEN_RAYONG_COURSE;
+    const found = coursesAll.find(c => c.id === currentCourseId);
+    return found ? mergeCourse(found, currentCourseId) : (BUILTIN_COURSES[currentCourseId] || LEGACY_GREEN_RAYONG_COURSE);
+  })();
+  // Auto-pick a sensible course on first load — prefer user's team's course
+  useEffect(() => {
+    if (!user || coursesAll.length === 0) return;
+    const myTeam = teams.find(t => String(t.id) === String(user.team_id || user.teamId));
+    if (myTeam) {
+      const myCourseIds = getTeamCourseIds(myTeam);
+      // Switch only if current isn't one of user's team's courses
+      if (!myCourseIds.includes(currentCourseId)) {
+        switchCourse(myCourseIds[0]);
+      }
+    }
+  // eslint-disable-next-line
+  }, [user, teams, coursesAll]);
+
+  // ─── Worksheet Submissions for active (team, course) (v2.0 Phase 7) ───
+  const [worksheetSubmissions, setWorksheetSubmissions] = useState([]);
+  const [selectedWorksheetId, setSelectedWorksheetId] = useState(null);
+  const [worksheetFormDraft, setWorksheetFormDraft] = useState({});
+  const [worksheetSaving, setWorksheetSaving] = useState(false);
+  const myTeamIdForWorksheets = user?.team_id || user?.teamId || null;
+  useEffect(() => {
+    if (!myTeamIdForWorksheets || !currentCourseId) return;
+    const unsub = subscribeToWorksheetSubmissions(myTeamIdForWorksheets, currentCourseId, setWorksheetSubmissions);
+    return () => unsub?.();
+  }, [myTeamIdForWorksheets, currentCourseId]);
+  // Load saved draft when selecting a worksheet
+  useEffect(() => {
+    if (!selectedWorksheetId) { setWorksheetFormDraft({}); return; }
+    const existing = worksheetSubmissions.find(s => s.worksheet_id === selectedWorksheetId);
+    setWorksheetFormDraft(existing?.content || {});
+  }, [selectedWorksheetId, worksheetSubmissions]);
+  const saveCurrentWorksheet = async () => {
+    if (!myTeamIdForWorksheets || !currentCourseId || !selectedWorksheetId) return;
+    setWorksheetSaving(true);
+    try {
+      await saveWorksheetSubmission(myTeamIdForWorksheets, currentCourseId, selectedWorksheetId, worksheetFormDraft);
+      window.alert('✅ บันทึก Worksheet สำเร็จ');
+    } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+    finally { setWorksheetSaving(false); }
   };
 
   // ─── Multi-Course management (v2.0 Phase 2) ───
@@ -1215,6 +1274,15 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+             {/* ─── Course Switcher (v2.0 Phase 7) — only when ≥ 2 courses ─── */}
+             {user && coursesAll.length > 1 && (
+                <div className="card" style={{ padding: '0.3rem 0.5rem', margin: 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 6 }} title="เลือกหลักสูตรที่กำลังใช้งาน">
+                   <span style={{ fontSize: '1rem' }}>{currentCourse.branding?.logoEmoji || '📚'}</span>
+                   <select value={currentCourseId} onChange={e => switchCourse(e.target.value)} style={{ padding: '0.2rem', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: '0.75rem', background: '#fff', cursor: 'pointer', maxWidth: 240 }}>
+                      {coursesAll.map(c => <option key={c.id} value={c.id}>{c.name || c.id}{c.isDefault ? ' ⭐' : ''}</option>)}
+                   </select>
+                </div>
+             )}
              {/* ─── Inline TH/EN language toggle (always visible) ─── */}
              <div className="card" style={{ padding: '0.3rem 0.5rem', margin: 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <button onClick={() => { if (lang !== 'th') toggleLang(); }} title="ภาษาไทย"
@@ -1282,6 +1350,9 @@ export default function App() {
         {!user && (
           <>
             <div className={`tab-item ${activeTab !== 'help' ? 'active' : ''}`} onClick={() => setActiveTab('public')}><LayoutDashboard size={16} /> {t('Public View')}</div>
+            {currentCourse?.worksheets?.length > 0 && (
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
+            )}
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
@@ -1293,6 +1364,9 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
             <div className={`tab-item ${activeTab === 'evaluation-hub' ? 'active' : ''}`} onClick={() => setActiveTab('evaluation-hub')}><Star size={16} /> {t('Evaluation Hub')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
+            {currentCourse?.worksheets?.length > 0 && (
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
+            )}
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
@@ -1304,6 +1378,9 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
             <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
             <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Report (R1-R6)')}</div>
+            {currentCourse?.worksheets?.length > 0 && (
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
+            )}
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
@@ -1311,6 +1388,9 @@ export default function App() {
           <>
             <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
+            {currentCourse?.worksheets?.length > 0 && (
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
+            )}
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
@@ -1323,6 +1403,9 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
             <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
             <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Reports R1-R6')}</div>
+            {currentCourse?.worksheets?.length > 0 && (
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
+            )}
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
@@ -2906,17 +2989,21 @@ export default function App() {
                               </div>
                            </div>
 
-                           {/* --- Scoring Section --- */}
+                           {/* --- Scoring Section (Phase 8: course-aware rubric) --- */}
                            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
-                              <h4 style={{ marginBottom: '1rem' }}>Scoring Matrix</h4>
+                              <h4 style={{ marginBottom: '0.5rem' }}>Scoring Matrix</h4>
+                              <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
+                                 ใช้ rubric ของหลักสูตร <strong style={{ color: currentCourse.branding?.primaryColor }}>{currentCourse.name}</strong> ({(currentCourse.rubric || []).length} ด้าน)
+                              </p>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                                 {SCORE_DIMENSIONS.map(r => {
+                                 {(currentCourse.rubric || []).map(rDim => {
+                                    const r = rDim.label;
                                     const key = `${selectedTeam.id}-${r}`;
                                     const current = evalScore[key] || 0;
                                     return (
                                        <div key={r}>
                                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                                             <label className="ldt-stat-lbl">{r}</label>
+                                             <label className="ldt-stat-lbl">{r} {rDim.weight ? <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 400 }}>· {rDim.weight}%</span> : null}</label>
                                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: current ? 'var(--color-primary)' : '#94a3b8' }}>
                                                 {current ? `${current} / 5` : 'ยังไม่ได้ให้คะแนน'}
                                              </span>
@@ -2949,7 +3036,8 @@ export default function App() {
                                     onClick={async () => {
                                        if (!user) { alert('กรุณาเข้าสู่ระบบก่อนบันทึกคะแนน'); return; }
                                        const scoresToSave = {};
-                                       SCORE_DIMENSIONS.forEach(dim => {
+                                       (currentCourse.rubric || []).forEach(rDim => {
+                                          const dim = rDim.label;
                                           const v = evalScore[`${selectedTeam.id}-${dim}`];
                                           if (typeof v === 'number' && v > 0) scoresToSave[dim] = v;
                                        });
@@ -3251,6 +3339,96 @@ export default function App() {
                </div>
             </motion.div>
           )}
+
+          {activeTab === 'worksheets' && (() => {
+            const ws = (currentCourse.worksheets || []).find(w => w.id === selectedWorksheetId);
+            const submittedIds = new Set(worksheetSubmissions.map(s => s.worksheet_id));
+            return (
+            <motion.div key="ws" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane">
+               <div className="lane-header" style={{ background: 'linear-gradient(90deg, ' + (currentCourse.branding?.primaryColor || '#16a34a') + '22 0%, ' + (currentCourse.branding?.secondaryColor || '#0ea5e9') + '22 100%)', color: '#0f172a' }}>
+                  <span style={{ fontSize: '1.5rem' }}>{currentCourse.branding?.logoEmoji}</span>
+                  <strong>{currentCourse.name}</strong> · Worksheets {worksheetSubmissions.length}/{currentCourse.worksheets?.length || 0} ส่งแล้ว
+               </div>
+               <div className="lane-content" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                  {/* Left: stage + worksheet list */}
+                  <div style={{ flex: '0 0 320px', maxHeight: '70vh', overflowY: 'auto' }}>
+                     {(!currentCourse.worksheets || currentCourse.worksheets.length === 0) ? (
+                        <div className="card" style={{ textAlign: 'center', borderStyle: 'dashed', padding: '2rem' }}>
+                           <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>หลักสูตรนี้ยังไม่มี worksheets — admin สามารถเพิ่มได้ใน Course Admin → 📝 Worksheets</p>
+                        </div>
+                     ) : (
+                        (currentCourse.stages || []).map(stage => {
+                           const wsInStage = (currentCourse.worksheets || []).filter(w => w.stageId === stage.id);
+                           if (wsInStage.length === 0) return null;
+                           return (
+                              <div key={stage.id} className="card" style={{ marginBottom: '0.5rem', padding: '0.5rem' }}>
+                                 <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '0.25rem 0.4rem', color: '#475569' }}>
+                                    {stage.emoji} {stage.label}
+                                 </div>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {wsInStage.map(w => {
+                                       const isSelected = selectedWorksheetId === w.id;
+                                       const isDone = submittedIds.has(w.id);
+                                       return (
+                                          <button key={w.id} onClick={() => setSelectedWorksheetId(w.id)}
+                                             style={{
+                                                padding: '0.5rem 0.6rem', textAlign: 'left',
+                                                border: isSelected ? '2px solid ' + (currentCourse.branding?.primaryColor || '#16a34a') : '1px solid #e2e8f0',
+                                                background: isSelected ? '#f0fdf4' : '#fff',
+                                                borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem',
+                                                display: 'flex', alignItems: 'center', gap: 6
+                                             }}>
+                                             <span style={{ fontSize: '1.1rem' }}>{w.icon || '📝'}</span>
+                                             <span style={{ flex: 1 }}>{w.labelTH || w.label}</span>
+                                             {isDone && <span style={{ background: '#16a34a', color: '#fff', padding: '0.1rem 0.35rem', borderRadius: 8, fontSize: '0.65rem', fontWeight: 700 }}>✓</span>}
+                                          </button>
+                                       );
+                                    })}
+                                 </div>
+                              </div>
+                           );
+                        })
+                     )}
+                  </div>
+                  {/* Right: selected worksheet form */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                     {!myTeamIdForWorksheets ? (
+                        <div className="card" style={{ borderStyle: 'dashed', textAlign: 'center', padding: '3rem' }}>
+                           <p style={{ color: '#94a3b8' }}>คุณยังไม่ได้สังกัดทีม — กรุณาให้ครูเพิ่มคุณเข้าทีมก่อน</p>
+                        </div>
+                     ) : !ws ? (
+                        <div className="card" style={{ borderStyle: 'dashed', textAlign: 'center', padding: '3rem' }}>
+                           <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                           <h3 style={{ opacity: 0.5 }}>เลือก Worksheet จากรายการด้านซ้าย</h3>
+                           <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>หลักสูตร <strong>{currentCourse.name}</strong> มี <strong>{currentCourse.worksheets?.length || 0} worksheets</strong> ใน <strong>{currentCourse.stages?.length || 0} stages</strong></p>
+                        </div>
+                     ) : (
+                        <div className="card">
+                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: 8 }}>
+                              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                 <span style={{ fontSize: '1.8rem' }}>{ws.icon}</span>
+                                 {ws.labelTH || ws.label}
+                              </h3>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                 <button onClick={saveCurrentWorksheet} disabled={worksheetSaving} className="login-btn" style={{ background: '#16a34a', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
+                                    {worksheetSaving ? '⏳ กำลังบันทึก...' : '💾 บันทึก Worksheet'}
+                                 </button>
+                                 <button onClick={() => setSelectedWorksheetId(null)} className="login-btn" style={{ background: '#64748b', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>ปิด</button>
+                              </div>
+                           </div>
+                           {submittedIds.has(ws.id) && (
+                              <div style={{ padding: '0.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, marginBottom: '0.75rem', fontSize: '0.75rem', color: '#166534' }}>
+                                 ✅ ส่งแล้ว · แก้ไขเพิ่มเติมแล้วกด "บันทึก" อีกครั้งจะ overwrite ของเดิม
+                              </div>
+                           )}
+                           <GenericForm schema={ws} value={worksheetFormDraft} onChange={setWorksheetFormDraft} />
+                        </div>
+                     )}
+                  </div>
+               </div>
+            </motion.div>
+            );
+          })()}
 
           {activeTab === 'help' && (
             <motion.div key="help" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane manual-print">
