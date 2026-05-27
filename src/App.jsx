@@ -74,7 +74,15 @@ import {
   aiFeedbackOnPrompt,
   // Peer evaluation (EVAL-MATRIX)
   subscribeToPeerScores,
-  subscribeToTeamScoresRaw
+  subscribeToTeamScoresRaw,
+  // Multi-course (v2.0 Phase 2)
+  subscribeToCourses,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  cloneCourse,
+  setDefaultCourse,
+  seedLegacyGreenRayongCourse
 } from './api';
 
 // Ethics category metadata (Thai labels + emojis) — mirrors api.js zt rules
@@ -95,7 +103,94 @@ const SEVERITY_META = {
 // The five evaluation dimensions used in BOTH the Pitching Evaluator
 // and the EVAL-MATRIX. Keep these in sync so scores entered in one
 // place show up in the other.
+// NOTE (v2.0): kept as global for backwards compatibility with all current
+// hardcoded usages. New course-aware code should read from LEGACY_GREEN_RAYONG_COURSE.rubric.
 const SCORE_DIMENSIONS = ['AI Prompting', 'Local Wisdom', 'Creativity', 'Business Plan', 'Storytelling'];
+
+// ─────────────────────────────────────────────────────────────────────
+// MULTI-COURSE FOUNDATION (v2.0) — Phase 1
+// ─────────────────────────────────────────────────────────────────────
+// All current Green Rayong behavior captured as a Course config.
+// Future courses (Design Thinking + STEAM4Innovator, etc.) follow the same shape.
+// Stored in Firestore at /courses/{courseId}; merged with this constant as fallback.
+const LEGACY_GREEN_RAYONG_COURSE = {
+  schemaVersion: 1,
+  id: 'green-rayong',
+  name: 'Green Rayong 4-Identities AI Storytellers',
+  nameTH: 'Green Rayong 4-Identities AI Storytellers',
+  methodology: ['4-Identities'],
+  isDefault: true,
+  // Branding (mirrors DEFAULT_BRANDING; kept here so course can override)
+  branding: {
+    brandName: 'Green Rayong',
+    brandTagline: '4-Identities AI Storytellers',
+    logoEmoji: '🌿',
+    primaryColor: '#16a34a',
+    secondaryColor: '#0ea5e9',
+  },
+  // 4 identities of Green Rayong
+  identities: [
+    { id: 'garden', label: 'สวน', emoji: '🌳', color: '#16a34a' },
+    { id: 'forest', label: 'ป่า', emoji: '🌲', color: '#15803d' },
+    { id: 'farm',   label: 'นา', emoji: '🌾', color: '#ca8a04' },
+    { id: 'sea',    label: 'เล', emoji: '🌊', color: '#0ea5e9' },
+  ],
+  // Generic "stages" replaces the old phases/stages split (decision #5)
+  // Order matters; corresponds to the existing 7-step Submission Gateway flow.
+  stages: [
+    { id: 'team-setup',     order: 1, label: 'ตั้งทีม',          emoji: '👥' },
+    { id: 'mission-inbox',  order: 2, label: 'รับโจทย์',         emoji: '📥' },
+    { id: 'collector',      order: 3, label: 'On-site Collector', emoji: '📸' },
+    { id: 'gateway',        order: 4, label: 'Submission Gateway',emoji: '📤' },
+    { id: 'evaluation',     order: 5, label: 'Evaluation',        emoji: '⭐' },
+    { id: 'pitching',       order: 6, label: 'Pitching',          emoji: '🎤' },
+    { id: 'portfolio',      order: 7, label: 'Portfolio (R6)',    emoji: '🏆' },
+  ],
+  // 5 dimensions — same as SCORE_DIMENSIONS but as objects so admin can extend
+  rubric: SCORE_DIMENSIONS.map((dim, i) => ({
+    dimensionId : dim.toLowerCase().replace(/\s+/g, '-'),
+    label       : dim,
+    weight      : [20, 20, 20, 20, 20][i],
+    description : '',
+  })),
+  // Evaluator weights (5×5 Matrix · sum = 100)
+  evaluatorWeights: { self: 10, peer: 15, teacher: 35, sage: 25, ai: 15 },
+  // Worksheets: legacy course uses hardcoded forms (no schema-driven yet).
+  // New courses will populate this array; renderer will switch on schema presence.
+  worksheets: [],
+};
+
+// All available courses live in Firestore; this constant is the offline fallback
+// so the app works even if /courses/* is empty (first-time setup).
+const BUILTIN_COURSES = {
+  'green-rayong': LEGACY_GREEN_RAYONG_COURSE,
+};
+
+// Helper: merge Firestore course doc with built-in fallback (Firestore wins per-field)
+const mergeCourse = (firestoreDoc, courseId = 'green-rayong') => {
+  const fallback = BUILTIN_COURSES[courseId] || LEGACY_GREEN_RAYONG_COURSE;
+  if (!firestoreDoc) return fallback;
+  return {
+    ...fallback,
+    ...firestoreDoc,
+    branding   : { ...fallback.branding,   ...(firestoreDoc.branding   || {}) },
+    identities : firestoreDoc.identities?.length ? firestoreDoc.identities : fallback.identities,
+    stages     : firestoreDoc.stages?.length     ? firestoreDoc.stages     : fallback.stages,
+    rubric     : firestoreDoc.rubric?.length     ? firestoreDoc.rubric     : fallback.rubric,
+    worksheets : firestoreDoc.worksheets?.length ? firestoreDoc.worksheets : fallback.worksheets,
+    evaluatorWeights: { ...fallback.evaluatorWeights, ...(firestoreDoc.evaluatorWeights || {}) },
+  };
+};
+
+// Helper: extract a team's effective courses (decision #2: team can join multiple)
+// Reads both team.courseIds (v2) and team.courseId (v1 single) and team.course_id (Firestore snake_case)
+const getTeamCourseIds = (team) => {
+  if (!team) return ['green-rayong'];
+  if (Array.isArray(team.courseIds) && team.courseIds.length) return team.courseIds;
+  if (team.courseId) return [team.courseId];
+  if (team.course_id) return [team.course_id];
+  return ['green-rayong'];
+};
 
 // All evaluator roles we display in the matrix legend / cell badges.
 const EVALUATOR_ROLES = ['self', 'peer', 'teacher', 'sage', 'ai'];
@@ -147,6 +242,7 @@ const I18N = {
     'admin_sub_management': 'จัดการระบบ',
     'admin_sub_session'   : 'เซสชั่น',
     'admin_sub_moderation': 'ตรวจสอบจริยธรรม',
+    'admin_sub_courses'   : 'จัดการหลักสูตร',
     'admin_sub_branding'  : 'ปรับแบรนด์',
     'admin_sub_settings'  : 'ตั้งค่า',
     'admin_sub_reports'   : 'รายงาน',
@@ -209,6 +305,7 @@ const I18N = {
     'admin_sub_management': 'Management',
     'admin_sub_session'   : 'Session',
     'admin_sub_moderation': 'Moderation',
+    'admin_sub_courses'   : 'Courses',
     'admin_sub_branding'  : 'Branding',
     'admin_sub_settings'  : 'Settings',
     'admin_sub_reports'   : 'Reports',
@@ -375,6 +472,103 @@ export default function App() {
     } finally {
       setAuditRunning(false);
     }
+  };
+
+  // ─── Multi-Course management (v2.0 Phase 2) ───
+  const [coursesAll, setCoursesAll] = useState([]);
+  const [coursesSeeded, setCoursesSeeded] = useState(false);
+  const [newCourseForm, setNewCourseForm] = useState({
+    id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿'
+  });
+  const [editingCourseId, setEditingCourseId] = useState(null);
+  const [editCourseDraft, setEditCourseDraft] = useState(null);
+  useEffect(() => {
+    const unsub = subscribeToCourses((rows) => {
+      setCoursesAll(rows);
+      // Auto-seed Green Rayong on first ever admin visit if collection is empty
+      if (rows.length === 0 && !coursesSeeded) {
+        setCoursesSeeded(true);
+        seedLegacyGreenRayongCourse(LEGACY_GREEN_RAYONG_COURSE).catch(() => {});
+      }
+    });
+    return () => unsub?.();
+  // eslint-disable-next-line
+  }, []);
+  const handleCreateCourse = async () => {
+    const { id, name } = newCourseForm;
+    if (!id || !name) { window.alert('กรุณากรอก Course ID + ชื่อหลักสูตร'); return; }
+    if (!/^[a-z0-9-]{3,40}$/.test(id)) { window.alert('Course ID ใช้ a-z, 0-9, ขีดกลาง เท่านั้น (3-40 ตัวอักษร)'); return; }
+    try {
+      await createCourse(id, {
+        name: newCourseForm.name,
+        nameTH: newCourseForm.name,
+        methodology: [newCourseForm.methodology],
+        isDefault: false,
+        branding: {
+          brandName: newCourseForm.name,
+          brandTagline: newCourseForm.methodology + ' Learning',
+          logoEmoji: newCourseForm.logoEmoji,
+          primaryColor: newCourseForm.primaryColor,
+          secondaryColor: newCourseForm.secondaryColor,
+        },
+        identities: [],
+        stages: LEGACY_GREEN_RAYONG_COURSE.stages,
+        rubric: LEGACY_GREEN_RAYONG_COURSE.rubric,
+        evaluatorWeights: LEGACY_GREEN_RAYONG_COURSE.evaluatorWeights,
+        worksheets: [],
+      });
+      setNewCourseForm({ id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿' });
+      window.alert('✅ สร้างหลักสูตรสำเร็จ');
+    } catch (e) {
+      window.alert('❌ สร้างไม่สำเร็จ: ' + (e?.message || e));
+    }
+  };
+  const handleCloneCourse = async (sourceId) => {
+    const newId = window.prompt('ตั้งชื่อ Course ID ใหม่ (a-z, 0-9, ขีดกลาง):', sourceId + '-copy');
+    if (!newId) return;
+    try {
+      await cloneCourse(sourceId, newId);
+      window.alert('✅ Clone สำเร็จ — เปิดแก้ไขใน list ด้านล่าง');
+    } catch (e) { window.alert('❌ Clone ล้มเหลว: ' + (e?.message || e)); }
+  };
+  const handleDeleteCourse = async (courseId) => {
+    if (!window.confirm(`⚠️ ลบหลักสูตร "${courseId}"? ทีมและคะแนนที่ผูกกับหลักสูตรนี้ยังอยู่ในระบบ (ไม่ถูกลบ)`)) return;
+    try { await deleteCourse(courseId); }
+    catch (e) { window.alert('❌ ลบไม่ได้: ' + (e?.message || e)); }
+  };
+  const handleSetDefault = async (courseId) => {
+    if (!window.confirm(`ตั้ง "${courseId}" เป็นหลักสูตรเริ่มต้น? (ทีมใหม่จะใช้หลักสูตรนี้)`)) return;
+    try { await setDefaultCourse(courseId); window.alert('✅ ตั้งเป็นหลักสูตรเริ่มต้นแล้ว'); }
+    catch (e) { window.alert('❌ ' + (e?.message || e)); }
+  };
+  const startEditCourse = (course) => {
+    setEditingCourseId(course.id);
+    setEditCourseDraft({
+      name: course.name || '',
+      methodology: Array.isArray(course.methodology) ? course.methodology[0] : (course.methodology || 'DesignThinking'),
+      primaryColor: course.branding?.primaryColor || '#16a34a',
+      secondaryColor: course.branding?.secondaryColor || '#0ea5e9',
+      logoEmoji: course.branding?.logoEmoji || '🌿',
+    });
+  };
+  const saveEditCourse = async () => {
+    if (!editingCourseId || !editCourseDraft) return;
+    try {
+      await updateCourse(editingCourseId, {
+        name: editCourseDraft.name,
+        methodology: [editCourseDraft.methodology],
+        branding: {
+          brandName: editCourseDraft.name,
+          brandTagline: editCourseDraft.methodology + ' Learning',
+          logoEmoji: editCourseDraft.logoEmoji,
+          primaryColor: editCourseDraft.primaryColor,
+          secondaryColor: editCourseDraft.secondaryColor,
+        }
+      });
+      setEditingCourseId(null);
+      setEditCourseDraft(null);
+      window.alert('✅ บันทึกการแก้ไขแล้ว');
+    } catch (e) { window.alert('❌ ' + (e?.message || e)); }
   };
 
   // ─── Phase / Session manager (Activity Phases CRUD) ───
@@ -1549,6 +1743,7 @@ export default function App() {
                     { id: 'management', label: t('admin_sub_management') },
                     { id: 'session',    label: t('admin_sub_session')    },
                     { id: 'moderation', label: t('admin_sub_moderation') },
+                    { id: 'courses',    label: t('admin_sub_courses')    },
                     { id: 'branding',   label: t('admin_sub_branding')   },
                     { id: 'settings',   label: t('admin_sub_settings')   },
                     { id: 'reports',    label: t('admin_sub_reports')    }
@@ -1861,6 +2056,123 @@ export default function App() {
                         </div>
                         );
                      })()}
+                     {adminSubTab === 'courses' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                           {/* Header */}
+                           <div className="card" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1e40af' }}>📚 จัดการหลักสูตร (Multi-Course)</h5>
+                              <p style={{ fontSize: '0.8125rem', marginTop: '0.5rem', color: '#1e40af' }}>
+                                 ระบบรองรับหลายหลักสูตรในเว็บเดียว — แต่ละหลักสูตรมี <strong>stages, identities, rubric, worksheets</strong> ของตัวเอง · ทีมสามารถเข้าหลายหลักสูตรพร้อมกันได้
+                              </p>
+                              <p style={{ fontSize: '0.75rem', marginTop: '0.4rem', color: '#1e3a8a' }}>
+                                 💡 หลักสูตรเริ่มต้น <strong>Green Rayong</strong> สร้างอัตโนมัติเมื่อเปิด tab นี้ครั้งแรก
+                              </p>
+                           </div>
+
+                           {/* Create new course */}
+                           <div className="card">
+                              <h5>➕ สร้างหลักสูตรใหม่</h5>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 8, marginTop: '0.75rem' }}>
+                                 <input type="text" value={newCourseForm.id} onChange={e => setNewCourseForm({ ...newCourseForm, id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} placeholder="course-id (a-z, 0-9, ขีดกลาง)" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, fontFamily: 'monospace', fontSize: '0.8rem' }} />
+                                 <input type="text" value={newCourseForm.name} onChange={e => setNewCourseForm({ ...newCourseForm, name: e.target.value })} placeholder="ชื่อหลักสูตร (เช่น Design Thinking + STEAM4Innovator)" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                 <select value={newCourseForm.methodology} onChange={e => setNewCourseForm({ ...newCourseForm, methodology: e.target.value })} style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6 }}>
+                                    <option value="DesignThinking">Design Thinking</option>
+                                    <option value="STEAM4Innovator">STEAM4Innovator</option>
+                                    <option value="LeanStartup">Lean Startup</option>
+                                    <option value="PBL">Project-Based Learning</option>
+                                    <option value="4-Identities">4-Identities (Green Rayong-style)</option>
+                                    <option value="Custom">Custom</option>
+                                 </select>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr auto', gap: 8, marginTop: '0.5rem', alignItems: 'center' }}>
+                                 <input type="text" value={newCourseForm.logoEmoji} onChange={e => setNewCourseForm({ ...newCourseForm, logoEmoji: e.target.value })} maxLength={4} placeholder="🌿" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontSize: '1.3rem' }} />
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <input type="color" value={newCourseForm.primaryColor} onChange={e => setNewCourseForm({ ...newCourseForm, primaryColor: e.target.value })} style={{ width: 40, height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Primary</span>
+                                 </div>
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <input type="color" value={newCourseForm.secondaryColor} onChange={e => setNewCourseForm({ ...newCourseForm, secondaryColor: e.target.value })} style={{ width: 40, height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Secondary</span>
+                                 </div>
+                                 <button onClick={handleCreateCourse} className="login-btn" style={{ background: '#16a34a', padding: '0.5rem 1.2rem' }}>+ สร้าง</button>
+                              </div>
+                           </div>
+
+                           {/* Course list */}
+                           {coursesAll.length === 0 ? (
+                              <div className="card" style={{ borderStyle: 'dashed', textAlign: 'center', padding: '2rem' }}>
+                                 <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>⏳ กำลังสร้างหลักสูตรเริ่มต้น Green Rayong...</p>
+                              </div>
+                           ) : (
+                              coursesAll.map(c => {
+                                 const isEditing = editingCourseId === c.id;
+                                 const isLegacy  = c.id === 'green-rayong';
+                                 return (
+                                    <div key={c.id} className="card" style={{ borderLeft: `4px solid ${c.branding?.primaryColor || '#cbd5e1'}` }}>
+                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                          <div style={{ flex: 1 }}>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: '1.5rem' }}>{c.branding?.logoEmoji || '📚'}</span>
+                                                <h5 style={{ margin: 0, color: c.branding?.primaryColor }}>{c.name || c.id}</h5>
+                                                {c.isDefault && <span style={{ background: '#16a34a', color: '#fff', padding: '0.15rem 0.5rem', borderRadius: 12, fontSize: '0.65rem', fontWeight: 700 }}>⭐ DEFAULT</span>}
+                                                {isLegacy && <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '0.15rem 0.5rem', borderRadius: 12, fontSize: '0.65rem' }}>Legacy</span>}
+                                             </div>
+                                             <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 4, fontFamily: 'monospace' }}>
+                                                ID: {c.id} · Methodology: {(Array.isArray(c.methodology) ? c.methodology.join(', ') : c.methodology) || '—'} · Stages: {c.stages?.length || 0} · Worksheets: {c.worksheets?.length || 0} · Identities: {c.identities?.length || 0}
+                                             </div>
+                                          </div>
+                                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                             {!c.isDefault && <button onClick={() => handleSetDefault(c.id)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #16a34a', background: '#f0fdf4', color: '#16a34a', borderRadius: 4, cursor: 'pointer' }} title="ตั้งเป็นหลักสูตรเริ่มต้น">⭐ Set Default</button>}
+                                             <button onClick={() => startEditCourse(c)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 4, cursor: 'pointer' }}>✏️ แก้ไข</button>
+                                             <button onClick={() => handleCloneCourse(c.id)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1e40af', borderRadius: 4, cursor: 'pointer' }}>📋 Clone</button>
+                                             {!isLegacy && <button onClick={() => handleDeleteCourse(c.id)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 4, cursor: 'pointer' }}>🗑 ลบ</button>}
+                                          </div>
+                                       </div>
+                                       {isEditing && editCourseDraft && (
+                                          <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#f8fafc', borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                                             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
+                                                <input type="text" value={editCourseDraft.name} onChange={e => setEditCourseDraft({ ...editCourseDraft, name: e.target.value })} placeholder="ชื่อหลักสูตร" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                <select value={editCourseDraft.methodology} onChange={e => setEditCourseDraft({ ...editCourseDraft, methodology: e.target.value })} style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6 }}>
+                                                   <option value="DesignThinking">Design Thinking</option>
+                                                   <option value="STEAM4Innovator">STEAM4Innovator</option>
+                                                   <option value="LeanStartup">Lean Startup</option>
+                                                   <option value="PBL">Project-Based Learning</option>
+                                                   <option value="4-Identities">4-Identities</option>
+                                                   <option value="Custom">Custom</option>
+                                                </select>
+                                             </div>
+                                             <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr', gap: 8, marginTop: 6, alignItems: 'center' }}>
+                                                <input type="text" value={editCourseDraft.logoEmoji} onChange={e => setEditCourseDraft({ ...editCourseDraft, logoEmoji: e.target.value })} maxLength={4} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontSize: '1.3rem' }} />
+                                                <input type="color" value={editCourseDraft.primaryColor} onChange={e => setEditCourseDraft({ ...editCourseDraft, primaryColor: e.target.value })} style={{ width: '100%', height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                <input type="color" value={editCourseDraft.secondaryColor} onChange={e => setEditCourseDraft({ ...editCourseDraft, secondaryColor: e.target.value })} style={{ width: '100%', height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                             </div>
+                                             <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                                                <button onClick={saveEditCourse} className="login-btn" style={{ flex: 1, background: '#16a34a', padding: '0.45rem' }}>💾 บันทึก</button>
+                                                <button onClick={() => { setEditingCourseId(null); setEditCourseDraft(null); }} className="login-btn" style={{ flex: 1, background: '#64748b', padding: '0.45rem' }}>ยกเลิก</button>
+                                             </div>
+                                             <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: 6, fontStyle: 'italic' }}>
+                                                💡 ตอนนี้แก้ไขได้แค่ข้อมูลพื้นฐาน — Phase ถัดไป (P3) จะมี <strong>Worksheet Schema Editor</strong> สำหรับสร้าง form ตามหลักสูตรของคุณ
+                                             </p>
+                                          </div>
+                                       )}
+                                    </div>
+                                 );
+                              })
+                           )}
+
+                           {/* Hint card */}
+                           <div className="card" style={{ background: '#fefce8', border: '1px solid #fde68a' }}>
+                              <h5 style={{ color: '#854d0e' }}>🔮 จะมีอะไรเพิ่มใน Phase ถัดไป?</h5>
+                              <ul style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#92400e', paddingLeft: '1.2rem' }}>
+                                 <li><strong>P3:</strong> Worksheet Schema Editor (drag-drop fields) — สร้าง form ตามหลักสูตรของคุณเอง</li>
+                                 <li><strong>P4:</strong> Generic Form Renderer — render worksheet schema เป็น form ใช้งานจริง</li>
+                                 <li><strong>P5:</strong> Migrate Green Rayong 7 steps → worksheets</li>
+                                 <li><strong>P6:</strong> Seed Design Thinking + STEAM4Innovator (19 worksheets จาก JSON schema)</li>
+                                 <li><strong>P7:</strong> Course Selector — student เลือกหลักสูตรตอน Login</li>
+                              </ul>
+                           </div>
+                        </div>
+                     )}
                      {adminSubTab === 'branding' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                            {/* Header */}

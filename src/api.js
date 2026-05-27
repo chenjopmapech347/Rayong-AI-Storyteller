@@ -735,9 +735,21 @@ export async function adminUpdateUser(id, data) {
 }
 
 // ─── Admin: Teams CRUD ──────────────────────────────────
+// v2.0: teams can join multiple courses via team.courseIds (decision #2).
+// Legacy teams (team.courseId or no courseId field) auto-default to ['green-rayong'].
 export async function adminCreateTeam(t) {
+  // Normalize courseIds: accept either courseIds (array) or courseId (string).
+  // Always default to ['green-rayong'] so v1 callers still work.
+  let courseIds;
+  if (Array.isArray(t.courseIds) && t.courseIds.length) courseIds = t.courseIds;
+  else if (t.courseId)  courseIds = [t.courseId];
+  else if (t.course_id) courseIds = [t.course_id];
+  else                  courseIds = ['green-rayong'];
+
   return await addDoc(collection(db, "teams"), {
     ...t,
+    courseIds,                      // v2 canonical field (array)
+    courseId : courseIds[0],        // v1 compat field (first course)
     created_at: serverTimestamp()
   });
 }
@@ -747,7 +759,35 @@ export async function adminDeleteTeam(id) {
 }
 
 export async function adminUpdateTeam(id, data) {
-  await updateDoc(doc(db, "teams", id), data);
+  // Keep courseId in sync if caller updates courseIds, and vice versa
+  const patch = { ...data };
+  if (Array.isArray(patch.courseIds) && patch.courseIds.length) {
+    patch.courseId = patch.courseIds[0];
+  } else if (patch.courseId && !patch.courseIds) {
+    patch.courseIds = [patch.courseId];
+  }
+  await updateDoc(doc(db, "teams", id), patch);
+}
+
+// v2.0 helper: add a course to a team without removing existing courses
+export async function addCourseToTeam(teamId, courseId) {
+  const snap = await getDoc(doc(db, "teams", teamId));
+  if (!snap.exists()) throw new Error('Team not found');
+  const existing = snap.data().courseIds || (snap.data().courseId ? [snap.data().courseId] : []);
+  if (existing.includes(courseId)) return { ok: true, skipped: true };
+  const next = [...existing, courseId];
+  await updateDoc(doc(db, "teams", teamId), { courseIds: next, courseId: next[0] });
+  return { ok: true, courseIds: next };
+}
+
+export async function removeCourseFromTeam(teamId, courseId) {
+  const snap = await getDoc(doc(db, "teams", teamId));
+  if (!snap.exists()) throw new Error('Team not found');
+  const existing = snap.data().courseIds || (snap.data().courseId ? [snap.data().courseId] : ['green-rayong']);
+  const next = existing.filter(c => c !== courseId);
+  if (next.length === 0) throw new Error('Team must belong to at least one course');
+  await updateDoc(doc(db, "teams", teamId), { courseIds: next, courseId: next[0] });
+  return { ok: true, courseIds: next };
 }
 
 // ─── Good Prompts ───────────────────────────────────────
@@ -1942,6 +1982,122 @@ ${margin > 0 ? `• **Margin (${margin} บาท)** — โมเดลธุ�
 
 // ─── Reset & Seed Demo Data ─────────────────────────────
 // DESTRUCTIVE: clears Firestore docs in core collections and rebuilds from scratch:
+// ─── MULTI-COURSE CRUD (v2.0 Phase 1.2) ─────────────────────────────
+// Courses live in /courses/{courseId}. Each course is a self-contained config
+// (stages, identities, rubric, worksheets, branding). UI fetches active course
+// and merges with BUILTIN_COURSES fallback. Designed for backwards compatibility:
+// teams without a courseId still work — they default to 'green-rayong'.
+
+// Subscribe to all courses (admin uses this to populate Course list + dropdowns)
+export function subscribeToCourses(callback) {
+  return onSnapshot(collection(db, 'courses'), (snap) => {
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Sort: isDefault first, then by name
+    rows.sort((a, b) => {
+      if (a.isDefault && !b.isDefault) return -1;
+      if (!a.isDefault && b.isDefault) return 1;
+      return (a.name || a.id).localeCompare(b.name || b.id);
+    });
+    callback(rows);
+  });
+}
+
+// Read one course (used for course-aware components on demand)
+export async function getCourse(courseId) {
+  const snap = await getDoc(doc(db, 'courses', courseId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// Create a new course (admin form). `data` should match LEGACY_GREEN_RAYONG_COURSE shape.
+export async function createCourse(courseId, data) {
+  if (!courseId || !/^[a-z0-9-]{3,40}$/.test(courseId)) {
+    throw new Error('Invalid courseId — use lowercase letters, digits, hyphens (3-40 chars)');
+  }
+  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  await setDoc(doc(db, 'courses', courseId), {
+    ...data,
+    id: courseId,
+    schemaVersion: data.schemaVersion || 1,
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+    created_by: me.id || null
+  }, { merge: false });
+  return { ok: true, id: courseId };
+}
+
+// Patch course (admin edit). Use this for partial updates so subscribers see real-time changes.
+export async function updateCourse(courseId, patch) {
+  await updateDoc(doc(db, 'courses', courseId), {
+    ...patch,
+    updated_at: serverTimestamp()
+  });
+}
+
+// Delete course (admin only — confirm in UI, this won't delete linked teams/submissions)
+export async function deleteCourse(courseId) {
+  if (courseId === 'green-rayong') {
+    throw new Error('Cannot delete the legacy default course (green-rayong)');
+  }
+  await deleteDoc(doc(db, 'courses', courseId));
+}
+
+// Clone an existing course (useful: "duplicate Green Rayong → tweak for new region")
+export async function cloneCourse(sourceCourseId, newCourseId, overrides = {}) {
+  const src = await getCourse(sourceCourseId);
+  if (!src) throw new Error(`Source course not found: ${sourceCourseId}`);
+  const { id, created_at, updated_at, created_by, ...rest } = src;
+  return createCourse(newCourseId, {
+    ...rest,
+    ...overrides,
+    isDefault: false,  // clones are never default
+    name: overrides.name || `${src.name} (Copy)`
+  });
+}
+
+// Set the default course (admin: pick which course new students/teams go to)
+// Only one course can have isDefault=true at a time. Stored in app_config.
+export async function setDefaultCourse(courseId) {
+  await setDoc(APP_CONFIG_DOC, { default_course_id: courseId, updated_at: serverTimestamp() }, { merge: true });
+  // Optimistic update: also flip the isDefault flag on the course docs
+  const allCourses = await getDocs(collection(db, 'courses'));
+  const batch = [];
+  for (const d of allCourses.docs) {
+    if (d.id === courseId)         batch.push(updateDoc(d.ref, { isDefault: true }));
+    else if (d.data().isDefault)   batch.push(updateDoc(d.ref, { isDefault: false }));
+  }
+  await Promise.all(batch);
+}
+
+// Worksheet versioning helper (decision #3 — auto-migrate matching field IDs)
+// Given old worksheet data + new worksheet schema, keep matching fields, leave new fields blank.
+export function migrateWorksheetData(oldData, newSchema) {
+  if (!oldData || !newSchema?.fields) return oldData || {};
+  const newData = {};
+  for (const field of newSchema.fields) {
+    if (Object.prototype.hasOwnProperty.call(oldData, field.id)) {
+      newData[field.id] = oldData[field.id];  // preserve matching field
+    }
+    // else: leave undefined → form will show as empty input for student to fill
+  }
+  // Preserve metadata fields (team, date, etc.) even if not in schema
+  ['team', 'date', 'submittedAt', 'submittedBy', '_meta'].forEach(k => {
+    if (oldData[k] != null) newData[k] = oldData[k];
+  });
+  return newData;
+}
+
+// Seed the legacy Green Rayong course into Firestore (one-time, on first admin visit)
+// Called from setupGreenRayongCourse() or auto-run from Admin → Courses if empty.
+export async function seedLegacyGreenRayongCourse(courseData) {
+  const existing = await getCourse('green-rayong');
+  if (existing) return { ok: true, skipped: true, reason: 'Already exists' };
+  await createCourse('green-rayong', { ...courseData, isDefault: true });
+  return { ok: true, created: true };
+}
+
+// ─── END Multi-Course CRUD ──────────────────────────────────────────
+
+
 //  • 1 admin · 4 teachers · 2 sages · 12 students · 3 system test accounts · 3 teams
 // Old Firebase Auth accounts remain in Auth (must be deleted manually in Console
 // if you want clean slate there too — adminCreateUser handles already-exists case).
