@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPage from './LoginPage';
+import { COURSE_SEEDS } from './courseSeeds';
 import {
   logout,
   getUsers,
@@ -620,6 +621,25 @@ export default function App() {
     return () => unsub?.();
   // eslint-disable-next-line
   }, []);
+  // Import a pre-defined seed course (e.g. Design Thinking + S4I) — Phase 6
+  const handleImportSeedCourse = async (seedId) => {
+    const seed = COURSE_SEEDS[seedId];
+    if (!seed) { window.alert('Seed not found: ' + seedId); return; }
+    // Check if already imported
+    if (coursesAll.find(c => c.id === seedId)) {
+      if (!window.confirm(`หลักสูตร "${seed.name}" มีอยู่แล้ว — Override ของเดิม?`)) return;
+      try {
+        await updateCourse(seedId, { ...seed, updated_at: new Date().toISOString() });
+        window.alert(`✅ Override สำเร็จ — ${seed.worksheets.length} worksheets`);
+      } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+    } else {
+      try {
+        await createCourse(seedId, seed);
+        window.alert(`✅ Import สำเร็จ — ${seed.name} (${seed.worksheets.length} worksheets)`);
+      } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+    }
+  };
+
   const handleCreateCourse = async () => {
     const { id, name } = newCourseForm;
     if (!id || !name) { window.alert('กรุณากรอก Course ID + ชื่อหลักสูตร'); return; }
@@ -2275,6 +2295,34 @@ export default function App() {
                               <p style={{ fontSize: '0.75rem', marginTop: '0.4rem', color: '#1e3a8a' }}>
                                  💡 หลักสูตรเริ่มต้น <strong>Green Rayong</strong> สร้างอัตโนมัติเมื่อเปิด tab นี้ครั้งแรก
                               </p>
+                           </div>
+
+                           {/* ─── Import seed courses (pre-defined templates) ─── */}
+                           <div className="card" style={{ background: '#fdf4ff', border: '1px solid #f5d0fe' }}>
+                              <h5 style={{ color: '#86198f' }}>📦 Import หลักสูตรสำเร็จรูป (Seed Templates)</h5>
+                              <p style={{ fontSize: '0.75rem', marginTop: '0.4rem', color: '#86198f' }}>
+                                 หลักสูตรที่ทีม R-Eco-Pilot เตรียมไว้ให้ใช้ทันที — กดปุ่มเดียวนำเข้า worksheets + rubric ครบ
+                              </p>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8, marginTop: '0.75rem' }}>
+                                 {Object.entries(COURSE_SEEDS).map(([seedId, seed]) => {
+                                    const alreadyImported = coursesAll.find(c => c.id === seedId);
+                                    return (
+                                       <div key={seedId} style={{ padding: '0.75rem', background: '#fff', border: '1px solid ' + (seed.branding?.primaryColor || '#cbd5e1'), borderRadius: 8 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                             <span style={{ fontSize: '1.5rem' }}>{seed.branding?.logoEmoji || '📚'}</span>
+                                             <strong style={{ color: seed.branding?.primaryColor, fontSize: '0.85rem' }}>{seed.name}</strong>
+                                          </div>
+                                          <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: 6 }}>
+                                             {Array.isArray(seed.methodology) ? seed.methodology.join(' + ') : seed.methodology} · {seed.worksheets?.length || 0} worksheets · {seed.stages?.length || 0} stages
+                                          </div>
+                                          <p style={{ fontSize: '0.7rem', color: '#475569', marginBottom: 8, lineHeight: 1.4 }}>{seed.description?.slice(0, 140) + (seed.description?.length > 140 ? '...' : '')}</p>
+                                          <button onClick={() => handleImportSeedCourse(seedId)} className="login-btn" style={{ background: alreadyImported ? '#f59e0b' : '#a855f7', width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>
+                                             {alreadyImported ? '🔄 Re-import (Override)' : '📥 Import เข้าระบบ'}
+                                          </button>
+                                       </div>
+                                    );
+                                 })}
+                              </div>
                            </div>
 
                            {/* Create new course */}
