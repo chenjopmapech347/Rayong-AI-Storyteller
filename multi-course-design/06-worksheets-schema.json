@@ -1,0 +1,554 @@
+{
+  "$schema": "https://r-eco-pilot.dev/schemas/course.v1.json",
+  "courseId": "design-thinking-s4i",
+  "version": "1.0",
+  "extractedFrom": "river-waste-innovation.pptx (22 slides) — 20/05/69",
+  "department": "แผนกคอมพิวเตอร์ธุรกิจและเทคโนโลยีสารสนเทศ",
+
+  "course": {
+    "name": "Design Thinking + STEAM4Innovator",
+    "nameTH": "สนามการเรียนรู้นวัตกรรม (Design Thinking + STEAM4Innovator)",
+    "description": "Generic innovation learning platform — students choose any community/area, identify problems, and create innovation solutions using combined Design Thinking (5 stages) and STEAM4Innovator (4 phases) methodology",
+    "descriptionTH": "ระบบเรียนรู้การสร้างนวัตกรรม — นักศึกษาเลือกพื้นที่/ชุมชนใด ๆ ค้นหาปัญหา และสร้างนวัตกรรมโดยใช้กรอบ Design Thinking 5 ขั้นและ STEAM4Innovator 4 ขั้น",
+    "methodology": ["DesignThinking", "STEAM4Innovator"],
+    "audience": "ปวส. (Vocational, Year 1-2)",
+    "domain": "Open — students choose (river waste, school waste, market, factory, agriculture, etc.)"
+  },
+
+  "branding": {
+    "primaryColor": "#0891b2",
+    "secondaryColor": "#06b6d4",
+    "logoEmoji": "💡",
+    "tagline": "Innovate for your community"
+  },
+
+  "stages": [
+    { "id": "stage-empathize",  "order": 1, "label": "Empathize",  "labelTH": "เข้าใจ",       "color": "#ef4444", "emoji": "❤️", "s4iPhase": "INSIGHT" },
+    { "id": "stage-define",     "order": 2, "label": "Define",     "labelTH": "กำหนดโจทย์",   "color": "#f97316", "emoji": "🎯", "s4iPhase": "INSIGHT" },
+    { "id": "stage-ideate",     "order": 3, "label": "Ideate",     "labelTH": "ระดมไอเดีย",   "color": "#eab308", "emoji": "💡", "s4iPhase": "WOW_IDEA" },
+    { "id": "stage-prototype",  "order": 4, "label": "Prototype",  "labelTH": "ต้นแบบ",       "color": "#84cc16", "emoji": "🛠️", "s4iPhase": "BUSINESS_MODEL" },
+    { "id": "stage-test",       "order": 5, "label": "Test",       "labelTH": "ทดสอบ",        "color": "#06b6d4", "emoji": "🧪", "s4iPhase": "PRODUCTION_DIFFUSION" },
+    { "id": "stage-plan",       "order": 6, "label": "Plan",       "labelTH": "วางแผน",       "color": "#8b5cf6", "emoji": "📅", "s4iPhase": "PRODUCTION_DIFFUSION" },
+    { "id": "stage-reflect",    "order": 7, "label": "Reflect",    "labelTH": "ทบทวน",        "color": "#64748b", "emoji": "🪞", "s4iPhase": "REFLECTION" }
+  ],
+
+  "identities": [
+    { "id": "scenario-river",     "label": "River / Canal",  "labelTH": "คลอง / แม่น้ำ",        "emoji": "🏞️", "exampleProblem": "ขยะลอยน้ำ, น้ำเสีย, นิเวศเสียหาย" },
+    { "id": "scenario-community", "label": "Community",      "labelTH": "ชุมชน / หมู่บ้าน",      "emoji": "🏘️", "exampleProblem": "ขยะตามถนน, แยกขยะไม่ได้, ไม่มีจุดทิ้ง" },
+    { "id": "scenario-school",    "label": "School",         "labelTH": "โรงเรียน / วิทยาลัย",   "emoji": "🏫", "exampleProblem": "ขยะอาหาร, พลาสติกจากกล่องนม, ไม่แยก" },
+    { "id": "scenario-market",    "label": "Market",         "labelTH": "ตลาด",               "emoji": "🛒", "exampleProblem": "ถุงพลาสติก, เศษอาหาร, น้ำเสีย" },
+    { "id": "scenario-factory",   "label": "Factory",        "labelTH": "โรงงาน",             "emoji": "🏭", "exampleProblem": "ของเสียอุตสาหกรรม, น้ำเสีย, ฝุ่นละออง" },
+    { "id": "scenario-farm",      "label": "Farm",           "labelTH": "นา / สวน / ฟาร์ม",   "emoji": "🌾", "exampleProblem": "ขยะการเกษตร, สารเคมี, น้ำเสีย" },
+    { "id": "scenario-custom",    "label": "Custom",         "labelTH": "อื่น ๆ (นักศึกษากำหนดเอง)", "emoji": "✨", "exampleProblem": "—" }
+  ],
+
+  "rubric": [
+    { "dimensionId": "innovation",        "label": "Innovation",            "labelTH": "ความเป็นนวัตกรรม",       "weight": 25, "description": "ใหม่ · แก้ปัญหาได้จริง · ขยายผลได้" },
+    { "dimensionId": "community-impact",  "label": "Community Impact",      "labelTH": "ผลกระทบต่อชุมชน",       "weight": 20, "description": "Stakeholder ที่ได้ประโยชน์ · SROI · sustainability" },
+    { "dimensionId": "steam-integration", "label": "STEAM Integration",     "labelTH": "การบูรณาการ STEAM",     "weight": 20, "description": "ใช้ Science/Tech/Engineering/Arts/Math อย่างไร" },
+    { "dimensionId": "process",           "label": "Design Thinking Process","labelTH": "กระบวนการ Design Thinking", "weight": 15, "description": "ครบ 5 stage · iterative · evidence-based" },
+    { "dimensionId": "presentation",      "label": "Presentation",           "labelTH": "การนำเสนอ",            "weight": 20, "description": "ชัดเจน · มี Storytelling · จัดเวลาได้" }
+  ],
+
+  "evaluatorWeights": { "self": 10, "peer": 15, "teacher": 35, "sage": 25, "ai": 15 },
+
+  "worksheets": [
+    {
+      "id": "WS-A",
+      "label": "Innovation",
+      "labelTH": "นวัตกรรมคืออะไร?",
+      "stageId": "stage-empathize",
+      "icon": "💭",
+      "order": 1,
+      "sourceSlide": 2,
+      "type": "knowledge-and-worksheet",
+      "instructionTH": "ทบทวนความหมาย องค์ประกอบ ประเภท และแนวทางการสร้างนวัตกรรมแบบ STEAM4INNOVATOR",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม", "required": true },
+        { "id": "date", "type": "date", "label": "วันที่", "required": true },
+        { "id": "q1_innovation_meaning",  "type": "textarea", "label": "1. เราเข้าใจว่า 'นวัตกรรม (Innovation)' คืออะไร และประกอบด้วยอะไรบ้าง?", "rows": 4, "placeholder": "นวัตกรรม = ___ + ___ + ___" },
+        { "id": "q2_differences",         "type": "table", "label": "2. คำเหล่านี้ 'แตกต่าง' กันอย่างไร", "columns": ["คำ", "ความหมาย/นิยาม", "ตัวอย่าง"], "rows": ["นวัตกรรมทางเศรษฐกิจ", "นวัตกรรมทางสังคม", "สิ่งประดิษฐ์"] },
+        { "id": "q3_types",               "type": "list", "label": "3. นวัตกรรมแบ่งเป็นประเภทอะไรบ้าง?", "minItems": 4, "itemSchema": [ { "id": "type", "type": "text", "label": "ประเภท" }, { "id": "example", "type": "text", "label": "ตัวอย่าง" } ] }
+      ]
+    },
+
+    {
+      "id": "WS-B",
+      "label": "STEAM4Innovator",
+      "labelTH": "STEAM4Innovator คืออะไร?",
+      "stageId": "stage-empathize",
+      "icon": "🔬",
+      "order": 2,
+      "sourceSlide": 4,
+      "instructionTH": "ทบทวนองค์ประกอบของ STEAM และลักษณะของนักนวัตกร",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "q1_steam_meaning",  "type": "textarea", "label": "1. 'STEAM' คืออะไร? ประกอบด้วยอะไรบ้าง?", "rows": 3 },
+        { "id": "q2_steam_breakdown","type": "table", "label": "2. แต่ละองค์ประกอบของ STEAM", "columns": ["ตัวอักษร", "ความหมาย", "ตัวอย่างในโปรเจกต์ของเรา"], "rows": ["S - Science", "T - Technology", "E - Engineering", "A - Arts", "M - Mathematics"] },
+        { "id": "q3_innovator_traits", "type": "list", "label": "3. ลักษณะของนักนวัตกร (Innovator) ประกอบด้วยอะไรบ้าง?", "minItems": 3, "itemSchema": [ { "id": "trait", "type": "text", "label": "ลักษณะ" }, { "id": "why", "type": "text", "label": "ทำไมถึงสำคัญ" } ] }
+      ]
+    },
+
+    {
+      "id": "WS-StagesMap",
+      "label": "STEAM4Innovator 4 Stages",
+      "labelTH": "วิธีสร้างนวัตกรรมแบบ STEAM4Innovator (4 ขั้น)",
+      "stageId": "stage-empathize",
+      "icon": "🗺️",
+      "order": 3,
+      "sourceSlide": 3,
+      "type": "drag-drop-categorize",
+      "instructionTH": "นำคำ/วลีไปจัดในขั้นตอน (ช่อง) ที่เกี่ยวข้อง",
+      "fields": [
+        {
+          "id": "categorize",
+          "type": "categorize",
+          "label": "จัดประเภทคำเหล่านี้เข้า 4 ขั้น STEAM4Innovator",
+          "items": [
+            "หากลุ่มเป้าหมาย", "สร้างต้นแบบ (Prototype)", "จัดจำหน่ายและโฆษณา",
+            "สัมภาษณ์ทำความเข้าใจ", "สร้างภาพลักษณ์ (Brand)", "ทดสอบกับกลุ่มเป้าหมาย",
+            "เลือกไอเดียที่ตอบโจทย์", "หาความร่วมมือ/เครือข่าย",
+            "ค้นพบปัญหา/โอกาส", "คิดไอเดียแปลกใหม่", "กระจายผลิตภัณฑ์/บริการ",
+            "ลงพื้นที่สังเกตเพื่อเข้าใจ"
+          ],
+          "categories": [
+            { "id": "insight",       "label": "INSIGHT",                 "labelTH": "ค้นพบปัญหา / Insight" },
+            { "id": "wow-idea",      "label": "WOW! IDEA",               "labelTH": "ไอเดียที่ว้าว!" },
+            { "id": "business",      "label": "BUSINESS MODEL",          "labelTH": "แผนธุรกิจ" },
+            { "id": "production",    "label": "PRODUCTION & DIFFUSION",  "labelTH": "ผลิตและกระจาย" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "WS-C",
+      "label": "Situation Map",
+      "labelTH": "แผนที่สถานการณ์ในพื้นที่",
+      "stageId": "stage-empathize",
+      "icon": "🗺️",
+      "order": 4,
+      "sourceSlide": 5,
+      "instructionTH": "เดินดู สังเกต การจัดการปัญหาในพื้นที่หรือชุมชนแล้ววาดแผนที่",
+      "fields": [
+        { "id": "team",     "type": "text", "label": "ชื่อทีม" },
+        { "id": "location", "type": "text", "label": "สถานที่ (ลงพื้นที่จริง)" },
+        { "id": "date",     "type": "date", "label": "วันที่" },
+        { "id": "time",     "type": "text", "label": "เวลา" },
+        { "id": "map_drawing",   "type": "drawing", "label": "1. แผนที่ — จุดที่เกิดปัญหา / ทิ้ง / จัดการ", "instructionTH": "วาดแผนที่ + ระบุจุดสำคัญ + คำอธิบายย่อ" },
+        { "id": "map_photo",     "type": "image", "label": "หรือถ่ายภาพแผนที่ที่วาด (ถ้าวาดบนกระดาษ)" },
+        { "id": "items_observed", "type": "textarea", "label": "2. มีอะไรเกี่ยวข้องบ้าง? (ประเภท / จำนวน / สัดส่วน)", "rows": 5 },
+        { "id": "people_involved","type": "list", "label": "3. ผู้คน — มีใครเกี่ยวข้องและทำอะไรบ้าง?", "minItems": 1, "itemSchema": [ { "id": "role",    "type": "select", "label": "บทบาท", "options": ["คนสร้างปัญหา", "คนจัดการ/แก้", "คนได้รับผลกระทบ", "ผู้นำชุมชน", "เจ้าหน้าที่รัฐ", "ภาคเอกชน", "อื่น ๆ"] }, { "id": "name",    "type": "text", "label": "ชื่อ/อายุ/อาชีพ" }, { "id": "details", "type": "textarea", "label": "ทำอะไร / เกี่ยวข้องอย่างไร", "rows": 2 } ] },
+        { "id": "summary",       "type": "textarea", "label": "4. สรุป — พื้นที่/ชุมชนที่สำรวจ + เรื่องน่าสนใจหรือปัญหาสำคัญ", "rows": 5 }
+      ],
+      "stageMetadata": { "designThinking": "Stage 1 Empathize" }
+    },
+
+    {
+      "id": "WS-D",
+      "label": "Situation Talk",
+      "labelTH": "คุยกับคนในพื้นที่",
+      "stageId": "stage-empathize",
+      "icon": "💬",
+      "order": 5,
+      "sourceSlide": 6,
+      "instructionTH": "พูดคุยและถามความคิดเห็นคนในพื้นที่หลาย ๆ คน + สังเกตพฤติกรรม",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "location", "type": "text", "label": "สถานที่" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "time", "type": "text", "label": "เวลา" },
+        { "id": "interviews", "type": "list", "label": "บันทึกการสัมภาษณ์ (≥ 3 คน)", "minItems": 3, "itemSchema": [
+            { "id": "photo",       "type": "image", "label": "ภาพหรือวาดรูปคนที่คุยด้วย" },
+            { "id": "name",        "type": "text", "label": "ชื่อ (ถ้าได้รับอนุญาต)" },
+            { "id": "age",         "type": "number", "label": "อายุ (ปี)" },
+            { "id": "gender",      "type": "select", "label": "เพศ", "options": ["ชาย", "หญิง", "อื่น ๆ", "ไม่ระบุ"] },
+            { "id": "occupation",  "type": "text", "label": "อาชีพ" },
+            { "id": "stakeholder_type", "type": "select", "label": "กลุ่ม", "options": ["คนในชุมชน", "ผู้นำชุมชน", "ผู้จัดการ", "รัฐ (เทศบาล/อปท.)", "เอกชน (ซาเล้ง/รับซื้อ)", "อื่น ๆ"] },
+            { "id": "contact",     "type": "text", "label": "ช่องทางติดต่อกลับ (ที่อยู่/โทร/Line)" },
+            { "id": "consent",     "type": "checkbox", "label": "✅ ได้รับอนุญาตให้บันทึก/เผยแพร่ข้อมูล" },
+            { "id": "behavior",    "type": "textarea", "label": "เขาทำอย่างไรกับปัญหา/สถานการณ์นี้?", "rows": 3 },
+            { "id": "feelings",    "type": "textarea", "label": "คิด/รู้สึกอย่างไร? เจอปัญหา / ต้องการอะไร?", "rows": 3 },
+            { "id": "perception",  "type": "textarea", "label": "ความเชื่อ / ทัศนคติ ในเรื่องนี้", "rows": 2 }
+        ] }
+      ],
+      "stageMetadata": { "designThinking": "Stage 1 Empathize" },
+      "ethicsAuditEnabled": true
+    },
+
+    {
+      "id": "WS-E",
+      "label": "Situation Journey",
+      "labelTH": "สรุปการเดินทางของสิ่งที่ศึกษา (Journey Map)",
+      "stageId": "stage-empathize",
+      "icon": "🛤️",
+      "order": 6,
+      "sourceSlide": 7,
+      "instructionTH": "รวบรวมข้อมูลจาก WS-C + WS-D → วาด Journey ตั้งแต่ต้นทาง → กลางทาง → ปลายทาง",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "journey_diagram", "type": "drawing", "label": "1. วาด Journey: ต้นทาง → กลางทาง → ปลายทาง พร้อมคำอธิบาย" },
+        { "id": "stakeholder_map", "type": "list", "label": "2. ผู้คนเกี่ยวข้องในแต่ละขั้น", "itemSchema": [
+            { "id": "stage", "type": "select", "label": "ขั้น", "options": ["ต้นทาง", "กลางทาง", "ปลายทาง"] },
+            { "id": "actor", "type": "text", "label": "ใคร" },
+            { "id": "role",  "type": "text", "label": "บทบาท/หน้าที่" },
+            { "id": "connections", "type": "textarea", "label": "เชื่อมโยงกับใครอีก?" }
+        ] },
+        { "id": "problems_found", "type": "list", "label": "3. ปัญหาที่พบในแต่ละขั้น", "itemSchema": [
+            { "id": "stage", "type": "select", "label": "ขั้น", "options": ["ต้นทาง", "กลางทาง", "ปลายทาง"] },
+            { "id": "problem", "type": "text", "label": "ปัญหา" },
+            { "id": "needs", "type": "text", "label": "ความต้องการ" }
+        ] },
+        { "id": "summary_surprise", "type": "textarea", "label": "🎯 SURPRISE: เรื่องไหนที่นึกไม่ถึงมาก่อน?", "rows": 3 },
+        { "id": "summary_gap",      "type": "textarea", "label": "🕳️ GAP: ตรงไหนยังไม่มีคนจัดการ — โอกาสที่เราจะช่วยได้?", "rows": 3 },
+        { "id": "summary_causes",   "type": "textarea", "label": "🔍 CAUSES: ต้นตอของปัญหาคืออะไรบ้าง?", "rows": 3 }
+      ],
+      "stageMetadata": { "designThinking": "Stage 1 INSIGHT" }
+    },
+
+    {
+      "id": "WS-F",
+      "label": "Problem Statement",
+      "labelTH": "สร้างโจทย์ท้าทาย (How Might We?)",
+      "stageId": "stage-define",
+      "icon": "🎯",
+      "order": 7,
+      "sourceSlide": 9,
+      "instructionTH": "สรุปปัญหาและความต้องการที่แท้จริง → เป็นเป้าหมาย/โจทย์ท้าทายสำหรับ ideate",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "summary",      "type": "textarea", "label": "1. สรุปความเข้าใจจาก WS-C/D/E", "rows": 4 },
+        { "id": "target_user",  "type": "text",     "label": "2. กลุ่มเป้าหมายของเราคือ (User)" },
+        { "id": "user_need_insights", "type": "list", "label": "3. เราพบว่า (User + Need + Insight)", "minItems": 3, "itemSchema": [
+            { "id": "user",   "type": "text",     "label": "User" },
+            { "id": "need",   "type": "text",     "label": "ต้องการ/มีปัญหา (Need)" },
+            { "id": "insight","type": "textarea", "label": "เพราะ... (Insight)", "rows": 2 }
+        ] },
+        { "id": "how_might_we", "type": "list", "label": "4. ประโยค Challenge (How Might We?) — 3 ข้อ", "minItems": 3, "maxItems": 5, "itemSchema": [
+            { "id": "statement", "type": "text", "label": "เป็นไปได้ไหมที่เราจะ... + เพื่อ... (User)?" }
+        ] },
+        { "id": "selected_challenge", "type": "text", "label": "5. ✅ เลือก 1 ประโยคที่จะใช้งานต่อ" },
+        { "id": "why_selected",       "type": "textarea", "label": "ทำไมเลือกประโยคนี้ — สำคัญกับ User อย่างไร?", "rows": 3 }
+      ],
+      "stageMetadata": { "designThinking": "Stage 2 Define" }
+    },
+
+    {
+      "id": "WS-G",
+      "label": "Crazy Twelve (Standard)",
+      "labelTH": "ระดมไอเดีย (Crazy Twelve) — ครั้งแรก",
+      "stageId": "stage-ideate",
+      "icon": "💡",
+      "order": 8,
+      "sourceSlide": 10,
+      "instructionTH": "ระดมความคิดให้ตอบโจทย์ท้าทาย ≥ 12 ไอเดีย",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "challenge_recap", "type": "text", "label": "1. ประโยค Challenge ของทีมเรา (อ้างอิงจาก WS-F)" },
+        { "id": "ideas_12", "type": "list", "label": "2. สร้างไอเดีย ≥ 12 ข้อ", "minItems": 12, "itemSchema": [
+            { "id": "idea_text", "type": "textarea", "label": "ไอเดีย (วาดรูป + keyword สั้น ๆ)", "rows": 2 },
+            { "id": "idea_image", "type": "image", "label": "หรือวาดภาพประกอบ" }
+        ] }
+      ],
+      "stageMetadata": { "designThinking": "Stage 3 IDEATE" }
+    },
+
+    {
+      "id": "WS-G1",
+      "label": "Crazy Twelve — High Cost",
+      "labelTH": "ระดมไอเดีย — ราคาสูง (ไม่ต้องสนใจงบ)",
+      "stageId": "stage-ideate",
+      "icon": "💰",
+      "order": 9,
+      "sourceSlide": 11,
+      "instructionTH": "ระดมไอเดียโดยไม่จำกัดงบประมาณ — ปลดปล่อยจินตนาการ",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "ideas_12_high_cost", "type": "list", "label": "ไอเดีย ≥ 12 ข้อ (ราคาสูง)", "minItems": 12, "itemSchema": [
+            { "id": "idea_text", "type": "textarea", "label": "ไอเดีย", "rows": 2 },
+            { "id": "estimated_cost", "type": "text", "label": "ประมาณการต้นทุน" }
+        ] }
+      ]
+    },
+
+    {
+      "id": "WS-G2",
+      "label": "Crazy Twelve — Not for Teacher",
+      "labelTH": "ระดมไอเดีย — ไม่ถูกใจหัวหน้า/ครู",
+      "stageId": "stage-ideate",
+      "icon": "🙊",
+      "order": 10,
+      "sourceSlide": 12,
+      "instructionTH": "ระดมไอเดียแบบกบฏ — ไม่ต้องสนใจว่าครู/ผู้ใหญ่จะชอบหรือเปล่า",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "ideas_12_rebel", "type": "list", "label": "ไอเดีย ≥ 12 ข้อ (แบบกบฏ)", "minItems": 12, "itemSchema": [
+            { "id": "idea_text", "type": "textarea", "label": "ไอเดีย", "rows": 2 },
+            { "id": "why_controversial", "type": "text", "label": "ทำไมผู้ใหญ่อาจไม่ชอบ?" }
+        ] }
+      ]
+    },
+
+    {
+      "id": "WS-G3",
+      "label": "Crazy Twelve — Sci-Fi",
+      "labelTH": "ระดมไอเดีย — ไม่อยู่ในโลกความเป็นจริง",
+      "stageId": "stage-ideate",
+      "icon": "🚀",
+      "order": 11,
+      "sourceSlide": 13,
+      "instructionTH": "ระดมไอเดียระดับ Sci-Fi — เทคโนโลยีอนาคต ฝันที่สุด",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "ideas_12_scifi", "type": "list", "label": "ไอเดีย ≥ 12 ข้อ (Sci-Fi)", "minItems": 12, "itemSchema": [
+            { "id": "idea_text", "type": "textarea", "label": "ไอเดีย", "rows": 2 },
+            { "id": "tech_needed", "type": "text", "label": "เทคโนโลยีที่ต้องการในอนาคต" }
+        ] }
+      ]
+    },
+
+    {
+      "id": "WS-H",
+      "label": "Idea Selection Axis",
+      "labelTH": "ตั้งแกนเลือกไอเดีย (2x2 Matrix)",
+      "stageId": "stage-ideate",
+      "icon": "📐",
+      "order": 12,
+      "sourceSlide": 14,
+      "instructionTH": "วางไอเดียจาก WS-G,G1,G2,G3 ลงใน 2×2 matrix — value × feasibility",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "axes_matrix", "type": "matrix-2x2", "label": "1. วางไอเดียลงใน 4 ช่อง",
+          "xAxis": { "label": "Function (พร้อมทำจริง)", "lowLabel": "Low Function", "highLabel": "High Function" },
+          "yAxis": { "label": "Value (ตอบโจทย์ User)",  "lowLabel": "Low Value",    "highLabel": "High Value" }
+        },
+        { "id": "tags_new",     "type": "checkbox-list", "label": "2a. ไอเดียไหน 'แปลกใหม่ (New)' ติด ⭐" },
+        { "id": "tags_impact",  "type": "checkbox-list", "label": "2b. ไอเดียไหน 'ส่งผลดีถึงสังคม (Impact)' ติด 🌍" },
+        { "id": "tags_clean",   "type": "checkbox-list", "label": "2c. ไอเดียไหน 'เชื่อมโยงกับ Clean Energy/Sustainability' ติด 🌱" },
+        { "id": "selected_idea", "type": "textarea", "label": "3. ✅ เลือก 1 ไอเดียไปทำต้นแบบ (ใน Interest quadrant + tagged)", "rows": 3 }
+      ]
+    },
+
+    {
+      "id": "WS-I",
+      "label": "Idea Sketch",
+      "labelTH": "ร่างต้นแบบไอเดีย (Sketch)",
+      "stageId": "stage-ideate",
+      "icon": "✏️",
+      "order": 13,
+      "sourceSlide": 15,
+      "instructionTH": "ร่าง prototype + ทดสอบเล่น ๆ กับคนใกล้ตัวก่อนทดสอบจริง",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "idea_sketch",       "type": "drawing", "label": "1. วาด+อธิบายไอเดีย (Sketch / Storyboard / Poster)" },
+        { "id": "sketch_image",      "type": "image",   "label": "หรือ upload ภาพ sketch" },
+        { "id": "test_with_who",     "type": "text",     "label": "2a. นำไปทดสอบกับใคร? (เพื่อน / ครู / คนในชุมชน)" },
+        { "id": "test_count",        "type": "number",   "label": "จำนวนคนที่ทดสอบ" },
+        { "id": "test_duration",     "type": "text",     "label": "ใช้เวลาประมาณ" },
+        { "id": "test_questions",    "type": "textarea", "label": "อยากทดสอบ/รู้อะไรจากเขา?", "rows": 3 },
+        { "id": "result_feelings",   "type": "textarea", "label": "3a. เขาคิด/รู้สึกอย่างไร?", "rows": 2 },
+        { "id": "result_solves",     "type": "textarea", "label": "3b. ตอบโจทย์/แก้ปัญหาไหม?", "rows": 2 },
+        { "id": "result_strengths",  "type": "textarea", "label": "3c. จุดดี — พัฒนาต่อ", "rows": 2 },
+        { "id": "result_weaknesses", "type": "textarea", "label": "3d. จุดอ่อน — ต้องแก้ไข", "rows": 2 }
+      ]
+    },
+
+    {
+      "id": "WS-J",
+      "label": "Storytelling Canvas",
+      "labelTH": "เตรียมนำเสนอ (Storytelling Canvas)",
+      "stageId": "stage-prototype",
+      "icon": "📖",
+      "order": 14,
+      "sourceSlide": 16,
+      "instructionTH": "วางแผนนำเสนอไอเดียอย่างชัดเจน เป็นลำดับ และน่าสนใจ",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "product_service", "type": "textarea", "label": "1a. PRODUCT/SERVICE/PROCESS — สิ่งที่เรานำเสนอคืออะไร?", "rows": 3 },
+        { "id": "goal",            "type": "textarea", "label": "1b. GOAL — เป้าหมายในการนำเสนอเพื่ออะไร?", "rows": 2 },
+        { "id": "audience",        "type": "textarea", "label": "1c. AUDIENCE — ผู้ฟังเป็นใครและอยากรู้อะไร?", "rows": 3 },
+        { "id": "storyline", "type": "table", "label": "2. Storyline (Script + Visual)",
+          "columns": ["TOPIC", "SCRIPT (เราจะพูดว่า...)", "VISUAL (ภาพ/เครื่องมือช่วย)"],
+          "rows": [
+            "INTRO — เกริ่นนำ",
+            "Stage 1: TARGET'S PROBLEM — กลุ่มลูกค้า + Insight + ปัญหา",
+            "Stage 2: SOLUTION — แก้ปัญหาด้วยอะไร + USP",
+            "Stage 3: PROTOTYPE — ทำออกมาเป็นอย่างไร + Feedback",
+            "Stage 3: BUSINESS MODEL — แผนธุรกิจ + รายได้"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "WS-K",
+      "label": "Testing Plan",
+      "labelTH": "วางแผนทดสอบต้นแบบ",
+      "stageId": "stage-test",
+      "icon": "🧪",
+      "order": 15,
+      "sourceSlide": 18,
+      "instructionTH": "วางแผนทดสอบสมมติฐาน → เห็นจุดอ่อนจุดแข็ง → พัฒนานวัตกรรม",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "innovation_summary", "type": "textarea", "label": "1. นวัตกรรมของเราคือ?", "rows": 3 },
+        { "id": "hypotheses", "type": "list", "label": "2. สิ่งที่อยากทดสอบ (3 หัวข้อ × 3 dimensions)", "minItems": 3, "itemSchema": [
+            { "id": "dimension", "type": "select", "label": "Dimension", "options": ["USER (ลูกค้า)", "PRODUCTION (ผลิต/เทคโนโลยี)", "MANAGE (จัดการ/ธุรกิจ)"] },
+            { "id": "question",  "type": "text", "label": "อยากรู้/ทดสอบเรื่องอะไร" },
+            { "id": "method",    "type": "text", "label": "ทดสอบโดย" },
+            { "id": "with_who",  "type": "text", "label": "ทดสอบกับใคร" },
+            { "id": "count",     "type": "text", "label": "จำนวนคน/ครั้ง" },
+            { "id": "result",    "type": "textarea", "label": "สรุปผลที่ได้", "rows": 3 },
+            { "id": "develop",   "type": "textarea", "label": "ดังนั้นเราจะพัฒนาเรื่อง...", "rows": 2 }
+        ] },
+        { "id": "top3_changes", "type": "list", "label": "3. สรุป 3 ข้อสำคัญที่ต้องปรับ/เพิ่ม/ตัด", "minItems": 3, "maxItems": 3, "itemSchema": [ { "id": "change", "type": "text", "label": "ข้อปรับ" } ] }
+      ]
+    },
+
+    {
+      "id": "WS-L",
+      "label": "Gantt Chart",
+      "labelTH": "แผนปฏิบัติงาน (Gantt Chart)",
+      "stageId": "stage-plan",
+      "icon": "📅",
+      "order": 16,
+      "sourceSlide": 19,
+      "instructionTH": "วางแผนการลงมือทำงาน → เวลา → ทรัพยากร → ผู้รับผิดชอบ",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "tasks", "type": "list", "label": "งานที่ต้องทำ (Tasks)", "minItems": 3, "itemSchema": [
+            { "id": "task_name",      "type": "text", "label": "งาน" },
+            { "id": "duration_weeks", "type": "number", "label": "เวลา (สัปดาห์)" },
+            { "id": "start_week",     "type": "number", "label": "เริ่มสัปดาห์ที่" },
+            { "id": "resources",      "type": "text", "label": "ทรัพยากร (เงิน/คน/ของ/ที่)" },
+            { "id": "responsible",    "type": "text", "label": "รับผิดชอบโดย" }
+        ] }
+      ]
+    },
+
+    {
+      "id": "WS-M",
+      "label": "Business Model Canvas",
+      "labelTH": "แผนธุรกิจ (BMC)",
+      "stageId": "stage-plan",
+      "icon": "📊",
+      "order": 17,
+      "sourceSlide": 20,
+      "instructionTH": "วางแผนธุรกิจให้รอบด้าน — รายรับ ต้นทุน ลูกค้า",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "value_proposition", "type": "textarea", "label": "1. สินค้า/บริการ + คุณค่า (Value Proposition)", "rows": 4 },
+        { "id": "customers",         "type": "textarea", "label": "ลูกค้า (Customers)", "rows": 3 },
+        { "id": "channels",          "type": "textarea", "label": "ช่องทาง (Channels)", "rows": 3 },
+        { "id": "revenue",           "type": "textarea", "label": "รายรับ (Revenue)", "rows": 3 },
+        { "id": "key_partners",      "type": "textarea", "label": "พันธมิตร (Key Partners)", "rows": 3 },
+        { "id": "key_resources",     "type": "textarea", "label": "ทรัพยากร (Key Resources)", "rows": 3 },
+        { "id": "key_activities",    "type": "textarea", "label": "กิจกรรม (Key Activities)", "rows": 3 },
+        { "id": "cost_structure",    "type": "textarea", "label": "ค่าใช้จ่าย (Cost Structure)", "rows": 3 },
+        { "id": "customer_relations","type": "textarea", "label": "ความสัมพันธ์กับลูกค้า (Customer Relationships)", "rows": 3 }
+      ]
+    },
+
+    {
+      "id": "WS-N",
+      "label": "Self Reflection",
+      "labelTH": "ทบทวนบทเรียน (Self Reflection)",
+      "stageId": "stage-reflect",
+      "icon": "🪞",
+      "order": 18,
+      "sourceSlide": 21,
+      "type": "team-or-individual",
+      "instructionTH": "ทบทวนประสบการณ์ — สิ่งที่ทำ / ที่เรียนรู้ / ที่จะทำต่อ",
+      "fields": [
+        { "id": "team",     "type": "text", "label": "ชื่อทีม" },
+        { "id": "mode",     "type": "radio", "label": "ทำแบบ", "options": ["ทีม (group)", "รายบุคคล (individual)"] },
+        { "id": "individual_name", "type": "text", "label": "ชื่อ (ถ้าทำรายบุคคล)" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "review_innovation_journey", "type": "textarea", "label": "1a. ทบทวน — เราทำอะไรมาบ้างในการสร้างนวัตกรรม (S4I)?", "rows": 4 },
+        { "id": "review_domain_knowledge",   "type": "textarea", "label": "1b. ทบทวน — เราได้เรียนรู้อะไรในเรื่องที่ศึกษา (เช่น Waste-to-Energy)?", "rows": 4 },
+        { "id": "consider_why",              "type": "textarea", "label": "2. คิดพิจารณา — เราทำเพื่ออะไร / เพราะอะไร?", "rows": 4 },
+        { "id": "lessons_top3", "type": "list", "label": "3. สรุปบทเรียน — สิ่งสำคัญในการสร้างนวัตกรรม ≥ 3 ข้อ", "minItems": 3, "itemSchema": [ { "id": "lesson", "type": "text", "label": "บทเรียน" } ] },
+        { "id": "next_steps",                "type": "textarea", "label": "4. ทำอะไรต่อไป — หลัง sketch idea แล้วจะพัฒนาอย่างไร?", "rows": 4 },
+        { "id": "open_questions",            "type": "textarea", "label": "5. ข้อสงสัย/คำถามที่ยังมี", "rows": 3 }
+      ]
+    },
+
+    {
+      "id": "WS-Note",
+      "label": "Free Notes",
+      "labelTH": "บันทึกเพิ่มเติม (Note)",
+      "stageId": "stage-reflect",
+      "icon": "📝",
+      "order": 19,
+      "sourceSlide": 22,
+      "type": "optional",
+      "fields": [
+        { "id": "team", "type": "text", "label": "ชื่อทีม" },
+        { "id": "date", "type": "date", "label": "วันที่" },
+        { "id": "topic", "type": "text", "label": "เรื่อง" },
+        { "id": "note", "type": "textarea", "label": "บันทึก", "rows": 12 },
+        { "id": "attachments", "type": "list", "label": "แนบไฟล์ (image/document)", "itemSchema": [ { "id": "file", "type": "image" }, { "id": "caption", "type": "text" } ] }
+      ]
+    }
+  ],
+
+  "phases": [
+    { "id": "phase-1", "label": "Empathize (Week 1-3)",  "stageIds": ["stage-empathize"], "deadline": null },
+    { "id": "phase-2", "label": "Define (Week 4)",       "stageIds": ["stage-define"],    "deadline": null },
+    { "id": "phase-3", "label": "Ideate (Week 5-7)",     "stageIds": ["stage-ideate"],    "deadline": null },
+    { "id": "phase-4", "label": "Prototype (Week 8-10)", "stageIds": ["stage-prototype"], "deadline": null },
+    { "id": "phase-5", "label": "Test (Week 11-12)",     "stageIds": ["stage-test"],      "deadline": null },
+    { "id": "phase-6", "label": "Plan (Week 13-14)",     "stageIds": ["stage-plan"],      "deadline": null },
+    { "id": "phase-7", "label": "Reflect + Pitch (Week 15-16)", "stageIds": ["stage-reflect"], "deadline": null }
+  ],
+
+  "fieldTypeRegistry": {
+    "text":          { "renderer": "input[type=text]" },
+    "textarea":      { "renderer": "textarea" },
+    "number":        { "renderer": "input[type=number]" },
+    "date":          { "renderer": "input[type=date]" },
+    "select":        { "renderer": "select" },
+    "multiselect":   { "renderer": "select[multiple]" },
+    "radio":         { "renderer": "input[type=radio]" },
+    "checkbox":      { "renderer": "input[type=checkbox]" },
+    "checkbox-list": { "renderer": "multiple-checkbox-list" },
+    "image":         { "renderer": "file-upload + preview", "storage": "firebase-storage" },
+    "drawing":       { "renderer": "canvas (excalidraw or tldraw)" },
+    "list":          { "renderer": "repeating-group", "supports": "min/max-items" },
+    "table":         { "renderer": "html-table with input cells" },
+    "matrix-2x2":    { "renderer": "drag-drop 4-quadrant" },
+    "categorize":    { "renderer": "drag-items-into-buckets" },
+    "signature":     { "renderer": "signature-pad" },
+    "audio":         { "renderer": "audio-recorder (MediaRecorder API)" }
+  },
+
+  "metadata": {
+    "totalWorksheets": 19,
+    "byStage": {
+      "empathize":  6,
+      "define":     1,
+      "ideate":     6,
+      "prototype":  1,
+      "test":       1,
+      "plan":       2,
+      "reflect":    2
+    },
+    "fieldTypesUsed": ["text", "textarea", "number", "date", "select", "radio", "checkbox", "image", "drawing", "list", "table", "matrix-2x2", "categorize", "checkbox-list"],
+    "estimatedCompletionWeeks": 16,
+    "minTeamSize": 3,
+    "maxTeamSize": 4
+  }
+}
