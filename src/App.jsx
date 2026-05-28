@@ -31,6 +31,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPage from './LoginPage';
 import { COURSE_SEEDS } from './courseSeeds';
+import { I18N, makeT } from './constants/i18n';
+import { DEFAULT_BRANDING, BRAND_PRESETS, applyBrandColors } from './constants/branding';
+import { ETHICS_CATEGORIES, SEVERITY_META } from './constants/ethics';
 import {
   logout,
   getUsers,
@@ -89,20 +92,7 @@ import {
   subscribeToWorksheetSubmissions
 } from './api';
 
-// Ethics category metadata (Thai labels + emojis) — mirrors api.js zt rules
-const ETHICS_CATEGORIES = {
-  privacy    : { label: 'ปกป้องข้อมูลส่วนบุคคล', emoji: '🔒', hint: 'เบอร์โทร, อีเมล, ที่อยู่ปราชญ์, Social ID' },
-  fabrication: { label: 'แต่งเติมภูมิปัญญา',     emoji: '🤖', hint: 'AI disclaimer ไม่ลบ, AI-typical phrasing' },
-  disrespect : { label: 'ไม่ให้เกียรติปราชญ์',   emoji: '🙏', hint: 'แก/มัน/กู/มึง, ลดทอนคุณค่าปราชญ์' },
-  cultural   : { label: 'คำหยาบ / Stereotype',    emoji: '⚠️', hint: 'คำหยาบ, stereotype เชื้อชาติ/ภูมิภาค' },
-  consent    : { label: 'การขออนุญาต',           emoji: '📋', hint: 'บันทึกสัมภาษณ์ยาวแต่ไม่มี consent statement' },
-  ai_misuse  : { label: 'AI Misuse / Deepfake',  emoji: '🚨', hint: 'Deepfake, voice clone, สร้างปราชญ์ปลอม' },
-};
-const SEVERITY_META = {
-  high  : { label: 'High',   color: '#dc2626', bg: '#fef2f2' },
-  medium: { label: 'Medium', color: '#d97706', bg: '#fffbeb' },
-  low   : { label: 'Low',    color: '#0891b2', bg: '#ecfeff' },
-};
+// ETHICS_CATEGORIES + SEVERITY_META → src/constants/ethics.js
 
 // The five evaluation dimensions used in BOTH the Pitching Evaluator
 // and the EVAL-MATRIX. Keep these in sync so scores entered in one
@@ -422,173 +412,10 @@ const EVALUATOR_ROLES = ['self', 'peer', 'teacher', 'sage', 'ai'];
 // Thai labels for rubric levels 1-4. Levels beyond 4 fall back to "ระดับที่ N".
 const RUBRIC_LEVEL_LABELS = ['ปรับปรุง', 'พอใช้', 'ดี', 'ดีเยี่ยม'];
 
-// ─────────────────────────────────────────────────────────────────────
-// I18N — Minimal bilingual dictionary (TH default, EN switcher)
-// Keys map to user-facing UI labels. App keeps Thai-first content,
-// EN is for international showcase / Pitching judges who prefer English.
-// ─────────────────────────────────────────────────────────────────────
-const I18N = {
-  th: {
-    // Menu labels
-    'Public View'         : 'มุมมองสาธารณะ',
-    'Explorer UI'         : 'จัดการทีม',
-    'Team Management'     : 'จัดการทีม',
-    'Mission Inbox'       : 'รับโจทย์',
-    'On-site Collector'   : 'เก็บข้อมูลภาคสนาม',
-    'Submission Gateway'  : 'ส่งงาน',
-    'Evaluation Hub'      : 'ศูนย์ประเมิน',
-    'AI Audit Logbook'    : 'บันทึก AI',
-    'Report (R6)'         : 'รายงาน (R6)',
-    'Real-Time Dashboard' : 'แดชบอร์ดเรียลไทม์',
-    'Mission Builder'     : 'สร้างโจทย์',
-    'Pitching Evaluator'  : 'ประเมิน Pitching',
-    'Report (R1-R6)'      : 'รายงาน (R1-R6)',
-    'Reports R1-R6'       : 'รายงาน R1-R6',
-    'Admin Panel'         : 'แผงผู้ดูแล',
-    // Header / Generic
-    'Logout'              : 'ออกจากระบบ',
-    'Language'            : 'ภาษา',
-    'Switch to English'   : 'เปลี่ยนเป็นอังกฤษ',
-    'Switch to Thai'      : 'เปลี่ยนเป็นไทย',
-    // Evaluator roles
-    'eval_self'           : 'ประเมินตนเอง',
-    'eval_peer'           : 'เพื่อนประเมิน',
-    'eval_teacher'        : 'ครูประเมิน',
-    'eval_sage'           : 'ปราชญ์ประเมิน',
-    'eval_ai'             : 'AI ประเมิน',
-    // Rubric levels
-    'level_improve'       : 'ปรับปรุง',
-    'level_fair'          : 'พอใช้',
-    'level_medium'        : 'ปานกลาง',
-    'level_good'          : 'ดี',
-    'level_excellent'     : 'ดีเยี่ยม',
-    // ── Admin sub-tabs ──
-    'admin_sub_management': 'จัดการระบบ',
-    'admin_sub_session'   : 'เซสชั่น',
-    'admin_sub_moderation': 'ตรวจสอบจริยธรรม',
-    'admin_sub_courses'   : 'จัดการหลักสูตร',
-    'admin_sub_branding'  : 'ปรับแบรนด์',
-    'admin_sub_settings'  : 'ตั้งค่า',
-    'admin_sub_reports'   : 'รายงาน',
-    // ── Real-Time Dashboard sub-tabs ──
-    'dash_sub_live_feed'  : 'ฟีดสด',
-    'dash_sub_teams'      : 'จัดการทีม',
-    'dash_sub_prompts'    : 'คลัง Prompt ดี',
-    'dash_sub_rubrics'    : 'การจัดการ Rubric Score',
-    'dash_sub_matrix'     : 'การประเมินผล Matrix',
-    // ── Teacher Reports sub-tabs (R1-R6) ──
-    'report_R1'           : 'R1 สรุปคะแนน',
-    'report_R2'           : 'R2 ไอเดียและ AI Prompt',
-    'report_R3'           : 'R3 บูรณาการการเงิน',
-    'report_R4'           : 'R4 ความคืบหน้ากิจกรรม',
-    'report_R5'           : 'R5 สรุปรายบุคคล',
-    'report_R6'           : 'R6 พอร์ตโฟลิโอ (สาธารณะ)',
-    // ── Headers ──
-    'header_admin'        : 'ผู้ดูแล',
-    'header_assessor'     : 'ผู้ประเมิน',
-    'header_report_center': 'ศูนย์รายงาน (R1-R6)',
-    // ── Help / Manual ──
-    'Help'                : 'คู่มือ',
-    'help_print'          : '🖨️ พิมพ์ / Save PDF',
-  },
-  en: {
-    // Menu labels (English — passthrough for menu names already in EN)
-    'Public View'         : 'Public View',
-    'Explorer UI'         : 'Team Management',
-    'Team Management'     : 'Team Management',
-    'Mission Inbox'       : 'Mission Inbox',
-    'On-site Collector'   : 'On-site Collector',
-    'Submission Gateway'  : 'Submission Gateway',
-    'Evaluation Hub'      : 'Evaluation Hub',
-    'AI Audit Logbook'    : 'AI Audit Logbook',
-    'Report (R6)'         : 'Report (R6)',
-    'Real-Time Dashboard' : 'Real-Time Dashboard',
-    'Mission Builder'     : 'Mission Builder',
-    'Pitching Evaluator'  : 'Pitching Evaluator',
-    'Report (R1-R6)'      : 'Reports (R1-R6)',
-    'Reports R1-R6'       : 'Reports R1-R6',
-    'Admin Panel'         : 'Admin Panel',
-    // Header / Generic
-    'Logout'              : 'Logout',
-    'Language'            : 'Language',
-    'Switch to English'   : 'Switch to English',
-    'Switch to Thai'      : 'Switch to Thai',
-    // Evaluator roles
-    'eval_self'           : 'Self-Evaluation',
-    'eval_peer'           : 'Peer Evaluation',
-    'eval_teacher'        : 'Teacher Evaluation',
-    'eval_sage'           : 'Sage Evaluation',
-    'eval_ai'             : 'AI Evaluation',
-    // Rubric levels
-    'level_improve'       : 'Needs Improvement',
-    'level_fair'          : 'Fair',
-    'level_medium'        : 'Medium',
-    'level_good'          : 'Good',
-    'level_excellent'     : 'Excellent',
-    // ── Admin sub-tabs ──
-    'admin_sub_management': 'Management',
-    'admin_sub_session'   : 'Session',
-    'admin_sub_moderation': 'Moderation',
-    'admin_sub_courses'   : 'Courses',
-    'admin_sub_branding'  : 'Branding',
-    'admin_sub_settings'  : 'Settings',
-    'admin_sub_reports'   : 'Reports',
-    // ── Real-Time Dashboard sub-tabs ──
-    'dash_sub_live_feed'  : 'Live Feed',
-    'dash_sub_teams'      : 'Team Management',
-    'dash_sub_prompts'    : 'Good Prompt Library',
-    'dash_sub_rubrics'    : 'Rubric Score Management',
-    'dash_sub_matrix'     : 'Evaluation Matrix',
-    // ── Teacher Reports sub-tabs (R1-R6) ──
-    'report_R1'           : 'R1 Score Summary',
-    'report_R2'           : 'R2 Idea & AI Prompt',
-    'report_R3'           : 'R3 Finance Integration',
-    'report_R4'           : 'R4 Activity Progress',
-    'report_R5'           : 'R5 Individual Summary',
-    'report_R6'           : 'R6 Portfolio (Public)',
-    // ── Headers ──
-    'header_admin'        : 'Admin',
-    'header_assessor'     : 'Assessor',
-    'header_report_center': 'Report Center (R1-R6)',
-    // ── Help / Manual ──
-    'Help'                : 'Manual',
-    'help_print'          : '🖨️ Print / Save PDF',
-  },
-};
-// Look up TH first, fall back to EN, then return the raw key (safe default)
-const makeT = (lang) => (k) => I18N[lang]?.[k] ?? I18N.th[k] ?? k;
+// I18N + makeT → src/constants/i18n.js
+// (was: 130-line bilingual dict inline · now extracted for cleanliness)
 
-// ─────────────────────────────────────────────────────────────────────
-// BRANDING — White-label support recovered from production bundle
-// Allows admin to rebrand the platform for different schools/provinces.
-// ─────────────────────────────────────────────────────────────────────
-const DEFAULT_BRANDING = {
-  brandName     : 'Green Rayong',
-  brandTagline  : '4-Identities AI Storytellers',
-  logoEmoji     : '🌿',
-  region        : 'ระยอง',
-  province      : 'ระยอง',
-  primaryColor  : '#16a34a',
-  secondaryColor: '#0ea5e9',
-  pitchName     : 'Green Rayong Challenge',
-  schoolName    : '',
-  footerText    : 'พัฒนาเพื่อการศึกษา IoT + ภูมิปัญญาท้องถิ่น',
-};
-
-const BRAND_PRESETS = [
-  { name: 'Green Rayong (Default)', logoEmoji: '🌿', region: 'ระยอง',     province: 'ระยอง',     primaryColor: '#16a34a', secondaryColor: '#0ea5e9' },
-  { name: 'Green Doi Saket',        logoEmoji: '🌲', region: 'ดอยสะเก็ด', province: 'เชียงใหม่', primaryColor: '#059669', secondaryColor: '#dc2626' },
-  { name: 'Green Phuket',           logoEmoji: '🏝️', region: 'ภูเก็ต',     province: 'ภูเก็ต',     primaryColor: '#0891b2', secondaryColor: '#f59e0b' },
-  { name: 'Green Ayutthaya',        logoEmoji: '🛕', region: 'อยุธยา',     province: 'อยุธยา',     primaryColor: '#a16207', secondaryColor: '#7c2d12' },
-];
-
-// Apply brand colors as CSS variables on :root so any component can use them
-const applyBrandColors = (cfg) => {
-  if (typeof document === 'undefined') return;
-  document.documentElement.style.setProperty('--brand-primary',   cfg.primaryColor   || DEFAULT_BRANDING.primaryColor);
-  document.documentElement.style.setProperty('--brand-secondary', cfg.secondaryColor || DEFAULT_BRANDING.secondaryColor);
-  if (cfg.brandName) document.title = `${cfg.brandName} · ${cfg.brandTagline || ''}`.trim();
-};
+// DEFAULT_BRANDING + BRAND_PRESETS + applyBrandColors → src/constants/branding.js
 
 const StatBox = memo(({ icon: Icon, value, label, colorClass }) => (
   <div className="ldt-stat">
