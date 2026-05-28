@@ -159,9 +159,103 @@ const LEGACY_GREEN_RAYONG_COURSE = {
   })),
   // Evaluator weights (5×5 Matrix · sum = 100)
   evaluatorWeights: { self: 10, peer: 15, teacher: 35, sage: 25, ai: 15 },
-  // Worksheets: legacy course uses hardcoded forms (no schema-driven yet).
-  // New courses will populate this array; renderer will switch on schema presence.
-  worksheets: [],
+  // Worksheets — 7 forms matching the legacy Submission Gateway phases.
+  // Field IDs (wisdom, environment, allIdeas, prototype, videoUrl, bmcCost, aiLogs)
+  // are kept identical to legacy field names so existing api.js logic
+  // (runEthicsAudit, aiAuditTeam) continues to pick up these fields.
+  worksheets: [
+    {
+      id: 'wisdom', icon: '🧓', stageId: 'gateway', order: 1,
+      labelTH: 'ภูมิปัญญาท้องถิ่น (Local Wisdom)', label: 'Local Wisdom',
+      instructionTH: 'บันทึกภูมิปัญญาที่ได้จากปราชญ์ + อ้างอิงแหล่งที่มา · เป็นหัวใจของ Green Rayong',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม', required: true },
+        { id: 'date', type: 'date', label: 'วันที่บันทึก', required: true },
+        { id: 'traditionalWisdom', type: 'textarea', rows: 6, label: 'ภูมิปัญญาที่ได้จากปราชญ์', placeholder: 'อธิบายภูมิปัญญา · ผู้ให้สัมภาษณ์ · ลงพื้นที่เมื่อไหร่' },
+        { id: 'wisdom',            type: 'textarea', rows: 4, label: 'การประยุกต์ใช้ในยุคปัจจุบัน' },
+        { id: 'sageQuote',         type: 'textarea', rows: 2, label: 'คำพูดเด็ดของปราชญ์ (Quote)' },
+        { id: 'sageName',          type: 'text', label: 'ชื่อปราชญ์ (สำหรับ Citation)' },
+        { id: 'sageConsent',       type: 'checkbox', label: 'ได้รับอนุญาตจากปราชญ์', checkboxLabel: '✅ ปราชญ์อนุญาตให้บันทึก + เผยแพร่' }
+      ]
+    },
+    {
+      id: 'environment', icon: '🌿', stageId: 'gateway', order: 2,
+      labelTH: 'ผลกระทบสิ่งแวดล้อม', label: 'Environment Impact',
+      instructionTH: 'อธิบายปัญหา/โอกาสด้านสิ่งแวดล้อมในพื้นที่ + กลุ่มที่ได้รับผลกระทบ',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'environment',    type: 'textarea', rows: 5, label: 'สถานการณ์สิ่งแวดล้อมในพื้นที่' },
+        { id: 'affectedGroup',  type: 'textarea', rows: 4, label: 'กลุ่มที่ได้รับผลกระทบ (Stakeholders)' },
+        { id: 'identity',       type: 'select', label: 'Identity ของพื้นที่', options: ['สวน 🌳', 'ป่า 🌲', 'นา 🌾', 'เล 🌊'] }
+      ]
+    },
+    {
+      id: 'brainstorm', icon: '💡', stageId: 'gateway', order: 3,
+      labelTH: 'ระดมไอเดีย (Brainstorm)', label: 'Brainstorm',
+      instructionTH: 'ระดมไอเดียหลากหลาย → เลือก 1 ไอเดียทำต่อ',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม' },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'allIdeas',     type: 'textarea', rows: 8, label: 'ไอเดียทั้งหมด (≥ 5 ข้อ)' },
+        { id: 'selectedIdea', type: 'textarea', rows: 4, label: '✅ ไอเดียที่เลือกทำต่อ' },
+        { id: 'whySelected',  type: 'textarea', rows: 3, label: 'ทำไมเลือกไอเดียนี้?' }
+      ]
+    },
+    {
+      id: 'prototype', icon: '🛠️', stageId: 'gateway', order: 4,
+      labelTH: 'ต้นแบบ (Prototype)', label: 'Prototype',
+      instructionTH: 'ออกแบบ product/service + ทดสอบกับกลุ่มเป้าหมาย',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม' },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'prototype',        type: 'textarea', rows: 6, label: 'อธิบาย Prototype (วิธีการ/ผลิตภัณฑ์/บริการ)' },
+        { id: 'prototypeImage',   type: 'image', label: 'ภาพ Prototype' },
+        { id: 'testWithWho',      type: 'text', label: 'ทดสอบกับใคร (กลุ่มเป้าหมาย)' },
+        { id: 'testCount',        type: 'number', label: 'จำนวนคนที่ทดสอบ' },
+        { id: 'testResult',       type: 'textarea', rows: 4, label: 'ผลทดสอบ + Feedback' }
+      ]
+    },
+    {
+      id: 'video', icon: '🎬', stageId: 'pitching', order: 5,
+      labelTH: 'วิดีโอ Pitching', label: 'Pitching Video',
+      instructionTH: 'ลิงก์วิดีโอ Pitching ≤ 5 นาที (YouTube/TikTok/Drive) + subtitle TH+EN',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม' },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'videoUrl',      type: 'text', label: 'URL วิดีโอ Pitching', placeholder: 'https://youtu.be/...' },
+        { id: 'videoSubtitle', type: 'textarea', rows: 5, label: 'Script/Subtitle 2 ภาษา (TH+EN)' },
+        { id: 'videoLength',   type: 'number', label: 'ความยาว (นาที)' }
+      ]
+    },
+    {
+      id: 'bmc', icon: '💰', stageId: 'gateway', order: 6,
+      labelTH: 'แผนธุรกิจ (BMC)', label: 'Business Model Canvas',
+      instructionTH: 'BMC 9 ช่อง — ลูกค้า/รายรับ/ต้นทุน/ช่องทาง',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม' },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'bmcCustomer', type: 'textarea', rows: 3, label: 'Customer Segments — ลูกค้าคือใคร?' },
+        { id: 'bmcChannel',  type: 'textarea', rows: 3, label: 'Channels — ช่องทางขาย' },
+        { id: 'bmcCost',     type: 'number',   label: 'ต้นทุนต่อหน่วย (บาท)' },
+        { id: 'bmcPrice',    type: 'number',   label: 'ราคาขาย (บาท)' },
+        { id: 'bmcRevenue',  type: 'textarea', rows: 3, label: 'Revenue Streams — รายรับมาจากไหน?' },
+        { id: 'bmcResources',type: 'textarea', rows: 3, label: 'Key Resources — ทรัพยากรหลัก' }
+      ]
+    },
+    {
+      id: 'aiLogs', icon: '🤖', stageId: 'gateway', order: 7,
+      labelTH: 'บันทึกการใช้ AI (Audit Log)', label: 'AI Audit Log',
+      instructionTH: 'บันทึกทุก prompt ที่ใช้กับ AI + cross-check ความถูกต้อง — เพื่อความโปร่งใส',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อทีม' },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'aiLogs', type: 'textarea', rows: 12, label: 'AI Prompts ที่ใช้ (1 prompt ต่อบรรทัด)',
+          placeholder: '1. Act as a marine biologist. Given...\n2. You are a UX copywriter...\n3. ...' },
+        { id: 'factChecks', type: 'textarea', rows: 6, label: 'ตรวจสอบความถูกต้อง (Hallucination check) — กับใคร?' }
+      ]
+    }
+  ]
 };
 
 // All available courses live in Firestore; this constant is the offline fallback
@@ -1054,6 +1148,25 @@ export default function App() {
     finally { setResetting(false); }
   };
 
+  // ─── Pitching Timer (overlay modal) — accessible from any tab ───
+  const [pitchTimerOpen, setPitchTimerOpen] = useState(false);
+  const [pitchTimerSeconds, setPitchTimerSeconds] = useState(420); // 7 min default
+  const [pitchTimerRunning, setPitchTimerRunning] = useState(false);
+  useEffect(() => {
+    if (!pitchTimerRunning) return;
+    if (pitchTimerSeconds <= 0) { setPitchTimerRunning(false); return; }
+    const id = setInterval(() => setPitchTimerSeconds(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [pitchTimerRunning, pitchTimerSeconds]);
+  // Recommended pitching sections (7-minute pitch breakdown)
+  const PITCH_SECTIONS = [
+    { sec: 60,  label: '1. Hook + Problem',     color: '#dc2626' },
+    { sec: 90,  label: '2. Solution Overview',  color: '#f97316' },
+    { sec: 180, label: '3. ⭐ LIVE DEMO',         color: '#16a34a' },
+    { sec: 60,  label: '4. Impact + Business',  color: '#0ea5e9' },
+    { sec: 30,  label: '5. CTA + Team',         color: '#7c3aed' },
+  ];
+
   // ─── White-label Branding (admin can rebrand for any school/province) ───
   const [appConfig, setAppConfig] = useState(() => {
     try {
@@ -1158,7 +1271,25 @@ export default function App() {
     const unsubFeed = subscribeToFeed((f) => setFeed(f));
     
     // 3. Subscribe to Teams List (Public)
-    const unsubTeams = subscribeToTeams((t) => setTeams(t));
+    const unsubTeams = subscribeToTeams((t) => {
+      setTeams(t);
+      // ─── Auto-pick course based on user's team (Phase 7 — done here to avoid TDZ) ───
+      // We do this inside the teams callback because `teams` is declared after the
+      // Active Course block; reading from the callback's argument `t` is safe.
+      const me = JSON.parse(localStorage.getItem('eco_user') || 'null');
+      const activeCourseId = (() => { try { return localStorage.getItem('rep_active_course') || 'green-rayong'; } catch { return 'green-rayong'; } })();
+      if (me && t?.length) {
+        const myTeamId = me.team_id || me.teamId;
+        const myTeam = t.find(x => x && String(x.id) === String(myTeamId));
+        if (myTeam) {
+          const myCourseIds = getTeamCourseIds(myTeam);
+          if (!myCourseIds.includes(activeCourseId)) {
+            // Switch to team's first course (deferred via setState to avoid render issues)
+            setTimeout(() => switchCourse(myCourseIds[0]), 0);
+          }
+        }
+      }
+    });
 
     // 4. Subscribe to Good Prompts (Public)
     const unsubPrompts = subscribeToGoodPrompts((p) => setGoodPrompts(p));
@@ -1266,6 +1397,10 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+             {/* ─── Pitching Timer launcher (always visible) ─── */}
+             <button onClick={() => setPitchTimerOpen(true)} className="card" style={{ padding: '0.4rem 0.6rem', margin: 0, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, border: '1px solid #cbd5e1', background: '#fff' }} title="Pitching Timer (7 min)">
+                ⏱️ Timer
+             </button>
              {/* ─── Course Switcher (v2.0 Phase 7) — only when ≥ 2 courses ─── */}
              {user && coursesAll.length > 1 && (
                 <div className="card" style={{ padding: '0.3rem 0.5rem', margin: 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 6 }} title="เลือกหลักสูตรที่กำลังใช้งาน">
@@ -3082,25 +3217,37 @@ export default function App() {
                         </button>
                      ))}
                   </div>
-                  {/* ───── R1: Score Summary ───── */}
+                  {/* ───── R1: Score Summary (course-aware Phase 8/D) ───── */}
                   {reportType === 'R1' && (() => {
+                     // Per team, derive that team's effective rubric (dimensions list)
+                     const getTeamRubric = (team) => {
+                        const courseIds = getTeamCourseIds(team);
+                        const courseId = courseIds[0];
+                        const courseDoc = (coursesAll || []).find(c => c && c.id === courseId);
+                        const merged = courseDoc ? mergeCourse(courseDoc, courseId) : (BUILTIN_COURSES[courseId] || LEGACY_GREEN_RAYONG_COURSE);
+                        const labels = (merged.rubric || []).map(r => r.label).filter(Boolean);
+                        return labels.length ? labels : SCORE_DIMENSIONS;
+                     };
                      const rows = (teams || []).filter(Boolean).map(tm => {
+                        const dims = getTeamRubric(tm);
                         const rolesAvg = {};
                         ['self','peer','teacher','sage','ai'].forEach(r => {
-                           const vals = SCORE_DIMENSIONS.map(d => matrixCell(tm.id, r, d)).filter(v => v != null);
+                           const vals = dims.map(d => matrixCell(tm.id, r, d)).filter(v => v != null);
                            rolesAvg[r] = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
                         });
                         const overall = matrixOverall(tm.id);
-                        return { team: tm.name, ...rolesAvg, overall };
+                        const courseIds = getTeamCourseIds(tm);
+                        return { team: tm.name, courseId: courseIds[0], ...rolesAvg, overall };
                      });
                      return (
                         <div className="card" style={{ overflowX: 'auto' }}>
-                           <h5>📊 R1 — สรุปคะแนนรวมทุกทีม</h5>
-                           <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>เฉลี่ยคะแนน 5 ด้าน × 5 ผู้ประเมิน</p>
+                           <h5>📊 R1 — สรุปคะแนนรวมทุกทีม (Course-aware)</h5>
+                           <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>เฉลี่ยคะแนนตาม rubric ของแต่ละหลักสูตร × 5 ผู้ประเมิน</p>
                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                               <thead>
                                  <tr style={{ background: '#f1f5f9' }}>
                                     <th style={{ padding: '0.5rem', textAlign: 'left' }}>ทีม</th>
+                                    <th style={{ padding: '0.5rem', textAlign: 'left' }}>หลักสูตร</th>
                                     {['self','peer','teacher','sage','ai'].map(r => (
                                        <th key={r} style={{ padding: '0.5rem', textAlign: 'center' }}>{t('eval_' + r)}</th>
                                     ))}
@@ -3109,10 +3256,11 @@ export default function App() {
                               </thead>
                               <tbody>
                                  {rows.length === 0 ? (
-                                    <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>ยังไม่มีทีมในระบบ</td></tr>
+                                    <tr><td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>ยังไม่มีทีมในระบบ</td></tr>
                                  ) : rows.map((r, i) => (
                                     <tr key={i} style={{ borderTop: '1px solid #e2e8f0' }}>
                                        <td style={{ padding: '0.5rem', fontWeight: 600 }}>{r.team}</td>
+                                       <td style={{ padding: '0.5rem', fontSize: '0.7rem', color: '#64748b' }}>{r.courseId || '—'}</td>
                                        {['self','peer','teacher','sage','ai'].map(role => {
                                           const v = r[role];
                                           const c = cellColor(v);
@@ -3294,15 +3442,24 @@ export default function App() {
                               const gw = (allSubmissionsModeration || []).find(s => String(s.team_id) === String(tm.id) && s.step === 'gateway')?.content || {};
                               const overall = matrixOverall(tm.id);
                               const c = cellColor(overall);
+                              // QR code via free public API (no npm dep required)
+                              const portfolioUrl = `https://ai-storyteller-9dc3a.web.app/?team=${encodeURIComponent(tm.id)}`;
+                              const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&margin=4&data=${encodeURIComponent(portfolioUrl)}`;
                               return (
-                                 <div key={tm.id} className="card" style={{ borderLeft: `4px solid ${c.fg}`, padding: '1rem' }}>
+                                 <div key={tm.id} className="card" style={{ borderLeft: `4px solid ${c.fg}`, padding: '1rem', display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                        <h5 style={{ margin: 0 }}>👥 {tm.name}</h5>
                                        <span style={{ background: c.bg, color: c.fg, padding: '0.2rem 0.6rem', borderRadius: 12, fontSize: '0.75rem', fontWeight: 700 }}>⭐ {overall == null ? '—' : overall.toFixed(2)}</span>
                                     </div>
-                                    <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#475569' }}><strong>ไอเดีย:</strong> {gw.selectedIdea || '—'}</p>
-                                    <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#64748b' }}>{(gw.wisdom || gw.traditionalWisdom || '').slice(0, 120)}{(gw.wisdom || '').length > 120 ? '...' : ''}</p>
-                                    {gw.videoUrl && <a href={gw.videoUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#0ea5e9', display: 'inline-block', marginTop: '0.5rem' }}>▶ ดูวิดีโอ Pitching</a>}
+                                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                       <img src={qrSrc} alt={`QR ${tm.name}`} loading="lazy" style={{ width: 90, height: 90, border: '1px solid #e2e8f0', borderRadius: 4, flexShrink: 0 }} />
+                                       <div style={{ flex: 1, minWidth: 0 }}>
+                                          <p style={{ fontSize: '0.75rem', color: '#475569', margin: 0 }}><strong>ไอเดีย:</strong> {gw.selectedIdea || '—'}</p>
+                                          <p style={{ fontSize: '0.7rem', marginTop: '0.25rem', color: '#64748b' }}>{(gw.wisdom || gw.traditionalWisdom || '').slice(0, 100)}{(gw.wisdom || '').length > 100 ? '...' : ''}</p>
+                                          {gw.videoUrl && <a href={gw.videoUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#0ea5e9', display: 'inline-block', marginTop: '0.4rem' }}>▶ ดูวิดีโอ</a>}
+                                       </div>
+                                    </div>
+                                    <p style={{ fontSize: '0.6rem', color: '#94a3b8', textAlign: 'center', margin: 0 }}>📱 สแกน QR ดูผลงานทีม</p>
                                  </div>
                               );
                            })}
@@ -3835,6 +3992,60 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* ─── Pitching Timer Modal Overlay (E quick win) ─── */}
+      {pitchTimerOpen && (() => {
+         const min = Math.floor(pitchTimerSeconds / 60);
+         const sec = pitchTimerSeconds % 60;
+         const totalElapsed = 420 - pitchTimerSeconds;
+         // Determine current section
+         let cumSec = 0; let currentSection = -1;
+         for (let i = 0; i < PITCH_SECTIONS.length; i++) {
+            cumSec += PITCH_SECTIONS[i].sec;
+            if (totalElapsed < cumSec) { currentSection = i; break; }
+         }
+         const isAlarm = pitchTimerSeconds <= 30 && pitchTimerSeconds > 0;
+         const isOvertime = pitchTimerSeconds === 0;
+         return (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+               <button onClick={() => { setPitchTimerOpen(false); setPitchTimerRunning(false); setPitchTimerSeconds(420); }} style={{ position: 'absolute', top: 20, right: 20, background: '#fff', border: 'none', borderRadius: '50%', width: 44, height: 44, cursor: 'pointer', fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+
+               {/* Big clock */}
+               <div style={{ fontSize: 'clamp(6rem, 22vw, 14rem)', fontWeight: 900, color: isOvertime ? '#dc2626' : isAlarm ? '#f59e0b' : '#fff', fontFamily: 'monospace', textShadow: '0 4px 20px rgba(0,0,0,0.5)', animation: isAlarm ? 'pulse 1s infinite' : 'none' }}>
+                  {String(min).padStart(2,'0')}:{String(sec).padStart(2,'0')}
+               </div>
+               <div style={{ color: '#fff', fontSize: '1.1rem', marginTop: 8, opacity: 0.7 }}>{isOvertime ? '⏰ Overtime!' : `7 นาที pitch · เหลือ ${min}:${String(sec).padStart(2,'0')}`}</div>
+
+               {/* Section progress */}
+               <div style={{ display: 'flex', gap: 6, marginTop: '2rem', flexWrap: 'wrap', justifyContent: 'center', maxWidth: 1000 }}>
+                  {PITCH_SECTIONS.map((s, i) => {
+                     const isActive = i === currentSection;
+                     const isPast = i < currentSection;
+                     return (
+                        <div key={i} style={{ padding: '0.5rem 0.8rem', borderRadius: 8, background: isActive ? s.color : isPast ? '#475569' : '#1e293b', color: '#fff', fontSize: '0.85rem', fontWeight: isActive ? 700 : 500, border: isActive ? '2px solid #fff' : '2px solid transparent', minWidth: 140, textAlign: 'center', transition: 'all 0.3s' }}>
+                           <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>{s.sec}s</div>
+                           <div>{s.label}</div>
+                        </div>
+                     );
+                  })}
+               </div>
+
+               {/* Controls */}
+               <div style={{ display: 'flex', gap: 12, marginTop: '2.5rem' }}>
+                  {!pitchTimerRunning ? (
+                     <button onClick={() => setPitchTimerRunning(true)} style={{ padding: '0.75rem 2rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '1.1rem', fontWeight: 700 }}>▶ Start</button>
+                  ) : (
+                     <button onClick={() => setPitchTimerRunning(false)} style={{ padding: '0.75rem 2rem', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '1.1rem', fontWeight: 700 }}>⏸ Pause</button>
+                  )}
+                  <button onClick={() => { setPitchTimerRunning(false); setPitchTimerSeconds(420); }} style={{ padding: '0.75rem 1.5rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '1rem' }}>↻ Reset 7:00</button>
+                  <button onClick={() => { setPitchTimerRunning(false); setPitchTimerSeconds(300); }} style={{ padding: '0.75rem 1.5rem', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '1rem' }}>5:00</button>
+                  <button onClick={() => { setPitchTimerRunning(false); setPitchTimerSeconds(600); }} style={{ padding: '0.75rem 1.5rem', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '1rem' }}>10:00</button>
+               </div>
+               <p style={{ marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center' }}>💡 อย่าลืม! บทเรียนจาก competition: live demo ใน 3 นาที (section 3) คือ Wow moment</p>
+            </div>
+         );
+      })()}
+
     </div>
   );
 }
