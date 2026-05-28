@@ -604,10 +604,35 @@ export default function App() {
     }
   };
 
+  // ─── Multi-Course management (v2.0 Phase 2) ───
+  const [coursesAll, setCoursesAll] = useState([]);
+  const [coursesSeeded, setCoursesSeeded] = useState(false);
+  const [newCourseForm, setNewCourseForm] = useState({
+    id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿'
+  });
+  const [editingCourseId, setEditingCourseId] = useState(null);
+  const [editCourseDraft, setEditCourseDraft] = useState(null);
+  useEffect(() => {
+    const unsub = subscribeToCourses((rows) => {
+      setCoursesAll(rows);
+      // Auto-seed Green Rayong on first ever admin visit if collection is empty
+      if (rows.length === 0 && !coursesSeeded) {
+        setCoursesSeeded(true);
+        seedLegacyGreenRayongCourse(LEGACY_GREEN_RAYONG_COURSE).catch(() => {});
+      }
+    });
+    return () => unsub?.();
+  // eslint-disable-next-line
+  }, []);
+
   // ─── Active Course (v2.0 Phase 7) — drives student worksheet UI + Pitching rubric ───
   const [currentCourseId, setCurrentCourseId] = useState(() => {
     try { return localStorage.getItem('rep_active_course') || 'green-rayong'; } catch { return 'green-rayong'; }
   });
+  const [selectedWorksheetId, setSelectedWorksheetId] = useState(null);
+  const [worksheetSubmissions, setWorksheetSubmissions] = useState([]);
+  const [worksheetFormDraft, setWorksheetFormDraft] = useState({});
+  const [worksheetSaving, setWorksheetSaving] = useState(false);
   const switchCourse = (id) => {
     setCurrentCourseId(id);
     try { localStorage.setItem('rep_active_course', id); } catch {}
@@ -616,16 +641,15 @@ export default function App() {
   // Resolved current course object (Firestore doc merged with built-in fallback)
   const currentCourse = (function getCurrentCourse() {
     if (!coursesAll || coursesAll.length === 0) return LEGACY_GREEN_RAYONG_COURSE;
-    const found = coursesAll.find(c => c.id === currentCourseId);
+    const found = coursesAll.find(c => c && c.id === currentCourseId);
     return found ? mergeCourse(found, currentCourseId) : (BUILTIN_COURSES[currentCourseId] || LEGACY_GREEN_RAYONG_COURSE);
   })();
   // Auto-pick a sensible course on first load — prefer user's team's course
   useEffect(() => {
     if (!user || coursesAll.length === 0) return;
-    const myTeam = teams.find(t => String(t.id) === String(user.team_id || user.teamId));
+    const myTeam = teams.find(t => t && String(t.id) === String(user.team_id || user.teamId));
     if (myTeam) {
       const myCourseIds = getTeamCourseIds(myTeam);
-      // Switch only if current isn't one of user's team's courses
       if (!myCourseIds.includes(currentCourseId)) {
         switchCourse(myCourseIds[0]);
       }
@@ -634,10 +658,6 @@ export default function App() {
   }, [user, teams, coursesAll]);
 
   // ─── Worksheet Submissions for active (team, course) (v2.0 Phase 7) ───
-  const [worksheetSubmissions, setWorksheetSubmissions] = useState([]);
-  const [selectedWorksheetId, setSelectedWorksheetId] = useState(null);
-  const [worksheetFormDraft, setWorksheetFormDraft] = useState({});
-  const [worksheetSaving, setWorksheetSaving] = useState(false);
   const myTeamIdForWorksheets = user?.team_id || user?.teamId || null;
   useEffect(() => {
     if (!myTeamIdForWorksheets || !currentCourseId) return;
@@ -660,26 +680,6 @@ export default function App() {
     finally { setWorksheetSaving(false); }
   };
 
-  // ─── Multi-Course management (v2.0 Phase 2) ───
-  const [coursesAll, setCoursesAll] = useState([]);
-  const [coursesSeeded, setCoursesSeeded] = useState(false);
-  const [newCourseForm, setNewCourseForm] = useState({
-    id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿'
-  });
-  const [editingCourseId, setEditingCourseId] = useState(null);
-  const [editCourseDraft, setEditCourseDraft] = useState(null);
-  useEffect(() => {
-    const unsub = subscribeToCourses((rows) => {
-      setCoursesAll(rows);
-      // Auto-seed Green Rayong on first ever admin visit if collection is empty
-      if (rows.length === 0 && !coursesSeeded) {
-        setCoursesSeeded(true);
-        seedLegacyGreenRayongCourse(LEGACY_GREEN_RAYONG_COURSE).catch(() => {});
-      }
-    });
-    return () => unsub?.();
-  // eslint-disable-next-line
-  }, []);
   // Import a pre-defined seed course (e.g. Design Thinking + S4I) — Phase 6
   const handleImportSeedCourse = async (seedId) => {
     const seed = COURSE_SEEDS[seedId];
