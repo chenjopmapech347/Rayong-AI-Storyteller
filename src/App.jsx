@@ -35,6 +35,10 @@ import { I18N, makeT } from './constants/i18n';
 import { DEFAULT_BRANDING, BRAND_PRESETS, applyBrandColors } from './constants/branding';
 import { ETHICS_CATEGORIES, SEVERITY_META } from './constants/ethics';
 import {
+  SCORE_DIMENSIONS, EVALUATOR_ROLES, RUBRIC_LEVEL_LABELS,
+  LEGACY_GREEN_RAYONG_COURSE, BUILTIN_COURSES, mergeCourse, getTeamCourseIds
+} from './constants/courses';
+import {
   logout,
   getUsers,
   getRubrics,
@@ -94,191 +98,10 @@ import {
 
 // ETHICS_CATEGORIES + SEVERITY_META → src/constants/ethics.js
 
-// The five evaluation dimensions used in BOTH the Pitching Evaluator
-// and the EVAL-MATRIX. Keep these in sync so scores entered in one
-// place show up in the other.
-// NOTE (v2.0): kept as global for backwards compatibility with all current
-// hardcoded usages. New course-aware code should read from LEGACY_GREEN_RAYONG_COURSE.rubric.
-const SCORE_DIMENSIONS = ['AI Prompting', 'Local Wisdom', 'Creativity', 'Business Plan', 'Storytelling'];
 
-// ─────────────────────────────────────────────────────────────────────
-// MULTI-COURSE FOUNDATION (v2.0) — Phase 1
-// ─────────────────────────────────────────────────────────────────────
-// All current Green Rayong behavior captured as a Course config.
-// Future courses (Design Thinking + STEAM4Innovator, etc.) follow the same shape.
-// Stored in Firestore at /courses/{courseId}; merged with this constant as fallback.
-const LEGACY_GREEN_RAYONG_COURSE = {
-  schemaVersion: 1,
-  id: 'green-rayong',
-  name: 'Green Rayong 4-Identities AI Storytellers',
-  nameTH: 'Green Rayong 4-Identities AI Storytellers',
-  methodology: ['4-Identities'],
-  isDefault: true,
-  // Branding (mirrors DEFAULT_BRANDING; kept here so course can override)
-  branding: {
-    brandName: 'Green Rayong',
-    brandTagline: '4-Identities AI Storytellers',
-    logoEmoji: '🌿',
-    primaryColor: '#16a34a',
-    secondaryColor: '#0ea5e9',
-  },
-  // 4 identities of Green Rayong
-  identities: [
-    { id: 'garden', label: 'สวน', emoji: '🌳', color: '#16a34a' },
-    { id: 'forest', label: 'ป่า', emoji: '🌲', color: '#15803d' },
-    { id: 'farm',   label: 'นา', emoji: '🌾', color: '#ca8a04' },
-    { id: 'sea',    label: 'เล', emoji: '🌊', color: '#0ea5e9' },
-  ],
-  // Generic "stages" replaces the old phases/stages split (decision #5)
-  // Order matters; corresponds to the existing 7-step Submission Gateway flow.
-  stages: [
-    { id: 'team-setup',     order: 1, label: 'ตั้งทีม',          emoji: '👥' },
-    { id: 'mission-inbox',  order: 2, label: 'รับโจทย์',         emoji: '📥' },
-    { id: 'collector',      order: 3, label: 'On-site Collector', emoji: '📸' },
-    { id: 'gateway',        order: 4, label: 'Submission Gateway',emoji: '📤' },
-    { id: 'evaluation',     order: 5, label: 'Evaluation',        emoji: '⭐' },
-    { id: 'pitching',       order: 6, label: 'Pitching',          emoji: '🎤' },
-    { id: 'portfolio',      order: 7, label: 'Portfolio (R6)',    emoji: '🏆' },
-  ],
-  // 5 dimensions — same as SCORE_DIMENSIONS but as objects so admin can extend
-  rubric: SCORE_DIMENSIONS.map((dim, i) => ({
-    dimensionId : dim.toLowerCase().replace(/\s+/g, '-'),
-    label       : dim,
-    weight      : [20, 20, 20, 20, 20][i],
-    description : '',
-  })),
-  // Evaluator weights (5×5 Matrix · sum = 100)
-  evaluatorWeights: { self: 10, peer: 15, teacher: 35, sage: 25, ai: 15 },
-  // Worksheets — 7 forms matching the legacy Submission Gateway phases.
-  // Field IDs (wisdom, environment, allIdeas, prototype, videoUrl, bmcCost, aiLogs)
-  // are kept identical to legacy field names so existing api.js logic
-  // (runEthicsAudit, aiAuditTeam) continues to pick up these fields.
-  worksheets: [
-    {
-      id: 'wisdom', icon: '🧓', stageId: 'gateway', order: 1,
-      labelTH: 'ภูมิปัญญาท้องถิ่น (Local Wisdom)', label: 'Local Wisdom',
-      instructionTH: 'บันทึกภูมิปัญญาที่ได้จากปราชญ์ + อ้างอิงแหล่งที่มา · เป็นหัวใจของ Green Rayong',
-      fields: [
-        { id: 'team', type: 'text', label: 'ชื่อทีม', required: true },
-        { id: 'date', type: 'date', label: 'วันที่บันทึก', required: true },
-        { id: 'traditionalWisdom', type: 'textarea', rows: 6, label: 'ภูมิปัญญาที่ได้จากปราชญ์', placeholder: 'อธิบายภูมิปัญญา · ผู้ให้สัมภาษณ์ · ลงพื้นที่เมื่อไหร่' },
-        { id: 'wisdom',            type: 'textarea', rows: 4, label: 'การประยุกต์ใช้ในยุคปัจจุบัน' },
-        { id: 'sageQuote',         type: 'textarea', rows: 2, label: 'คำพูดเด็ดของปราชญ์ (Quote)' },
-        { id: 'sageName',          type: 'text', label: 'ชื่อปราชญ์ (สำหรับ Citation)' },
-        { id: 'sageConsent',       type: 'checkbox', label: 'ได้รับอนุญาตจากปราชญ์', checkboxLabel: '✅ ปราชญ์อนุญาตให้บันทึก + เผยแพร่' }
-      ]
-    },
-    {
-      id: 'environment', icon: '🌿', stageId: 'gateway', order: 2,
-      labelTH: 'ผลกระทบสิ่งแวดล้อม', label: 'Environment Impact',
-      instructionTH: 'อธิบายปัญหา/โอกาสด้านสิ่งแวดล้อมในพื้นที่ + กลุ่มที่ได้รับผลกระทบ',
-      fields: [
-        { id: 'team', type: 'text', label: 'ชื่อทีม', required: true },
-        { id: 'date', type: 'date', label: 'วันที่' },
-        { id: 'environment',    type: 'textarea', rows: 5, label: 'สถานการณ์สิ่งแวดล้อมในพื้นที่' },
-        { id: 'affectedGroup',  type: 'textarea', rows: 4, label: 'กลุ่มที่ได้รับผลกระทบ (Stakeholders)' },
-        { id: 'identity',       type: 'select', label: 'Identity ของพื้นที่', options: ['สวน 🌳', 'ป่า 🌲', 'นา 🌾', 'เล 🌊'] }
-      ]
-    },
-    {
-      id: 'brainstorm', icon: '💡', stageId: 'gateway', order: 3,
-      labelTH: 'ระดมไอเดีย (Brainstorm)', label: 'Brainstorm',
-      instructionTH: 'ระดมไอเดียหลากหลาย → เลือก 1 ไอเดียทำต่อ',
-      fields: [
-        { id: 'team', type: 'text', label: 'ชื่อทีม' },
-        { id: 'date', type: 'date', label: 'วันที่' },
-        { id: 'allIdeas',     type: 'textarea', rows: 8, label: 'ไอเดียทั้งหมด (≥ 5 ข้อ)' },
-        { id: 'selectedIdea', type: 'textarea', rows: 4, label: '✅ ไอเดียที่เลือกทำต่อ' },
-        { id: 'whySelected',  type: 'textarea', rows: 3, label: 'ทำไมเลือกไอเดียนี้?' }
-      ]
-    },
-    {
-      id: 'prototype', icon: '🛠️', stageId: 'gateway', order: 4,
-      labelTH: 'ต้นแบบ (Prototype)', label: 'Prototype',
-      instructionTH: 'ออกแบบ product/service + ทดสอบกับกลุ่มเป้าหมาย',
-      fields: [
-        { id: 'team', type: 'text', label: 'ชื่อทีม' },
-        { id: 'date', type: 'date', label: 'วันที่' },
-        { id: 'prototype',        type: 'textarea', rows: 6, label: 'อธิบาย Prototype (วิธีการ/ผลิตภัณฑ์/บริการ)' },
-        { id: 'prototypeImage',   type: 'image', label: 'ภาพ Prototype' },
-        { id: 'testWithWho',      type: 'text', label: 'ทดสอบกับใคร (กลุ่มเป้าหมาย)' },
-        { id: 'testCount',        type: 'number', label: 'จำนวนคนที่ทดสอบ' },
-        { id: 'testResult',       type: 'textarea', rows: 4, label: 'ผลทดสอบ + Feedback' }
-      ]
-    },
-    {
-      id: 'video', icon: '🎬', stageId: 'pitching', order: 5,
-      labelTH: 'วิดีโอ Pitching', label: 'Pitching Video',
-      instructionTH: 'ลิงก์วิดีโอ Pitching ≤ 5 นาที (YouTube/TikTok/Drive) + subtitle TH+EN',
-      fields: [
-        { id: 'team', type: 'text', label: 'ชื่อทีม' },
-        { id: 'date', type: 'date', label: 'วันที่' },
-        { id: 'videoUrl',      type: 'text', label: 'URL วิดีโอ Pitching', placeholder: 'https://youtu.be/...' },
-        { id: 'videoSubtitle', type: 'textarea', rows: 5, label: 'Script/Subtitle 2 ภาษา (TH+EN)' },
-        { id: 'videoLength',   type: 'number', label: 'ความยาว (นาที)' }
-      ]
-    },
-    {
-      id: 'bmc', icon: '💰', stageId: 'gateway', order: 6,
-      labelTH: 'แผนธุรกิจ (BMC)', label: 'Business Model Canvas',
-      instructionTH: 'BMC 9 ช่อง — ลูกค้า/รายรับ/ต้นทุน/ช่องทาง',
-      fields: [
-        { id: 'team', type: 'text', label: 'ชื่อทีม' },
-        { id: 'date', type: 'date', label: 'วันที่' },
-        { id: 'bmcCustomer', type: 'textarea', rows: 3, label: 'Customer Segments — ลูกค้าคือใคร?' },
-        { id: 'bmcChannel',  type: 'textarea', rows: 3, label: 'Channels — ช่องทางขาย' },
-        { id: 'bmcCost',     type: 'number',   label: 'ต้นทุนต่อหน่วย (บาท)' },
-        { id: 'bmcPrice',    type: 'number',   label: 'ราคาขาย (บาท)' },
-        { id: 'bmcRevenue',  type: 'textarea', rows: 3, label: 'Revenue Streams — รายรับมาจากไหน?' },
-        { id: 'bmcResources',type: 'textarea', rows: 3, label: 'Key Resources — ทรัพยากรหลัก' }
-      ]
-    },
-    {
-      id: 'aiLogs', icon: '🤖', stageId: 'gateway', order: 7,
-      labelTH: 'บันทึกการใช้ AI (Audit Log)', label: 'AI Audit Log',
-      instructionTH: 'บันทึกทุก prompt ที่ใช้กับ AI + cross-check ความถูกต้อง — เพื่อความโปร่งใส',
-      fields: [
-        { id: 'team', type: 'text', label: 'ชื่อทีม' },
-        { id: 'date', type: 'date', label: 'วันที่' },
-        { id: 'aiLogs', type: 'textarea', rows: 12, label: 'AI Prompts ที่ใช้ (1 prompt ต่อบรรทัด)',
-          placeholder: '1. Act as a marine biologist. Given...\n2. You are a UX copywriter...\n3. ...' },
-        { id: 'factChecks', type: 'textarea', rows: 6, label: 'ตรวจสอบความถูกต้อง (Hallucination check) — กับใคร?' }
-      ]
-    }
-  ]
-};
 
-// All available courses live in Firestore; this constant is the offline fallback
-// so the app works even if /courses/* is empty (first-time setup).
-const BUILTIN_COURSES = {
-  'green-rayong': LEGACY_GREEN_RAYONG_COURSE,
-};
 
-// Helper: merge Firestore course doc with built-in fallback (Firestore wins per-field)
-const mergeCourse = (firestoreDoc, courseId = 'green-rayong') => {
-  const fallback = BUILTIN_COURSES[courseId] || LEGACY_GREEN_RAYONG_COURSE;
-  if (!firestoreDoc) return fallback;
-  return {
-    ...fallback,
-    ...firestoreDoc,
-    branding   : { ...fallback.branding,   ...(firestoreDoc.branding   || {}) },
-    identities : firestoreDoc.identities?.length ? firestoreDoc.identities : fallback.identities,
-    stages     : firestoreDoc.stages?.length     ? firestoreDoc.stages     : fallback.stages,
-    rubric     : firestoreDoc.rubric?.length     ? firestoreDoc.rubric     : fallback.rubric,
-    worksheets : firestoreDoc.worksheets?.length ? firestoreDoc.worksheets : fallback.worksheets,
-    evaluatorWeights: { ...fallback.evaluatorWeights, ...(firestoreDoc.evaluatorWeights || {}) },
-  };
-};
 
-// Helper: extract a team's effective courses (decision #2: team can join multiple)
-// Reads both team.courseIds (v2) and team.courseId (v1 single) and team.course_id (Firestore snake_case)
-const getTeamCourseIds = (team) => {
-  if (!team) return ['green-rayong'];
-  if (Array.isArray(team.courseIds) && team.courseIds.length) return team.courseIds;
-  if (team.courseId) return [team.courseId];
-  if (team.course_id) return [team.course_id];
-  return ['green-rayong'];
-};
 
 // ─────────────────────────────────────────────────────────────────────
 // GENERIC FORM RENDERER (v2.0 Phase 4)
@@ -406,11 +229,7 @@ const GenericForm = memo(function GenericForm({ schema, value, onChange, disable
   );
 });
 
-// All evaluator roles we display in the matrix legend / cell badges.
-const EVALUATOR_ROLES = ['self', 'peer', 'teacher', 'sage', 'ai'];
 
-// Thai labels for rubric levels 1-4. Levels beyond 4 fall back to "ระดับที่ N".
-const RUBRIC_LEVEL_LABELS = ['ปรับปรุง', 'พอใช้', 'ดี', 'ดีเยี่ยม'];
 
 // I18N + makeT → src/constants/i18n.js
 // (was: 130-line bilingual dict inline · now extracted for cleanliness)
