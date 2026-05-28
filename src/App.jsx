@@ -644,18 +644,10 @@ export default function App() {
     const found = coursesAll.find(c => c && c.id === currentCourseId);
     return found ? mergeCourse(found, currentCourseId) : (BUILTIN_COURSES[currentCourseId] || LEGACY_GREEN_RAYONG_COURSE);
   })();
-  // Auto-pick a sensible course on first load — prefer user's team's course
-  useEffect(() => {
-    if (!user || coursesAll.length === 0) return;
-    const myTeam = teams.find(t => t && String(t.id) === String(user.team_id || user.teamId));
-    if (myTeam) {
-      const myCourseIds = getTeamCourseIds(myTeam);
-      if (!myCourseIds.includes(currentCourseId)) {
-        switchCourse(myCourseIds[0]);
-      }
-    }
-  // eslint-disable-next-line
-  }, [user, teams, coursesAll]);
+  // Note: auto-pick by team intentionally removed — caused TDZ error
+  // (teams is declared further below). User can manually switch via the
+  // Course Switcher dropdown in the header. If they want auto-pick later,
+  // we can move the teams useState above this block.
 
   // ─── Worksheet Submissions for active (team, course) (v2.0 Phase 7) ───
   const myTeamIdForWorksheets = user?.team_id || user?.teamId || null;
