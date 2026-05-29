@@ -3094,7 +3094,12 @@ export default function App() {
                      <h2 style={{ color: appConfig.primaryColor, margin: '0.5rem 0' }}>{appConfig.brandName}</h2>
                      <p style={{ color: '#475569', fontSize: '0.9rem' }}>{appConfig.brandTagline}</p>
                      <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#64748b' }}>คู่มือการใช้งานสำหรับ <strong>นักเรียน · ครู · ปราชญ์ชาวบ้าน · ผู้ดูแลระบบ</strong></p>
-                     <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>v1.0 · 4-Identities AI Storytellers</p>
+                     <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>
+                        <strong style={{ color: appConfig.primaryColor }}>v2.0</strong> · Multi-Course Innovation Platform
+                     </p>
+                     <p style={{ marginTop: '0.4rem', fontSize: '0.7rem', color: '#94a3b8' }}>
+                        ✨ ใหม่ใน v2.0: หลายหลักสูตรในเว็บเดียว · Worksheets schema editor · Pitching Timer · QR codes · Top-up users
+                     </p>
                   </div>
 
                   {/* ── TOC ── */}
@@ -3102,13 +3107,14 @@ export default function App() {
                      <h4>📚 สารบัญ (Table of Contents)</h4>
                      <ol style={{ marginTop: '0.5rem', paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
                         <li><a href="#quick-start"  style={{ color: '#0369a1' }}>🚀 เริ่มต้นใช้งาน (Quick Start)</a></li>
-                        <li><a href="#student"     style={{ color: '#0369a1' }}>👨‍🎓 สำหรับนักเรียน (Student)</a></li>
-                        <li><a href="#teacher"     style={{ color: '#0369a1' }}>👩‍🏫 สำหรับครู (Teacher / Facilitator)</a></li>
-                        <li><a href="#sage"        style={{ color: '#0369a1' }}>🧓 สำหรับปราชญ์ (Sage / Local Expert)</a></li>
-                        <li><a href="#admin"       style={{ color: '#0369a1' }}>⚙️ สำหรับผู้ดูแลระบบ (Admin)</a></li>
-                        <li><a href="#pitching"    style={{ color: '#0369a1' }}>🎤 เตรียม Pitching Presentation</a></li>
-                        <li><a href="#trouble"     style={{ color: '#0369a1' }}>🔧 แก้ปัญหา (Troubleshooting)</a></li>
-                        <li><a href="#faq"         style={{ color: '#0369a1' }}>❓ คำถามที่พบบ่อย (FAQ)</a></li>
+                        <li><a href="#multi-course" style={{ color: '#0369a1' }}>📚 Multi-Course System ⭐ ใหม่</a></li>
+                        <li><a href="#student"      style={{ color: '#0369a1' }}>👨‍🎓 สำหรับนักเรียน (Student)</a></li>
+                        <li><a href="#teacher"      style={{ color: '#0369a1' }}>👩‍🏫 สำหรับครู (Teacher / Facilitator)</a></li>
+                        <li><a href="#sage"         style={{ color: '#0369a1' }}>🧓 สำหรับปราชญ์ (Sage / Local Expert)</a></li>
+                        <li><a href="#admin"        style={{ color: '#0369a1' }}>⚙️ สำหรับผู้ดูแลระบบ (Admin)</a></li>
+                        <li><a href="#pitching"     style={{ color: '#0369a1' }}>🎤 เตรียม Pitching + ⏱️ Timer</a></li>
+                        <li><a href="#trouble"      style={{ color: '#0369a1' }}>🔧 แก้ปัญหา (Troubleshooting)</a></li>
+                        <li><a href="#faq"          style={{ color: '#0369a1' }}>❓ คำถามที่พบบ่อย (FAQ)</a></li>
                      </ol>
                   </div>
 
@@ -3117,13 +3123,14 @@ export default function App() {
                      <h3 style={{ color: appConfig.primaryColor, borderBottom: `3px solid ${appConfig.primaryColor}`, paddingBottom: 6 }}>🚀 1. เริ่มต้นใช้งาน (Quick Start)</h3>
                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
                         {[
-                           { n: 1, icon: '🌐', title: 'เปิดเว็บ', desc: 'เข้า ai-storyteller-9dc3a.web.app' },
-                           { n: 2, icon: '🔐', title: 'เข้าสู่ระบบ', desc: 'ใช้ username + password ที่ครูสร้างให้' },
-                           { n: 3, icon: '🎯', title: 'ดู Mission', desc: 'รับโจทย์จาก Mission Inbox' },
-                           { n: 4, icon: '📸', title: 'ลงพื้นที่', desc: 'เก็บข้อมูล + สัมภาษณ์ปราชญ์' },
-                           { n: 5, icon: '🤖', title: 'ใช้ AI', desc: 'Prompt + บันทึก Audit Log' },
-                           { n: 6, icon: '📤', title: 'ส่งงาน', desc: 'Submit ผ่าน Gateway 7 ขั้นตอน' },
-                           { n: 7, icon: '🎤', title: 'Pitching', desc: 'นำเสนอ + รับคะแนน 5×5 Matrix' }
+                           { n: 1, icon: '🌐', title: 'เปิดเว็บ',      desc: 'เข้า ai-storyteller-9dc3a.web.app' },
+                           { n: 2, icon: '🔐', title: 'เข้าสู่ระบบ',   desc: 'ใช้ username + password ที่ครูสร้างให้' },
+                           { n: 3, icon: '📚', title: 'เลือกหลักสูตร', desc: 'ดร็อปดาวน์ใน header (ถ้ามี ≥ 2 หลักสูตร)' },
+                           { n: 4, icon: '🎯', title: 'ดู Mission',    desc: 'รับโจทย์จาก Mission Inbox' },
+                           { n: 5, icon: '📸', title: 'ลงพื้นที่',     desc: 'เก็บข้อมูล + สัมภาษณ์ปราชญ์' },
+                           { n: 6, icon: '🤖', title: 'ใช้ AI',        desc: 'Prompt + บันทึก Audit Log' },
+                           { n: 7, icon: '📝', title: 'กรอก Worksheets', desc: 'ส่งงานตามหลักสูตร (Submission Gateway)' },
+                           { n: 8, icon: '🎤', title: 'Pitching',      desc: 'นำเสนอ + รับคะแนน N×M Matrix' }
                         ].map(s => (
                            <div key={s.n} style={{ padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, textAlign: 'center' }}>
                               <div style={{ background: appConfig.primaryColor, color: '#fff', width: 28, height: 28, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, marginBottom: 6 }}>{s.n}</div>
@@ -3134,7 +3141,44 @@ export default function App() {
                         ))}
                      </div>
                      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '0.75rem', borderRadius: 6, marginTop: '0.75rem', fontSize: '0.8rem' }}>
-                        💡 <strong>Tip:</strong> ระบบรองรับ Thai/English — กดปุ่ม <strong>Thai TH | English EN</strong> ที่ header
+                        💡 <strong>Tips:</strong>
+                        <ul style={{ marginTop: 4, paddingLeft: '1.2rem', marginBottom: 0 }}>
+                           <li>ภาษา: กดปุ่ม <strong>Thai TH | English EN</strong> ที่ header</li>
+                           <li>หลักสูตร: ดร็อปดาวน์ <strong>📚</strong> มุมขวาบน (เห็นเมื่อมี ≥ 2 หลักสูตร)</li>
+                           <li>Pitching Timer: กดปุ่ม <strong>⏱️ Timer</strong> ที่ header — full-screen countdown</li>
+                        </ul>
+                     </div>
+                  </div>
+
+                  {/* ── 2. Multi-Course System (NEW v2.0) ── */}
+                  <div id="multi-course" className="card">
+                     <h3 style={{ color: '#7c3aed', borderBottom: '3px solid #7c3aed', paddingBottom: 6 }}>📚 2. Multi-Course System ⭐ ใหม่ v2.0</h3>
+                     <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>R-Eco-Pilot ตอนนี้ไม่ใช่แค่ "Green Rayong" — เป็น <strong>Innovation Learning Platform</strong> รองรับหลายกรอบแนวคิด</p>
+
+                     <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>🎓 หลักสูตรที่มาพร้อมระบบ</h4>
+                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8, marginTop: 8 }}>
+                        <div style={{ padding: '0.75rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6 }}>
+                           <div style={{ fontSize: '1.3rem' }}>🌿 Green Rayong (default)</div>
+                           <div style={{ fontSize: '0.75rem', color: '#166534', marginTop: 4 }}>4-Identities (สวน/ป่า/นา/เล) · AI Storytelling · 7 worksheets</div>
+                        </div>
+                        <div style={{ padding: '0.75rem', background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 6 }}>
+                           <div style={{ fontSize: '1.3rem' }}>💡 Design Thinking + STEAM4Innovator</div>
+                           <div style={{ fontSize: '0.75rem', color: '#0e7490', marginTop: 4 }}>5 stages × 7 scenarios · 19 worksheets · ใช้กับชุมชนใดก็ได้</div>
+                        </div>
+                     </div>
+
+                     <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>🛠️ ครูสร้างหลักสูตรใหม่ได้เอง</h4>
+                     <ol style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
+                        <li>Admin → <strong>จัดการหลักสูตร</strong></li>
+                        <li>กด <strong>"+ สร้างหลักสูตรใหม่"</strong> หรือ <strong>📦 Import seed template</strong></li>
+                        <li>กด <strong>📝 Worksheets</strong> บนการ์ดหลักสูตร → ใช้ Schema Editor สร้าง worksheets</li>
+                        <li>เพิ่ม fields ทีละตัว (text · textarea · select · radio · list)</li>
+                        <li>กด <strong>👁 Preview</strong> ดูตัวอย่างที่นักเรียนจะเห็น</li>
+                        <li>กด <strong>💾 บันทึก</strong> · นักเรียนใช้งานได้ทันที</li>
+                     </ol>
+
+                     <div style={{ background: '#fef3c7', border: '1px solid #fde68a', padding: '0.75rem', borderRadius: 6, marginTop: '0.75rem', fontSize: '0.8rem' }}>
+                        🌟 <strong>White-label พร้อมขยาย:</strong> แต่ละหลักสูตรมี Branding ของตัวเอง (สี · logo · ชื่อ) — สามารถนำไปใช้กับโรงเรียนอื่นในจังหวัดต่าง ๆ ได้ทันที
                      </div>
                   </div>
 
@@ -3149,8 +3193,9 @@ export default function App() {
                         <li><strong>รับโจทย์ (Mission Inbox)</strong> — รับ mission ที่ครูมอบหมาย เลือก identity 1 ใน 4</li>
                         <li><strong>เก็บข้อมูล (On-site Collector)</strong> — บันทึกการสัมภาษณ์ปราชญ์ + ภาพ + GPS</li>
                         <li><strong>ส่งงาน (Submission Gateway)</strong> — 7 ขั้น: wisdom → environment → brainstorm → prototype → video → BMC → AI logs</li>
+                        <li><strong>📝 Worksheets ⭐ ใหม่</strong> — ใบงานตามหลักสูตรที่เลือก · ฟอร์มออกแบบโดยครู · กรอกแล้ว save → ดู ✓ done badge</li>
                         <li><strong>ศูนย์ประเมิน (Evaluation Hub)</strong> — Self-assessment (5 ด้าน) + Peer evaluation</li>
-                        <li><strong>รายงาน R6</strong> — ดู portfolio ของทีม</li>
+                        <li><strong>รายงาน R6</strong> — ดู portfolio ของทีม + QR code แชร์ได้</li>
                      </ul>
 
                      <h4 style={{ marginTop: '1rem', color: '#0369a1' }}>🎯 4 Identities ของ Green Rayong</h4>
@@ -3241,15 +3286,16 @@ export default function App() {
                   <div id="admin" className="card">
                      <h3 style={{ color: '#7c3aed', borderBottom: '3px solid #7c3aed', paddingBottom: 6 }}>⚙️ 5. สำหรับผู้ดูแลระบบ (Admin)</h3>
 
-                     <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>📋 Sub-tabs ใน Admin Panel</h4>
+                     <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>📋 Sub-tabs ใน Admin Panel (7 sub-tabs)</h4>
                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 8 }}>
                         {[
-                           { name: 'Management',  emoji: '👥', desc: 'CRUD users + teams · Import CSV · Reset password' },
-                           { name: 'Session',     emoji: '📅', desc: 'Phase manager · Open/Close submission · Deadline' },
-                           { name: 'Moderation',  emoji: '🛡️', desc: 'Cultural Ethics Audit · 6 หมวด 17 rules · Approve/Reject' },
-                           { name: 'Branding',    emoji: '🎨', desc: 'White-label · 4 presets · Custom brand · Reset' },
-                           { name: 'Settings',    emoji: '⚙️', desc: 'Claude API key · Looker URL · Backup · Seed Demo' },
-                           { name: 'Reports',     emoji: '📊', desc: 'R1-R6 reports cross-team' }
+                           { name: 'Management',   emoji: '👥', desc: 'CRUD users + teams · Import CSV · Reset password' },
+                           { name: 'Session',      emoji: '📅', desc: 'Phase manager · Open/Close submission · Deadline' },
+                           { name: 'Moderation',   emoji: '🛡️', desc: 'Cultural Ethics Audit · 6 หมวด 17 rules' },
+                           { name: 'Courses ⭐',    emoji: '📚', desc: 'Multi-course CRUD · Schema Editor · Import seed templates' },
+                           { name: 'Branding',     emoji: '🎨', desc: 'White-label · 4 presets · Custom brand' },
+                           { name: 'Settings',     emoji: '⚙️', desc: 'Claude API · Looker · Backup · Reset & Top-up users' },
+                           { name: 'Reports',      emoji: '📊', desc: 'R1-R6 reports cross-team · course-aware rubric' }
                         ].map(s => (
                            <div key={s.name} style={{ padding: '0.6rem', background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 6 }}>
                               <div style={{ fontSize: '1.3rem' }}>{s.emoji}</div>
@@ -3261,33 +3307,55 @@ export default function App() {
 
                      <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>🔧 ขั้นตอนตั้งระบบครั้งแรก</h4>
                      <ol style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
-                        <li>Settings → Seed Firebase Data (สร้างข้อมูลเริ่มต้น)</li>
+                        <li>Settings → <strong>Seed Firebase Data</strong> (สร้างข้อมูลเริ่มต้น)</li>
+                        <li>Settings → <strong>👥 Top-up Users (10/45/9) ⭐</strong> เพิ่ม users ครบรอบหนึ่งคลาส</li>
+                        <li>Courses → กด <strong>📦 Import Design Thinking + STEAM4Innovator</strong> (optional · ทำให้มี 2 หลักสูตร)</li>
                         <li>Branding → เลือก preset หรือ custom brand (ชื่อ, สี, logo)</li>
                         <li>Session → เพิ่ม/แก้ phases ตามแผนการเรียน + ตั้ง deadline</li>
-                        <li>Management → Import users (admin/teacher/student/sage) ผ่าน CSV</li>
-                        <li>Settings → ตั้ง Claude API key (optional, เพราะมี Demo Mode)</li>
+                        <li>Settings → ตั้ง Claude API key (optional · Demo Mode ทำงานได้)</li>
                         <li>Settings → วาง Looker Studio Embed URL (optional)</li>
                      </ol>
+
+                     <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>⭐ Features ใหม่ v2.0 ใน Admin</h4>
+                     <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                        <li><strong>Courses sub-tab</strong> — สร้าง/แก้/clone/delete หลักสูตร · Schema Editor สำหรับ worksheets · Import seed templates</li>
+                        <li><strong>Top-up Demo Users</strong> — Settings → ปุ่มเขียว · เพิ่ม users จนครบ 10 ครู / 45 นักเรียน / 9 ปราชญ์ (ไม่ลบของเดิม)</li>
+                        <li><strong>Course-aware Reports R1</strong> — แต่ละทีมใช้ rubric ของหลักสูตรตัวเอง · มีคอลัมน์ "หลักสูตร"</li>
+                     </ul>
                   </div>
 
                   {/* ── 6. Pitching Prep ── */}
                   <div id="pitching" className="card">
-                     <h3 style={{ color: '#dc2626', borderBottom: '3px solid #dc2626', paddingBottom: 6 }}>🎤 6. เตรียม Pitching Presentation</h3>
+                     <h3 style={{ color: '#dc2626', borderBottom: '3px solid #dc2626', paddingBottom: 6 }}>🎤 7. เตรียม Pitching + ⏱️ Timer</h3>
 
                      <h4 style={{ marginTop: '1rem', color: '#991b1b' }}>📝 Checklist ก่อน Pitching</h4>
                      <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
-                        <li>✅ <strong>ผลงานครบ 7 ขั้น</strong> ใน Submission Gateway</li>
+                        <li>✅ <strong>ผลงานครบทุก worksheet</strong> ใน Worksheets tab (Green Rayong = 7 · Design Thinking = 19)</li>
                         <li>✅ <strong>AI Audit Log ครบ</strong> ทุก prompt ที่ใช้ (เปิด AI Audit Logbook ดู score)</li>
                         <li>✅ <strong>Self + Peer Evaluation</strong> เสร็จก่อนวัน Pitching</li>
                         <li>✅ <strong>BMC สมบูรณ์</strong> — cost, price, customer, channel</li>
-                        <li>✅ <strong>วิดีโอ Pitching ≤ 5 นาที</strong> — link ใน Submission Gateway</li>
+                        <li>✅ <strong>วิดีโอ Pitching ≤ 5 นาที</strong> — link ใน worksheet "Pitching Video"</li>
                         <li>✅ <strong>ภาษา TH + EN</strong> — Sub-title หรือ Dual-language slide</li>
                      </ul>
 
-                     <h4 style={{ marginTop: '1rem', color: '#991b1b' }}>📊 คะแนนรวม 100% มาจากไหน</h4>
+                     <h4 style={{ marginTop: '1rem', color: '#991b1b' }}>⏱️ Pitching Timer ⭐ ใหม่</h4>
+                     <p style={{ fontSize: '0.85rem', marginTop: 4 }}>กดปุ่ม <strong>⏱️ Timer</strong> ที่ <strong>header</strong> ของเว็บ — เปิด full-screen countdown สำหรับซ้อม Pitching</p>
+                     <div style={{ background: '#fef2f2', padding: '0.75rem', borderRadius: 6, fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                        <strong>5 sections ใน Pitching 7 นาที (จากบทเรียน competition จริง):</strong>
+                        <ol style={{ marginTop: 4, paddingLeft: '1.2rem' }}>
+                           <li>🔴 Hook + Problem (60 วิ)</li>
+                           <li>🟠 Solution Overview (90 วิ)</li>
+                           <li>🟢 <strong>⭐ LIVE DEMO (180 วิ)</strong> ← Wow moment!</li>
+                           <li>🔵 Impact + Business (60 วิ)</li>
+                           <li>🟣 CTA + Team (30 วิ)</li>
+                        </ol>
+                        <p style={{ marginTop: 6, fontStyle: 'italic', color: '#7f1d1d' }}>Preset: 5 / 7 / 10 นาที · Section highlight อัตโนมัติ · pulse alarm ≤ 30 วิ</p>
+                     </div>
+
+                     <h4 style={{ marginTop: '1rem', color: '#991b1b' }}>📊 คะแนนรวม 100% (Course-aware)</h4>
                      <div style={{ background: '#fef2f2', padding: '0.75rem', borderRadius: 6, fontSize: '0.85rem' }}>
                         Self 10% · Peer 15% · Teacher 35% · Sage 25% · AI 15% = <strong>100%</strong><br/>
-                        × 5 ด้าน (AI Prompting · Local Wisdom · Creativity · Business · Storytelling)<br/>
+                        × dimensions ของ <strong>rubric หลักสูตรของทีม</strong> (ไม่ใช่ hardcode อีกแล้ว!)<br/>
                         <strong>เป้าหมาย:</strong> ≥ 4.0/5.0 ในทุกด้าน = TPQI Level 4 (Impact Creator)
                      </div>
                   </div>
@@ -3327,9 +3395,15 @@ export default function App() {
                         ['Demo Mode คืออะไร?', 'ระบบมี Mock AI Audit ที่ทำงานจาก heuristic locally โดยไม่ต้องมี Claude API Key — เหมาะสำหรับ demo presentation'],
                         ['ข้อมูลเก็บที่ไหน?',     'Firebase Firestore (cloud database) · sync real-time ทุก device'],
                         ['ใช้ฟรีไหม?',          'ใช้ฟรี (Firebase Spark plan) · ถ้าเปิด Claude API จะมีค่าใช้จ่ายตามจำนวน tokens'],
+                        ['สร้างหลักสูตรใหม่ได้ไหม?', 'ได้ครับ! Admin → จัดการหลักสูตร → "+ สร้างหลักสูตรใหม่" หรือ "📦 Import Design Thinking + STEAM4Innovator" สำเร็จรูป · แล้วใช้ Schema Editor สร้าง worksheets ของตัวเอง'],
+                        ['ทีมเดียวเข้าหลายหลักสูตรได้ไหม?', 'ได้ครับ · team.courseIds เป็น array · นักเรียนสลับ course ผ่าน dropdown ที่ header'],
+                        ['เพิ่มครู/นักเรียน/ปราชญ์ทีเดียวเยอะ ๆ ได้ไหม?', 'ได้ครับ · Admin → Settings → กดปุ่มสีเขียว "👥 Top-up Users (10/45/9)" · ระบบจะเพิ่มจนครบเป้าหมายโดยไม่ลบของเดิม'],
+                        ['Pitching Timer ใช้ยังไง?', 'กดปุ่ม ⏱️ Timer ที่ header → full-screen countdown · เลือก 5/7/10 นาที · มี section highlight + pulse alarm ≤ 30 วิ'],
+                        ['QR code ใน R6 Portfolio?', 'แต่ละ team card มี QR ที่ link ไป public portfolio (ผ่าน api.qrserver.com) · กรรมการ scan จากมือถือดูผลงานได้ทันที'],
                         ['Branding เปลี่ยนยังไง?', 'Admin → Branding → เลือก preset (Rayong/Doi Saket/Phuket/Ayutthaya) หรือ custom brand'],
                         ['Backup ข้อมูลยังไง?',  'Admin → Settings → Download Backup JSON · ดาวน์โหลดทุกอย่างเป็นไฟล์ .json'],
-                        ['ลบทีม/นักเรียนได้ไหม?', 'Admin → Management → กดไอคอน 🗑 ข้างชื่อทีม/user (ระวัง — undo ไม่ได้)']
+                        ['ลบทีม/นักเรียนได้ไหม?', 'Admin → Management → กดไอคอน 🗑 ข้างชื่อทีม/user (ระวัง — undo ไม่ได้)'],
+                        ['Source code ที่ไหน?', 'GitHub: chenjopmapech347/Rayong-AI-Storyteller (public) · clone แล้วใช้ npm install + npm run dev']
                      ].map(([q, a]) => (
                         <details key={q} style={{ marginTop: 8, padding: 8, background: '#f7fee7', borderRadius: 6 }}>
                            <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>{q}</summary>
