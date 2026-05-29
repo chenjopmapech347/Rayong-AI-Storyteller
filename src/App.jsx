@@ -96,33 +96,28 @@ import {
   seedLegacyGreenRayongCourse,
   // Phase 7: Worksheet submissions
   saveWorksheetSubmission,
-  subscribeToWorksheetSubmissions
+  subscribeToWorksheetSubmissions,
+  // Demo user top-up (Sep 2026)
+  topUpDemoUsers
 } from './api';
 
-// ETHICS_CATEGORIES + SEVERITY_META → src/constants/ethics.js
-
-
-
-
-
-
-// ─────────────────────────────────────────────────────────────────────
-// GENERIC FORM RENDERER (v2.0 Phase 4)
-// Renders a worksheet schema → React form. Used in:
-//  - Schema Editor preview (admin sees what students will see)
-//  - Future Phase 6: actual student worksheet entry
-// Supports 8 field types: text · textarea · number · date · select · radio · checkbox · list
-// Defer to Phase 5+: image · drawing · table · matrix-2x2 · categorize · signature · audio
-// ─────────────────────────────────────────────────────────────────────
-
-
-
-// I18N + makeT → src/constants/i18n.js
-// (was: 130-line bilingual dict inline · now extracted for cleanliness)
-
-// DEFAULT_BRANDING + BRAND_PRESETS + applyBrandColors → src/constants/branding.js
-
-
+// ═══════════════════════════════════════════════════════════════════════
+// MODULE STRUCTURE (v2.0 cleanup)
+//
+//   src/App.jsx                       ← this file (state · UI · tab bodies)
+//   src/api.js                        ← Firestore CRUD + AI proxies + auth
+//   src/courseSeeds.js                ← pre-defined course templates (import)
+//   src/constants/
+//     ├ i18n.js                       ← TH/EN dictionary + makeT helper
+//     ├ branding.js                   ← DEFAULT_BRANDING + 4 BRAND_PRESETS
+//     ├ ethics.js                     ← ETHICS_CATEGORIES + SEVERITY_META
+//     └ courses.js                    ← SCORE_DIMENSIONS · EVALUATOR_ROLES ·
+//                                       LEGACY_GREEN_RAYONG_COURSE · helpers
+//   src/components/
+//     ├ StatBox.jsx                   ← dashboard stat card
+//     ├ RadarChart.jsx                ← SVG 5-axis radar
+//     └ GenericForm.jsx               ← schema-driven form renderer + FIELD_TYPES
+// ═══════════════════════════════════════════════════════════════════════
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -616,6 +611,22 @@ export default function App() {
       window.alert('✅ Reset & Seed สำเร็จ — รีโหลดหน้าเพื่อเห็นข้อมูลใหม่');
     } catch (e) { window.alert('Reset ล้มเหลว: ' + (e?.message || e)); }
     finally { setResetting(false); }
+  };
+
+  // Non-destructive: add users to reach target counts (10 / 45 / 9)
+  const [topUpRunning, setTopUpRunning] = useState(false);
+  const handleTopUpUsers = async () => {
+    if (!window.confirm('เพิ่มครู → 10 คน · นักเรียน → 45 คน · ปราชญ์ → 9 คน?\n(ไม่ลบของเดิม · password: teacher123/student123/sage123)')) return;
+    setTopUpRunning(true);
+    try {
+      const r = await topUpDemoUsers({ teacher: 10, student: 45, sage: 9 });
+      const lines = ['✅ Top-up สำเร็จ:'];
+      for (const [role, info] of Object.entries(r.results)) {
+        lines.push(`  ${role}: มี ${info.had} → เป้า ${info.target} · เพิ่ม ${info.added} คน${info.skipped ? ` (ข้าม ${info.skipped})` : ''}`);
+      }
+      window.alert(lines.join('\n'));
+    } catch (e) { window.alert('Top-up ล้มเหลว: ' + (e?.message || e)); }
+    finally { setTopUpRunning(false); }
   };
 
   // ─── Pitching Timer (overlay modal) — accessible from any tab ───
@@ -2369,6 +2380,25 @@ export default function App() {
                               <p style={{ fontSize: '0.7rem', marginTop: '0.5rem', color: '#7f1d1d', fontStyle: 'italic' }}>หมายเหตุ: Firebase Auth accounts เก่าที่ลบ Firestore doc แล้วยังคงอยู่ใน Authentication console (ลบ manual ที่ Console ถ้าต้องการ clean สมบูรณ์)</p>
                               <button onClick={handleResetSeed} disabled={resetting} className="login-btn" style={{ background: '#dc2626', marginTop: '0.75rem', width: 'auto', padding: '0.5rem 1rem' }}>
                                  {resetting ? '⏳ กำลัง Reset...' : '🔄 Reset & Seed Demo Data'}
+                              </button>
+                           </div>
+
+                           {/* ─── Top-up Demo Users (non-destructive) ─── */}
+                           <div className="card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                              <h5 style={{ color: '#166534' }}>👥 Top-up Demo Users (Non-destructive)</h5>
+                              <p style={{ fontSize: '0.8125rem', marginTop: '0.5rem', color: '#166534' }}>
+                                 เพิ่ม users จนครบเป้าหมาย <strong>โดยไม่ลบของเดิม</strong>:
+                              </p>
+                              <ul style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#15803d', paddingLeft: '1.2rem' }}>
+                                 <li>👩‍🏫 ครู (teacher) → 10 คน (รหัสผ่าน: teacher123)</li>
+                                 <li>👨‍🎓 นักเรียน (student) → 45 คน (รหัสผ่าน: student123)</li>
+                                 <li>🧓 ปราชญ์ (sage) → 9 คน (รหัสผ่าน: sage123)</li>
+                              </ul>
+                              <p style={{ fontSize: '0.7rem', marginTop: '0.5rem', color: '#166534', fontStyle: 'italic' }}>
+                                 💡 ชื่อเป็น default — เปลี่ยนได้ทีหลังใน Admin → Management
+                              </p>
+                              <button onClick={handleTopUpUsers} disabled={topUpRunning} className="login-btn" style={{ background: '#16a34a', marginTop: '0.75rem', width: 'auto', padding: '0.5rem 1rem' }}>
+                                 {topUpRunning ? '⏳ กำลังเพิ่ม users...' : '👥 Top-up Users (10/45/9)'}
                               </button>
                            </div>
                         </div>

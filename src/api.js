@@ -2130,6 +2130,78 @@ export function subscribeToWorksheetSubmissions(teamId, courseId, callback) {
 
 // ─── END Multi-Course CRUD ──────────────────────────────────────────
 
+// ─── Top-up Demo Users ──────────────────────────────────────────────
+// Non-destructive — fills the school roster up to target counts without
+// touching existing users. Useful for setting up a classroom-sized demo.
+// Default password per role: teacher123 / student123 / sage123.
+
+const _DEMO_NAMES = {
+  teacher: [
+    'ครูสมชาย ใจดี',  'ครูวันชัย รักการสอน', 'ครูปริญญา ครุฑน้อย',
+    'ครูดวงใจ ศิริ',   'ครูอนงค์ ทองดี',      'ครูมานพ พงษ์เกษม',
+    'ครูสุริยา สว่าง', 'ครูศิริพร แสงทอง',    'ครูประเสริฐ ดีงาม',
+    'ครูพรพรรณ มณีรัตน์', 'ครูธีรพงษ์ ทอแสง', 'ครูนงนุช วงศ์ไพศาล',
+    'ครูสมพร แก้วใส',   'ครูวิภา ใจกล้า',    'ครูสุดา ทรงคุณ'
+  ],
+  sage: [
+    'ลุงสมาน ผู้รู้ภูมิปัญญา', 'ป้าใจดี ทอผ้าซิ่น',  'ลุงประสิทธิ์ ปราชญ์ป่า',
+    'ป้าสมศรี กะปิเคย',     'ลุงบุญมา หมอชาวบ้าน', 'ป้าวาสนา หมอนวด',
+    'ลุงเฉลิม ปราชญ์นา',     'ป้านงเยาว์ ทำขนมไทย',  'ลุงสุรินทร์ ปราชญ์เล',
+    'ป้ามาลี หมอสมุนไพร',    'ลุงคำพอง ปราชญ์สวน'
+  ],
+  student: [
+    'นภา สวยงาม',     'อรนุช ใจดี',     'พิมพ์ใจ มาลัย',   'วิชัย เก่งดี',
+    'สมศักดิ์ ขยัน',  'ธนากร พงศ์ชัย', 'ปิยะพร ศรีสุข',  'อรอนงค์ จันทร์เพ็ญ',
+    'กิตติพงษ์ ภักดี','รัตนา เพชรงาม',  'ภูมิ ขยัน',       'กานดา ทองดี',
+    'อรอนงค์ สง่างาม','นภา สวยงาม',     'ธนวัฒน์ มั่นคง', 'ปวีณา รักการ',
+    'แก้วใจ ดอกไม้',  'นิภา รักษ์ดี',   'ชาญ ใหญ่ใจ',     'ปวีณ ใจกล้า',
+    'พิชา รุ่งเรือง', 'มงคล ทรงชัย',   'อรพินท์ สวยใส',  'สุริยะ แสงทอง',
+    'วรพล ดีพร้อม',   'ลลิตา เก็บเกี่ยว','เกวลิน ทองคำ',  'พงศกร สุขใจ',
+    'อาทิตย์ ฉายแสง', 'พิชาดา สวยงาม', 'ภัทรพล มั่นใจ',  'จันทิมา ลออ',
+    'รัชนี รุ่งทรัพย์','ยุทธพงษ์ พลัง', 'ขวัญใจ เพชรงาม','สิริพร ใสสว่าง',
+    'ปรีดา หาญสู้',   'กิตติชัย สู้กับ','ดวงใจ มาดี',     'พิชญา สวยใส',
+    'รสริน รักงาน',   'อังคณา สวยงาม','พิรญาณ์ ทองดี',  'ธีระยุทธ พงษ์ใจ',
+    'ปวริศา รักการเรียน', 'กมลพร ใจกล้า', 'ธนกร ทอแสง', 'สมจิตร์ ดีงาม',
+    'ปิติพล สุขใจดี', 'อรพรรณ พลังใจ', 'พิมลพรรณ รุ่งเรือง'
+  ]
+};
+
+// Add users to reach target counts. Does NOT remove or modify existing users.
+// `targets` defaults to a full classroom: 10 teachers · 45 students · 9 sages.
+export async function topUpDemoUsers(targets = { teacher: 10, student: 45, sage: 9 }) {
+  const existing = await getUsers().catch(() => []);
+  const byRole = {};
+  for (const u of (existing || [])) {
+    if (!u) continue;
+    const r = u.role || 'student';
+    byRole[r] = (byRole[r] || 0) + 1;
+  }
+
+  const results = {};
+  for (const role of ['teacher', 'sage', 'student']) {
+    const have = byRole[role] || 0;
+    const need = Math.max(0, (targets[role] || 0) - have);
+    const password = role === 'teacher' ? 'teacher123' : role === 'sage' ? 'sage123' : 'student123';
+    const names = _DEMO_NAMES[role] || [];
+    let added = 0, skipped = 0;
+
+    for (let i = 0; i < need; i++) {
+      const seq = have + i + 1;
+      const username = `${role}${String(seq).padStart(2, '0')}`;
+      const name = names[(seq - 1) % names.length] + (seq > names.length ? ` ${seq}` : '');
+      try {
+        await adminCreateUser({ name, username, password, role });
+        added++;
+      } catch (e) {
+        skipped++;
+        // already exists or auth error — continue
+      }
+    }
+    results[role] = { had: have, target: targets[role], added, skipped };
+  }
+  return { ok: true, results };
+}
+
 
 //  • 1 admin · 4 teachers · 2 sages · 12 students · 3 system test accounts · 3 teams
 // Old Firebase Auth accounts remain in Auth (must be deleted manually in Console
@@ -2651,7 +2723,6 @@ Given that we use Arduino UNO + DHT11 to monitor herb drying, write firmware cod
     console.warn('Mock data seed failed:', e);
   }
 
-  console.log(`✓ Demo data seeded: ${mockDataCount} docs`);
   return { ok: true, mockDataCount };
 }
 
