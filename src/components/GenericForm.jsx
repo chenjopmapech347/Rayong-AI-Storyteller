@@ -14,6 +14,7 @@
 import { memo } from 'react';
 
 // Dropdown options for the schema editor (admin-facing).
+// eslint-disable-next-line react-refresh/only-export-components
 export const FIELD_TYPES = [
   { id: 'text',     label: 'Text (บรรทัดเดียว)' },
   { id: 'textarea', label: 'Textarea (หลายบรรทัด)' },

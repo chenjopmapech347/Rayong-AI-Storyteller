@@ -31,7 +31,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPage from './LoginPage';
 import { COURSE_SEEDS } from './courseSeeds';
-import { I18N, makeT } from './constants/i18n';
+import { makeT } from './constants/i18n';
 import { DEFAULT_BRANDING, BRAND_PRESETS, applyBrandColors } from './constants/branding';
 import { ETHICS_CATEGORIES, SEVERITY_META } from './constants/ethics';
 import {
@@ -133,7 +133,7 @@ export default function App() {
   const toggleLang = () => {
     const next = lang === 'th' ? 'en' : 'th';
     setLang(next);
-    try { localStorage.setItem('rep_lang', next); } catch {}
+    try { localStorage.setItem('rep_lang', next); } catch { /* ignore */ }
   };
 
   // ─── Cultural Ethics Audit (Moderation) — uses api.js Firestore backend ──
@@ -194,7 +194,7 @@ export default function App() {
   const [worksheetSaving, setWorksheetSaving] = useState(false);
   const switchCourse = (id) => {
     setCurrentCourseId(id);
-    try { localStorage.setItem('rep_active_course', id); } catch {}
+    try { localStorage.setItem('rep_active_course', id); } catch { /* ignore */ }
     setSelectedWorksheetId(null); // close any open worksheet when switching
   };
   // Resolved current course object (Firestore doc merged with built-in fallback)
@@ -217,6 +217,7 @@ export default function App() {
   }, [myTeamIdForWorksheets, currentCourseId]);
   // Load saved draft when selecting a worksheet
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!selectedWorksheetId) { setWorksheetFormDraft({}); return; }
     const existing = worksheetSubmissions.find(s => s.worksheet_id === selectedWorksheetId);
     setWorksheetFormDraft(existing?.content || {});
@@ -464,7 +465,7 @@ export default function App() {
   };
   const saveClaudeConfig = async () => {
     // API key stored locally per-browser (security); proxy URL shared via Firestore
-    try { localStorage.setItem('eco_anthropic_key', claudeKeyDraft.trim()); } catch {}
+    try { localStorage.setItem('eco_anthropic_key', claudeKeyDraft.trim()); } catch { /* ignore */ }
     await setRemoteAppConfig({ claude_proxy: claudeProxyDraft.trim() });
     window.alert('💾 บันทึก AI Config สำเร็จ');
   };
@@ -507,7 +508,7 @@ export default function App() {
   const matrixCell = (teamId, role, dim) => {
     if (teamId == null) return null;
     const tid = String(teamId);
-    let vals = [];
+    let vals;
     if (role === 'peer') {
       vals = (peerScoresAll || []).filter(p => p && String(p.target_team_id) === tid && p.dimension === dim).map(p => Number(p.score)).filter(v => !isNaN(v));
     } else if (role === 'ai') {
@@ -607,7 +608,7 @@ export default function App() {
     if (!window.confirm('⚠️ ลบข้อมูลทั้งหมดและสร้าง demo data ใหม่? (ไม่สามารถ undo ได้)')) return;
     setResetting(true);
     try {
-      const r = await resetAndSeedDemoData();
+      await resetAndSeedDemoData();
       window.alert('✅ Reset & Seed สำเร็จ — รีโหลดหน้าเพื่อเห็นข้อมูลใหม่');
     } catch (e) { window.alert('Reset ล้มเหลว: ' + (e?.message || e)); }
     finally { setResetting(false); }
@@ -635,6 +636,7 @@ export default function App() {
   const [pitchTimerRunning, setPitchTimerRunning] = useState(false);
   useEffect(() => {
     if (!pitchTimerRunning) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (pitchTimerSeconds <= 0) { setPitchTimerRunning(false); return; }
     const id = setInterval(() => setPitchTimerSeconds(s => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
@@ -659,7 +661,7 @@ export default function App() {
   useEffect(() => { applyBrandColors(appConfig); }, [appConfig]);
   const saveBranding = (next) => {
     setAppConfig(next);
-    try { localStorage.setItem('rep_branding', JSON.stringify(next)); } catch {}
+    try { localStorage.setItem('rep_branding', JSON.stringify(next)); } catch { /* ignore */ }
   };
   const resetBranding = () => {
     if (!window.confirm('Reset เป็น Brand Default (Green Rayong)?')) return;
@@ -732,6 +734,7 @@ export default function App() {
     const saved = localStorage.getItem('eco_user');
     if (saved) {
       const u = JSON.parse(saved);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(u);
       // Pick a default tab that the user's role actually has
       if (u?.role === 'student')      setActiveTab('team-setup');
@@ -743,8 +746,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAppError(null);
-    
+
     // 1. Subscribe to Real-Time Stats (Public)
     const unsubStats = subscribeToStats((s) => setStats(s));
     
@@ -819,6 +823,7 @@ export default function App() {
           .catch(() => {/* ignore — fresh scoring is fine */});
       }
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedTeamData(null);
       setEvalComment('');
     }

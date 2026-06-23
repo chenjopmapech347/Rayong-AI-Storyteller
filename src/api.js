@@ -3,27 +3,23 @@ import { initializeApp, getApp } from "firebase/app";
 import {
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
-  browserSessionPersistence,
-  setPersistence,
   sendPasswordResetEmail,
   getAuth
 } from "firebase/auth";
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
-  updateDoc, 
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  updateDoc,
   deleteDoc,
   serverTimestamp,
-  increment,
   onSnapshot
 } from "firebase/firestore";
 import { 
@@ -642,7 +638,7 @@ export function subscribeToGatewayDraft(teamId, callback) {
   return onSnapshot(ref, (snap) => {
     if (!snap.exists()) { callback(null); return; }
     const d = snap.data();
-    let parsed = {};
+    let parsed;
     try { parsed = typeof d.content === 'string' ? JSON.parse(d.content) : (d.content || {}); }
     catch { parsed = {}; }
     callback({
@@ -707,7 +703,7 @@ export async function adminCreateUser(u) {
         throw new Error(`อีเมล ${email} มีอยู่แล้วใน Firebase Auth แต่รหัสผ่านไม่ตรง — ลบ user ใน Authentication console ก่อน หรือใช้รหัสเดิม`);
       }
     } else {
-      throw new Error(`สร้าง Auth account ไม่สำเร็จ: ${err.message}`);
+      throw new Error(`สร้าง Auth account ไม่สำเร็จ: ${err.message}`, { cause: err });
     }
   }
   // Sign out from secondary app — primary admin session is untouched.
@@ -851,7 +847,7 @@ export async function setTeamApproval(teamId, status, reason = '') {
 // Rubric names like "Responsible Tourism / ESG" would break docId construction.
 export function safeDocId(s) {
   return String(s || '')
-    .replace(/[\/\\.#$\[\]]/g, '_')  // unsafe Firestore chars
+    .replace(/[/\\.#$[\]]/g, '_')  // unsafe Firestore chars
     .replace(/__+/g, '_')             // collapse multiple underscores
     .slice(0, 1500);                  // Firestore max segment length
 }
@@ -958,7 +954,7 @@ export async function getMyTeamScores(teamId) {
 // Path convention: submissions/{teamId}/{step}/{timestamp}_{filename}
 export async function uploadFile(folder, file) {
   if (!file) throw new Error('uploadFile: file is required');
-  const safeName = file.name.replace(/[^\w.\-]/g, '_');
+  const safeName = file.name.replace(/[^\w.-]/g, '_');
   const path = `${folder}/${Date.now()}_${safeName}`;
   const ref = storageRef(storage, path);
   await uploadBytes(ref, file);
@@ -1963,8 +1959,6 @@ ${margin > 0 ? `• **Margin (${margin} บาท)** — โมเดลธุ�
 **Next Step:** ฝึก ${weak[0]} ผ่าน Workshop กับครู 30 นาที ก่อน Pitch จริง`;
   }
   // student advice
-  const dims = payload.dimAvg || {};
-  const entries = Object.entries(dims).filter(([, v]) => v && Number(v.self || v.peer || 0) > 0);
   const selfAvg = Number(payload.selfAvg) || 0;
   const peerAvg = Number(payload.peerAvg) || 0;
   const gap = selfAvg - peerAvg;
@@ -2045,7 +2039,8 @@ export async function deleteCourse(courseId) {
 export async function cloneCourse(sourceCourseId, newCourseId, overrides = {}) {
   const src = await getCourse(sourceCourseId);
   if (!src) throw new Error(`Source course not found: ${sourceCourseId}`);
-  const { id, created_at, updated_at, created_by, ...rest } = src;
+  // eslint-disable-next-line no-unused-vars
+  const { id: _id, created_at: _ca, updated_at: _ua, created_by: _cb, ...rest } = src;
   return createCourse(newCourseId, {
     ...rest,
     ...overrides,
@@ -2192,7 +2187,7 @@ export async function topUpDemoUsers(targets = { teacher: 10, student: 45, sage:
       try {
         await adminCreateUser({ name, username, password, role });
         added++;
-      } catch (e) {
+      } catch {
         skipped++;
         // already exists or auth error — continue
       }
@@ -2212,13 +2207,11 @@ export async function resetAndSeedDemoData() {
     'users', 'teams', 'team_scores', 'peer_scores',
     'submissions', 'ai_audits', 'feedback', 'activity_log'
   ];
-  let totalCleared = 0;
   for (const col of collectionsToClear) {
     try {
       const snap = await getDocs(collection(db, col));
       for (const d of snap.docs) {
         await deleteDoc(d.ref);
-        totalCleared++;
       }
     } catch (e) { console.warn(`clear ${col}:`, e); }
   }
