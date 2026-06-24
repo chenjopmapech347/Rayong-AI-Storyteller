@@ -1,5 +1,5 @@
 // src/App.jsx — Fully Restored ALL Main Headings & Steps (Light UI)
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Send,
   User,
@@ -98,7 +98,9 @@ import {
   saveWorksheetSubmission,
   subscribeToWorksheetSubmissions,
   // Demo user top-up (Sep 2026)
-  topUpDemoUsers
+  topUpDemoUsers,
+  // Import real students from Excel
+  importRealStudents
 } from './api';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -628,6 +630,96 @@ export default function App() {
       window.alert(lines.join('\n'));
     } catch (e) { window.alert('Top-up ล้มเหลว: ' + (e?.message || e)); }
     finally { setTopUpRunning(false); }
+  };
+
+  // ─── Import Real Students from Excel ───────────────────────────────────
+  const [importStudents, setImportStudents] = useState(null); // parsed preview
+  const [importTeamId,   setImportTeamId]   = useState('');
+  const [importRunning,  setImportRunning]  = useState(false);
+  const [importResult,   setImportResult]   = useState(null);
+  const importFileRef = useRef(null);
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';   // allow re-upload same file
+    setImportResult(null);
+    try {
+      const buf  = await file.arrayBuffer();
+      const name = file.name.toLowerCase();
+      let rows = [];
+
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        // Use SheetJS — handles both binary .xls and .xlsx
+        const XLSX = await import('xlsx');
+        // Try windows-874 (TIS-620) codepage for legacy Thai .xls files
+        const wb = XLSX.read(buf, { type: 'array', codepage: 874 });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        // Detect header row: look for a row with "ชื่อ" or "name"
+        let dataStart = 1;
+        for (let i = 0; i < Math.min(data.length, 5); i++) {
+          const r = data[i].join('').toLowerCase();
+          if (r.includes('ชื่อ') || r.includes('name')) { dataStart = i + 1; break; }
+        }
+        for (let i = dataStart; i < data.length; i++) {
+          const row = data[i];
+          if (!row || row.every(c => !c)) continue;
+          // Columns: ห้อง(0) ลำดับ(1) เลขที่(2) รหัส(3) ชื่อ(4) เลขบัตร(5) ชื่อเล่น(6) วันเกิด(7)
+          const rawName = String(row[4] || row[1] || '').trim();
+          const code    = String(row[3] || '').trim();
+          if (!rawName) continue;
+          const cleanName = rawName.replace(/^(นาย|นางสาว|นาง|เด็กชาย|เด็กหญิง)\s+/, '').trim();
+          const seq       = String(rows.length + 1).padStart(2, '0');
+          rows.push({
+            name:     cleanName,
+            code,
+            username: code || `student_r${seq}`,
+            password: 'student123',
+          });
+        }
+      } else if (name.endsWith('.csv') || name.endsWith('.txt')) {
+        const text = new TextDecoder('utf-8').decode(buf);
+        const lines = text.split('\n').slice(1).filter(l => l.trim());
+        lines.forEach((line, idx) => {
+          const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+          if (!cols[0]) return;
+          const seq = String(idx + 1).padStart(2, '0');
+          rows.push({ name: cols[0], code: cols[1] || '', username: cols[1] || `student_r${seq}`, password: 'student123' });
+        });
+      }
+
+      if (!rows.length) { window.alert('ไม่พบรายชื่อในไฟล์ — กรุณาตรวจสอบรูปแบบไฟล์'); return; }
+      setImportStudents(rows);
+    } catch (err) {
+      window.alert('อ่านไฟล์ไม่สำเร็จ: ' + err.message);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importStudents?.length) return;
+    if (!window.confirm(`สร้างบัญชีนักเรียน ${importStudents.length} คน?\n(password: student123 ทุกคน)`)) return;
+    setImportRunning(true);
+    setImportResult(null);
+    try {
+      const payload = importStudents.map(s => ({
+        name:     s.name,
+        username: s.username,
+        password: s.password,
+        role:     'student',
+        team_id:  importTeamId || null,
+      }));
+      const result = await importRealStudents(payload);
+      setImportResult(result);
+      if (!result.failed.length) {
+        setImportStudents(null);
+        window.alert(`✅ สร้างบัญชีสำเร็จ ${result.created.length} คน`);
+      }
+    } catch (err) {
+      window.alert('เกิดข้อผิดพลาด: ' + err.message);
+    } finally {
+      setImportRunning(false);
+    }
   };
 
   // ─── Pitching Timer (overlay modal) — accessible from any tab ───
@@ -2386,6 +2478,110 @@ export default function App() {
                               <button onClick={handleResetSeed} disabled={resetting} className="login-btn" style={{ background: '#dc2626', marginTop: '0.75rem', width: 'auto', padding: '0.5rem 1rem' }}>
                                  {resetting ? '⏳ กำลัง Reset...' : '🔄 Reset & Seed Demo Data'}
                               </button>
+                           </div>
+
+                           {/* ─── Import Real Students from Excel ─── */}
+                           <div className="card" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                              <h5 style={{ color: '#1d4ed8' }}>📤 อัพโหลดรายชื่อนักศึกษาจริง</h5>
+                              <p style={{ fontSize: '0.8125rem', marginTop: '0.5rem', color: '#1e40af' }}>
+                                 นำเข้ารายชื่อนักศึกษาจริงจากไฟล์ Excel (.xls/.xlsx) หรือ CSV
+                                 <br /><strong>ไม่ลบข้อมูลเดิม</strong> — สร้างบัญชีใหม่เพิ่มเติมเท่านั้น
+                              </p>
+                              <ul style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: '#1e40af', paddingLeft: '1.2rem' }}>
+                                 <li>ระบบจะดึงชื่อ-นามสกุลและรหัสนักศึกษาจากไฟล์อัตโนมัติ</li>
+                                 <li>Username = รหัสนักศึกษา · Password = student123</li>
+                                 <li>เลือกทีมที่ต้องการ หรือเว้นว่างแล้วมาจัดทีมทีหลัง</li>
+                              </ul>
+
+                              {/* hidden file input */}
+                              <input
+                                 ref={importFileRef}
+                                 type="file"
+                                 accept=".xls,.xlsx,.csv"
+                                 style={{ display: 'none' }}
+                                 onChange={handleImportFile}
+                              />
+                              <button
+                                 onClick={() => { setImportStudents(null); setImportResult(null); importFileRef.current?.click(); }}
+                                 className="login-btn"
+                                 style={{ background: '#2563eb', marginTop: '0.75rem', width: 'auto', padding: '0.5rem 1rem' }}
+                              >
+                                 📂 เลือกไฟล์ Excel
+                              </button>
+
+                              {/* Preview table */}
+                              {importStudents && (
+                                 <div style={{ marginTop: '1rem' }}>
+                                    <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#1d4ed8' }}>
+                                       พบรายชื่อ {importStudents.length} คน — ตรวจสอบก่อนสร้างบัญชี
+                                    </p>
+
+                                    {/* Team selector */}
+                                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                       <label style={{ fontSize: '0.8rem', color: '#1e40af', fontWeight: 600 }}>กำหนดทีม:</label>
+                                       <select
+                                          value={importTeamId}
+                                          onChange={e => setImportTeamId(e.target.value)}
+                                          style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', border: '1px solid #93c5fd', borderRadius: 6 }}
+                                       >
+                                          <option value="">— ไม่กำหนดทีม (จัดทีหลัง) —</option>
+                                          {teams.map(tm => (
+                                             <option key={tm.id} value={tm.id}>{tm.name}</option>
+                                          ))}
+                                       </select>
+                                    </div>
+
+                                    {/* Table preview */}
+                                    <div style={{ overflowX: 'auto', marginTop: '0.75rem', maxHeight: 320, overflowY: 'auto', border: '1px solid #bfdbfe', borderRadius: 8 }}>
+                                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                                          <thead>
+                                             <tr style={{ background: '#dbeafe', position: 'sticky', top: 0 }}>
+                                                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', color: '#1e40af' }}>#</th>
+                                                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', color: '#1e40af' }}>ชื่อ-นามสกุล</th>
+                                                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', color: '#1e40af' }}>Username</th>
+                                                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', color: '#1e40af' }}>Password</th>
+                                             </tr>
+                                          </thead>
+                                          <tbody>
+                                             {importStudents.map((s, i) => (
+                                                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#eff6ff' }}>
+                                                   <td style={{ padding: '0.35rem 0.6rem', color: '#64748b' }}>{i + 1}</td>
+                                                   <td style={{ padding: '0.35rem 0.6rem' }}>{s.name}</td>
+                                                   <td style={{ padding: '0.35rem 0.6rem', fontFamily: 'monospace', color: '#1d4ed8' }}>{s.username}</td>
+                                                   <td style={{ padding: '0.35rem 0.6rem', fontFamily: 'monospace', color: '#64748b' }}>{s.password}</td>
+                                                </tr>
+                                             ))}
+                                          </tbody>
+                                       </table>
+                                    </div>
+
+                                    {/* Result summary after creation */}
+                                    {importResult && importResult.failed.length > 0 && (
+                                       <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, fontSize: '0.75rem', color: '#991b1b' }}>
+                                          ⚠️ สร้างสำเร็จ {importResult.created.length} คน · ล้มเหลว {importResult.failed.length} คน (อาจมี username ซ้ำ):
+                                          {importResult.failed.map((f, i) => <div key={i} style={{ marginTop: 2 }}>• {f.username} ({f.name}): {f.error}</div>)}
+                                       </div>
+                                    )}
+
+                                    <div style={{ marginTop: '0.75rem', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                       <button
+                                          onClick={handleConfirmImport}
+                                          disabled={importRunning}
+                                          className="login-btn"
+                                          style={{ background: '#16a34a', width: 'auto', padding: '0.5rem 1rem' }}
+                                       >
+                                          {importRunning ? '⏳ กำลังสร้างบัญชี...' : `✅ สร้างบัญชี ${importStudents.length} คน`}
+                                       </button>
+                                       <button
+                                          onClick={() => { setImportStudents(null); setImportResult(null); }}
+                                          className="login-btn"
+                                          style={{ background: '#64748b', width: 'auto', padding: '0.5rem 1rem' }}
+                                       >
+                                          ✕ ยกเลิก
+                                       </button>
+                                    </div>
+                                 </div>
+                              )}
                            </div>
 
                            {/* ─── Top-up Demo Users (non-destructive) ─── */}

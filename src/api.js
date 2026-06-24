@@ -2198,6 +2198,29 @@ export async function topUpDemoUsers(targets = { teacher: 10, student: 45, sage:
 }
 
 
+// ─── Import real students from parsed Excel/CSV data ───────────────────────
+// students: [{ name, username, password?, role?, team_id? }]
+// Returns { created: [{username,name}], failed: [{username,name,error}] }
+export async function importRealStudents(students) {
+  const created = [], failed = [];
+  for (const s of students) {
+    try {
+      await adminCreateUser({
+        name:     s.name,
+        username: s.username,
+        password: s.password || 'student123',
+        role:     s.role    || 'student',
+        team_id:  s.team_id || null,
+      });
+      created.push({ username: s.username, name: s.name });
+    } catch (err) {
+      failed.push({ username: s.username, name: s.name, error: err.message });
+    }
+  }
+  return { created, failed };
+}
+
+
 //  • 1 admin · 4 teachers · 2 sages · 12 students · 3 system test accounts · 3 teams
 // Old Firebase Auth accounts remain in Auth (must be deleted manually in Console
 // if you want clean slate there too — adminCreateUser handles already-exists case).
@@ -2249,7 +2272,7 @@ export async function resetAndSeedDemoData() {
   accounts.push({ name: 'ลุงสำราญ',     username: 'sage_samran',     password: 'sage123', role: 'sage' });
   accounts.push({ name: 'ลุงเฉลิมชัย',   username: 'sage_chaloemchai', password: 'sage123', role: 'sage' });
 
-  // -- 12 students with random Thai names, 4 per team
+  // -- 12 students with demo Thai names, 4 per team
   const studentNames = [
     'สมชาย ใจดี',         'สมหญิง รักดี',        'นภา สวยงาม',         'ภูมิ ขยัน',
     'กานดา ทองดี',        'ชาญ ใหญ่ใจ',          'แก้วใจ ดอกไม้',      'นิภา รักษ์ดี',
