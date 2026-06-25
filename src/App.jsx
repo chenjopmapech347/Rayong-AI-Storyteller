@@ -852,9 +852,8 @@ export default function App() {
   });
 
   // --- Mock Data for Testing ---
-  const [missionStatus] = useState({ status: 'Rejected', feedback: 'ไอเดียผลิตภัณฑ์ยังไม่ชัดเจน ขอให้เน้นเรื่องการใช้วัสดุจากธรรมชาติในท้องถิ่นเพิ่มเติมครับ' });
+  const [missionStatus] = useState({ status: 'Pending', feedback: '' });
   const [showEvalForm, setShowEvalForm] = useState(null); // 'self' or 'peer'
-  const mockTeammates = [{ id: 'u2', name: 'สมชาย รักดี' }, { id: 'u3', name: 'สมหญิง รักโลก' }];
   const mockReportData = [
     { team: 'Team Alpha', self: 8.5, peer: 12, teacher: 30, sage: 28, ai: 9, total: 87.5 },
     { team: 'Team Beta', self: 9.0, peer: 14, teacher: 32, sage: 25, ai: 8, total: 88.0 },
@@ -872,8 +871,15 @@ export default function App() {
 
   // Data
   const [teams, setTeams] = useState([]);
-  const [users, setUsers] = useState([]); 
+  const [users, setUsers] = useState([]);
   const [goodPrompts, setGoodPrompts] = useState([]);
+
+  // Peer Assessment: สมาชิกทีมของ user ปัจจุบัน (ไม่รวมตัวเอง)
+  // ใช้ teamStudents ซึ่งโหลดได้ทั้ง admin และ student (ต่างจาก users ที่โหลดเฉพาะ admin)
+  const _myTeamIdForPeer = user?.team_id || user?.teamId;
+  const realTeammates = _myTeamIdForPeer
+    ? teamStudents.filter(u => u && u.id !== user?.id && (String(u.team_id || u.teamId) === String(_myTeamIdForPeer)))
+    : [];
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedTeamData, setSelectedTeamData] = useState(null);
   const [rubrics, setRubrics] = useState([]);
@@ -964,6 +970,16 @@ export default function App() {
       unsubTeamScores();
     };
   }, [user?.role]); // Re-run if role changes (e.g. login/logout)
+
+  // Load teamStudents เมื่อ student เปิด evaluation tab (สำหรับ Peer Assessment)
+  useEffect(() => {
+    if (activeTab !== 'evaluation' || !user) return;
+    if (teamStudents.length === 0) {
+      getUsers()
+        .then(all => setTeamStudents(all.filter(u => u.role === 'student')))
+        .catch(() => {});
+    }
+  }, [activeTab, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load student list + refresh teams เมื่อเปิด tab team-setup
   useEffect(() => {
@@ -1689,18 +1705,33 @@ export default function App() {
 
                 {showEvalForm === 'peer' && (
                    <div className="card" style={{ background: '#f5f3ff' }}>
-                      <h5 style={{ marginBottom: '1rem', color: 'var(--color-purple)' }}>แบบฟอร์มประเมินเพื่อนร่วมทีม (Mock)</h5>
-                      {mockTeammates.map(tm => (
-                         <div key={tm.id} style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #ddd6fe' }}>
-                            <div style={{ fontWeight: 600, color: '#4c1d95' }}>ประเมิน: {tm.name}</div>
-                            <select className="login-input" style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>
-                               <option>เลือกระดับคะแนน (1-5)...</option>
-                               <option>5 - ให้ความร่วมมือดีเยี่ยม</option>
-                               <option>4 - ให้ความร่วมมือดี</option>
-                            </select>
-                         </div>
-                      ))}
-                      <button className="login-btn" style={{ width: 'fit-content', background: 'var(--color-purple)' }}>Submit Peer-Assessment</button>
+                      <h5 style={{ marginBottom: '1rem', color: 'var(--color-purple)' }}>แบบฟอร์มประเมินเพื่อนร่วมทีม (Anonymous)</h5>
+                      {realTeammates.length === 0 ? (
+                         <p style={{ fontSize: '0.8125rem', color: '#7c3aed', opacity: 0.7, textAlign: 'center', padding: '1.5rem' }}>
+                            {_myTeamIdForPeer ? 'ยังไม่พบสมาชิกในทีมนี้ หรือยังไม่ได้โหลดข้อมูล' : 'คุณยังไม่ได้อยู่ในทีม — ติดต่อครูเพื่อรับมอบหมายทีม'}
+                         </p>
+                      ) : (
+                         <>
+                            {realTeammates.map(tm => (
+                               <div key={tm.id} style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #ddd6fe' }}>
+                                  <div style={{ fontWeight: 600, color: '#4c1d95', marginBottom: '0.5rem' }}>
+                                     👤 ประเมิน: {tm.name}
+                                  </div>
+                                  <select className="login-input" style={{ fontSize: '0.75rem' }}>
+                                     <option value="">เลือกระดับคะแนน (1-5)...</option>
+                                     <option value="5">5 — ให้ความร่วมมือดีเยี่ยม · มีส่วนร่วมมากที่สุด</option>
+                                     <option value="4">4 — ให้ความร่วมมือดีมาก</option>
+                                     <option value="3">3 — ให้ความร่วมมือพอใช้</option>
+                                     <option value="2">2 — มีส่วนร่วมน้อย</option>
+                                     <option value="1">1 — แทบไม่มีส่วนร่วม</option>
+                                  </select>
+                               </div>
+                            ))}
+                            <button className="login-btn" style={{ width: 'fit-content', background: 'var(--color-purple)' }}>
+                               Submit Peer-Assessment
+                            </button>
+                         </>
+                      )}
                    </div>
                 )}
               </div>
