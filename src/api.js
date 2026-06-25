@@ -533,6 +533,13 @@ export function subscribeToTeams(callback) {
   });
 }
 
+// ── ติดตาม user doc ของตัวเอง (sync team_id / role เมื่อ Admin แก้ไข) ──────
+export function subscribeToUserDoc(uid, callback) {
+  return onSnapshot(doc(db, 'users', uid), (snap) => {
+    if (snap.exists()) callback({ id: snap.id, ...snap.data() });
+  });
+}
+
 // ─── Teams ───────────────────────────────────────────────
 export async function getTeams() {
   const snap = await getDocs(collection(db, "teams"));

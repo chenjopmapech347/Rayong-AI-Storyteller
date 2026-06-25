@@ -50,6 +50,7 @@ import {
   subscribeToStats,
   subscribeToFeed,
   subscribeToTeams,
+  subscribeToUserDoc,
   getTeamSubmissionData,
   adminUpdateTeam,
   adminDeleteTeam,
@@ -779,7 +780,7 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   
   // --- Student Form States ---
-  const [teamInfo, setTeamInfo] = useState({ name: '', members: [], photo: '' });
+  const [teamInfo, setTeamInfo] = useState({ name: '', members: [], leaderId: '', photo: '' });
   const [teamStudents, setTeamStudents] = useState([]);
   const [memberSearch, setMemberSearch] = useState('');
   const [missionData, setMissionData] = useState({ module: '', product: '', reason: '' });
@@ -918,6 +919,16 @@ export default function App() {
       }).catch(err => console.error('Load students failed:', err));
     }
   }, [activeTab, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Sync user doc แบบ real-time (รับ team_id ที่ Admin กำหนดทันที) ──────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsub = subscribeToUserDoc(user.id, (updated) => {
+      setUser(updated);
+      localStorage.setItem('eco_user', JSON.stringify(updated));
+    });
+    return () => unsub();
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Effect to load selected team's data when changed
   useEffect(() => {
@@ -1278,7 +1289,117 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                  <button onClick={() => handleSave('team-setup', teamInfo)} className="login-btn" style={{ marginTop: '1rem' }}><Save size={18} /> บันทึกข้อมูลทีม</button>
+
+                  {/* ─── Leader Selector ─── */}
+                  <div style={{ marginTop: '1rem' }}>
+                    <label className="ldt-stat-lbl">👑 หัวหน้าทีม</label>
+                    <select
+                      className="login-input"
+                      value={teamInfo.leaderId}
+                      onChange={e => setTeamInfo(prev => ({ ...prev, leaderId: e.target.value }))}
+                    >
+                      <option value="">-- เลือกหัวหน้าทีม --</option>
+                      {teamInfo.members.length > 0
+                        ? teamInfo.members.map(id => {
+                            const s = teamStudents.find(s => s.id === id);
+                            return s ? <option key={id} value={id}>{s.name}{s.nickname ? ` (${s.nickname})` : ''}</option> : null;
+                          })
+                        : teamStudents.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}{s.nickname ? ` (${s.nickname})` : ''}</option>
+                          ))
+                      }
+                    </select>
+                    {teamInfo.leaderId && (
+                      <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--color-primary)' }}>
+                        👑 {teamStudents.find(s => s.id === teamInfo.leaderId)?.name}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      await handleSave('team-setup', teamInfo);
+                      // อัปเดต leader_id ลง team doc ด้วย
+                      const myTeamId = user?.team_id || user?.teamId;
+                      if (myTeamId && teamInfo.leaderId) {
+                        try {
+                          await adminUpdateTeam(myTeamId, { leader_id: teamInfo.leaderId });
+                        } catch (e) { console.warn('update leader_id failed:', e.message); }
+                      }
+                    }}
+                    className="login-btn"
+                    style={{ marginTop: '1rem' }}
+                  >
+                    <Save size={18} /> บันทึกข้อมูลทีม
+                  </button>
+
+                  {/* ─── รายชื่อทีมทั้งหมด ─── */}
+                  {teams.length > 0 && (
+                    <div style={{ marginTop: '1.5rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Users size={14} /> ทีมทั้งหมด ({teams.length} ทีม)
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {teams.map(t => {
+                          const myTeamId  = user?.team_id || user?.teamId;
+                          const isMyTeam  = String(t.id) === String(myTeamId);
+                          const members   = teamStudents.filter(s => String(s.team_id || s.teamId) === String(t.id));
+                          const leader    = teamStudents.find(s => s.id === t.leader_id);
+                          return (
+                            <div key={t.id} style={{ border: `2px solid ${isMyTeam ? 'var(--color-primary)' : '#e2e8f0'}`, borderRadius: '10px', overflow: 'hidden', background: '#fff' }}>
+                              {/* header */}
+                              <div style={{ background: isMyTeam ? 'var(--color-primary)' : '#f1f5f9', padding: '0.6rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {t.photo && <img src={t.photo} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />}
+                                  <div>
+                                    <span style={{ fontWeight: 700, fontSize: '0.875rem', color: isMyTeam ? '#fff' : '#1e293b' }}>{t.name}</span>
+                                    {isMyTeam && <span style={{ marginLeft: '6px', fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: '#fff', borderRadius: '4px', padding: '1px 6px' }}>ทีมของฉัน</span>}
+                                  </div>
+                                </div>
+                                <span style={{ fontSize: '0.7rem', color: isMyTeam ? 'rgba(255,255,255,0.8)' : '#94a3b8' }}>👥 {members.length} คน</span>
+                              </div>
+
+                              {/* leader row */}
+                              <div style={{ padding: '0.5rem 0.875rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '0.8rem' }}>👑</span>
+                                {isMyTeam ? (
+                                  <select
+                                    style={{ flex: 1, padding: '3px 6px', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff' }}
+                                    value={t.leader_id || ''}
+                                    onChange={async e => {
+                                      try { await adminUpdateTeam(t.id, { leader_id: e.target.value }); }
+                                      catch (err) { alert(err.message); }
+                                    }}
+                                  >
+                                    <option value="">-- เลือกหัวหน้าทีม --</option>
+                                    {members.length > 0
+                                      ? members.map(m => <option key={m.id} value={m.id}>{m.name}{m.nickname ? ` (${m.nickname})` : ''}</option>)
+                                      : teamStudents.map(m => <option key={m.id} value={m.id}>{m.name}{m.nickname ? ` (${m.nickname})` : ''}</option>)
+                                    }
+                                  </select>
+                                ) : (
+                                  <span style={{ fontSize: '0.8125rem', color: leader ? '#d97706' : '#94a3b8', fontWeight: leader ? 600 : 400 }}>
+                                    {leader ? `${leader.name}${leader.nickname ? ` (${leader.nickname})` : ''}` : 'ยังไม่มีหัวหน้าทีม'}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* members */}
+                              {members.length > 0 && (
+                                <div style={{ padding: '0.5rem 0.875rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                  {members.map(m => (
+                                    <span key={m.id} style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '20px', background: m.id === t.leader_id ? '#fef3c7' : '#f1f5f9', color: m.id === t.leader_id ? '#92400e' : '#475569', fontWeight: m.id === t.leader_id ? 700 : 400, border: m.id === user?.id ? '1px solid var(--color-primary)' : 'none' }}>
+                                      {m.id === t.leader_id && '👑 '}{m.name}{m.nickname ? ` (${m.nickname})` : ''}{m.id === user?.id ? ' ·ฉัน' : ''}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                </div>
              </motion.div>
           )}
@@ -1934,23 +2055,30 @@ export default function App() {
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                  {teams.map(t => {
                                     const assignedTeacher = users.find(u => u.id == t.teacher_id);
+                                    const teamMembers = users.filter(u => u && u.role === 'student' && (u.team_id === t.id || u.teamId === t.id));
+                                    const assignedLeader = users.find(u => u.id === t.leader_id);
                                     return (
-                                       <div key={t.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem' }}>
-                                          <div>
-                                             <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>{t.name}</div>
-                                             <div style={{ fontSize: '0.75rem', color: assignedTeacher ? 'var(--color-primary)' : '#94a3b8' }}>
-                                                Teacher: {assignedTeacher ? assignedTeacher.name : 'Unassigned'}
+                                       <div key={t.id} className="card" style={{ padding: '0.75rem 1rem' }}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                             <div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>{t.name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: assignedTeacher ? 'var(--color-primary)' : '#94a3b8' }}>
+                                                   👨‍🏫 {assignedTeacher ? assignedTeacher.name : 'ยังไม่มีครูผู้ดูแล'}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: assignedLeader ? '#d97706' : '#94a3b8', marginTop: '2px' }}>
+                                                   👑 {assignedLeader ? assignedLeader.name : 'ยังไม่มีหัวหน้าทีม'}
+                                                </div>
                                              </div>
+                                             <button onClick={async () => { if(confirm('Delete team?')) await adminDeleteTeam(t.id); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><LogOut size={14} /></button>
                                           </div>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                             <select 
-                                                className="login-input" 
-                                                style={{ padding: '4px 8px', fontSize: '0.75rem', width: '150px' }}
+                                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                                             <select
+                                                className="login-input"
+                                                style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1, minWidth: '140px' }}
                                                 value={t.teacher_id || ''}
                                                 onChange={async (e) => {
-                                                   try {
-                                                      await adminUpdateTeam(t.id, { ...t, teacher_id: e.target.value });
-                                                   } catch (err) { alert(err.message); }
+                                                   try { await adminUpdateTeam(t.id, { ...t, teacher_id: e.target.value }); }
+                                                   catch (err) { alert(err.message); }
                                                 }}
                                              >
                                                 <option value="">Assign Teacher...</option>
@@ -1958,7 +2086,21 @@ export default function App() {
                                                    <option key={u.id} value={u.id}>{u.name}</option>
                                                 ))}
                                              </select>
-                                             <button onClick={async () => { if(confirm('Delete team?')) await adminDeleteTeam(t.id); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><LogOut size={14} /></button>
+                                             <select
+                                                className="login-input"
+                                                style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1, minWidth: '140px' }}
+                                                value={t.leader_id || ''}
+                                                onChange={async (e) => {
+                                                   try { await adminUpdateTeam(t.id, { ...t, leader_id: e.target.value }); }
+                                                   catch (err) { alert(err.message); }
+                                                }}
+                                             >
+                                                <option value="">👑 เลือกหัวหน้าทีม...</option>
+                                                {teamMembers.length > 0
+                                                   ? teamMembers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)
+                                                   : (users || []).filter(u => u && u.role === 'student').map(u => <option key={u.id} value={u.id}>{u.name}</option>)
+                                                }
+                                             </select>
                                           </div>
                                        </div>
                                     );
