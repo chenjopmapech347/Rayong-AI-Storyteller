@@ -779,7 +779,9 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   
   // --- Student Form States ---
-  const [teamInfo, setTeamInfo] = useState({ name: '', members: '', photo: '' });
+  const [teamInfo, setTeamInfo] = useState({ name: '', members: [], photo: '' });
+  const [teamStudents, setTeamStudents] = useState([]);
+  const [memberSearch, setMemberSearch] = useState('');
   const [missionData, setMissionData] = useState({ module: '', product: '', reason: '' });
   const [collectorData, setCollectorData] = useState({ 
     interview: 'สัมภาษณ์ปราชญ์ชาวบ้าน: ลุงบุญมี เล่าว่าแต่ก่อนพื้นที่นี้เคยเป็นป่าชายเลนที่อุดมสมบูรณ์ ปัจจุบันเริ่มมีปัญหาขยะ...\n(จำลองข้อมูลถูกบันทึกแบบ Offline ไว้ในเครื่องแล้ว)', 
@@ -895,6 +897,27 @@ export default function App() {
       unsubTeamScores();
     };
   }, [user?.role]); // Re-run if role changes (e.g. login/logout)
+
+  // Load student list for member selector (team-setup tab)
+  useEffect(() => {
+    if (activeTab === 'team-setup' && user && teamStudents.length === 0) {
+      getUsers().then(all => {
+        const students = all.filter(u => u.role === 'student');
+        setTeamStudents(students);
+        // Pre-select teammates who share the same team_id
+        const myTeamId = user.team_id || user.teamId;
+        if (myTeamId) {
+          const preSelected = students
+            .filter(u => u.team_id === myTeamId || u.teamId === myTeamId)
+            .map(u => u.id);
+          setTeamInfo(prev => ({
+            ...prev,
+            members: prev.members.length ? prev.members : preSelected
+          }));
+        }
+      }).catch(err => console.error('Load students failed:', err));
+    }
+  }, [activeTab, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Effect to load selected team's data when changed
   useEffect(() => {
@@ -1204,7 +1227,57 @@ export default function App() {
                     <input className="login-input" value={teamInfo.name} onChange={e=>setTeamInfo({...teamInfo, name: e.target.value})} placeholder="ชื่อทีม..." />
                     <input className="login-input" value={teamInfo.photo} onChange={e=>setTeamInfo({...teamInfo, photo: e.target.value})} placeholder="Link รูปถ่ายทีม..." />
                   </div>
-                  <textarea className="login-input" rows={4} value={teamInfo.members} onChange={e=>setTeamInfo({...teamInfo, members: e.target.value})} placeholder="สมาชิกในทีม..." style={{ marginTop: '1rem' }} />
+                  {/* ─── Member Selector ─── */}
+                  <div style={{ marginTop: '1rem' }}>
+                    <label className="ldt-stat-lbl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>สมาชิกในทีม</span>
+                      <span style={{ fontWeight: 400, color: 'var(--color-primary)', fontSize: '0.75rem' }}>{teamInfo.members.length} คนที่เลือก</span>
+                    </label>
+                    <input
+                      className="login-input"
+                      value={memberSearch}
+                      onChange={e => setMemberSearch(e.target.value)}
+                      placeholder="🔍 ค้นหาชื่อ / รหัส..."
+                      style={{ marginBottom: '0.5rem' }}
+                    />
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '220px', overflowY: 'auto', background: '#fff' }}>
+                      {teamStudents.length === 0 ? (
+                        <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.8125rem', padding: '1.25rem' }}>กำลังโหลดรายชื่อ...</div>
+                      ) : (
+                        teamStudents
+                          .filter(s => {
+                            const q = memberSearch.toLowerCase();
+                            return !q || (s.name || '').toLowerCase().includes(q) || (s.username || '').toLowerCase().includes(q) || (s.nickname || '').toLowerCase().includes(q);
+                          })
+                          .map(s => {
+                            const selected = teamInfo.members.includes(s.id);
+                            return (
+                              <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.45rem 0.75rem', cursor: 'pointer', background: selected ? '#eff6ff' : 'transparent', borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={e => setTeamInfo(prev => ({
+                                    ...prev,
+                                    members: e.target.checked
+                                      ? [...prev.members, s.id]
+                                      : prev.members.filter(id => id !== s.id)
+                                  }))}
+                                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)', flexShrink: 0 }}
+                                />
+                                <span style={{ fontSize: '0.875rem', fontWeight: selected ? 600 : 400 }}>{s.name}</span>
+                                {s.nickname && <span style={{ fontSize: '0.75rem', color: '#64748b' }}>({s.nickname})</span>}
+                                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.username}</span>
+                              </label>
+                            );
+                          })
+                      )}
+                    </div>
+                    {teamInfo.members.length > 0 && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#64748b', lineHeight: 1.6 }}>
+                        <strong>เลือก:</strong> {teamInfo.members.map(id => teamStudents.find(s => s.id === id)?.name || id).join(' · ')}
+                      </div>
+                    )}
+                  </div>
                   <button onClick={() => handleSave('team-setup', teamInfo)} className="login-btn" style={{ marginTop: '1rem' }}><Save size={18} /> บันทึกข้อมูลทีม</button>
                </div>
              </motion.div>
