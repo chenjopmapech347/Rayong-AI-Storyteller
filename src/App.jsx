@@ -44,6 +44,7 @@ import GenericForm, { FIELD_TYPES } from './components/GenericForm';
 import {
   logout,
   getUsers,
+  getTeams,
   getRubrics,
   saveSubmission,
   seedFirebase,
@@ -97,6 +98,7 @@ import {
   seedLegacyGreenRayongCourse,
   // Phase 7: Worksheet submissions
   saveWorksheetSubmission,
+  saveWorksheetScore,
   subscribeToWorksheetSubmissions,
   // Demo user top-up (Sep 2026)
   topUpDemoUsers,
@@ -213,11 +215,23 @@ export default function App() {
 
   // ─── Worksheet Submissions for active (team, course) (v2.0 Phase 7) ───
   const myTeamIdForWorksheets = user?.team_id || user?.teamId || null;
+  // Admin/Teacher can browse any team's worksheets via this selector
+  const [adminWsTeamId, setAdminWsTeamId] = useState('');
+  const isPrivilegedUser = user?.role === 'admin' || user?.role === 'teacher' || user?.role === 'facilitator';
+  const isSage = user?.role === 'sage';
+  // Sages + privileged users can view any team & grade worksheets
+  const canViewAnyTeam = isPrivilegedUser || isSage;
+  const effectiveWsTeamId = canViewAnyTeam && adminWsTeamId ? adminWsTeamId : myTeamIdForWorksheets;
+  // viewOnly = privileged user browsing another team, or sage (never in a student team)
+  const wsViewOnly = (canViewAnyTeam && !!adminWsTeamId) || isSage;
+  // canGrade = teacher / facilitator / sage who has selected a team to view
+  const canGrade = (user?.role === 'teacher' || user?.role === 'facilitator' || user?.role === 'sage') && !!effectiveWsTeamId;
   useEffect(() => {
-    if (!myTeamIdForWorksheets || !currentCourseId) return;
-    const unsub = subscribeToWorksheetSubmissions(myTeamIdForWorksheets, currentCourseId, setWorksheetSubmissions);
+    if (!effectiveWsTeamId || !currentCourseId) return;
+    const unsub = subscribeToWorksheetSubmissions(effectiveWsTeamId, currentCourseId, setWorksheetSubmissions);
     return () => unsub?.();
-  }, [myTeamIdForWorksheets, currentCourseId]);
+  // eslint-disable-next-line
+  }, [effectiveWsTeamId, currentCourseId]);
   // Load saved draft when selecting a worksheet
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -225,14 +239,59 @@ export default function App() {
     const existing = worksheetSubmissions.find(s => s.worksheet_id === selectedWorksheetId);
     setWorksheetFormDraft(existing?.content || {});
   }, [selectedWorksheetId, worksheetSubmissions]);
+  const [worksheetFinalSubmitting, setWorksheetFinalSubmitting] = useState(false);
   const saveCurrentWorksheet = async () => {
-    if (!myTeamIdForWorksheets || !currentCourseId || !selectedWorksheetId) return;
+    if (!effectiveWsTeamId || !currentCourseId || !selectedWorksheetId) return;
     setWorksheetSaving(true);
     try {
-      await saveWorksheetSubmission(myTeamIdForWorksheets, currentCourseId, selectedWorksheetId, worksheetFormDraft);
+      await saveWorksheetSubmission(effectiveWsTeamId, currentCourseId, selectedWorksheetId, worksheetFormDraft);
       window.alert('✅ บันทึก Worksheet สำเร็จ');
     } catch (e) { window.alert('❌ ' + (e?.message || e)); }
     finally { setWorksheetSaving(false); }
+  };
+  const handleWorksheetFinalSubmit = async () => {
+    if (!effectiveWsTeamId || !currentCourseId) return;
+    const totalWs = (currentCourse.worksheets || []).length;
+    const doneWs = worksheetSubmissions.filter(s => s.worksheet_id !== '__SUBMIT__').length;
+    const incomplete = totalWs - doneWs;
+    if (incomplete > 0) {
+      if (!window.confirm(`ยังมี Worksheet ที่ยังไม่เสร็จ ${incomplete} ใบ\nยืนยันส่งงานเลยไหม?`)) return;
+    }
+    setWorksheetFinalSubmitting(true);
+    try {
+      await saveWorksheetSubmission(effectiveWsTeamId, currentCourseId, '__SUBMIT__', {
+        submitted_at: new Date().toISOString(),
+        total: totalWs,
+        completed: doneWs,
+        submitted_by: user?.uid || user?.id || 'unknown',
+        course_name: currentCourse.name || currentCourseId,
+      });
+      window.alert('🎉 ส่งงานสมบูรณ์แล้ว!');
+    } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+    finally { setWorksheetFinalSubmitting(false); }
+  };
+
+  // ─── Worksheet Grading (teacher / facilitator / sage) ─────────────────────
+  const [wScoreDraft, setWScoreDraft] = useState({ score: '', comment: '' });
+  const [wScoreSaving, setWScoreSaving] = useState(false);
+  // Sync score draft whenever selected worksheet changes
+  useEffect(() => {
+    if (!selectedWorksheetId) { setWScoreDraft({ score: '', comment: '' }); return; }
+    const sub = worksheetSubmissions.find(s => s.worksheet_id === selectedWorksheetId);
+    setWScoreDraft({
+      score  : sub?.score != null ? String(sub.score) : '',
+      comment: sub?.score_comment || '',
+    });
+  // eslint-disable-next-line
+  }, [selectedWorksheetId, worksheetSubmissions]);
+  const handleSaveWsScore = async () => {
+    if (!effectiveWsTeamId || !currentCourseId || !selectedWorksheetId) return;
+    setWScoreSaving(true);
+    try {
+      await saveWorksheetScore(effectiveWsTeamId, currentCourseId, selectedWorksheetId, wScoreDraft);
+      window.alert('✅ บันทึกคะแนนสำเร็จ');
+    } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+    finally { setWScoreSaving(false); }
   };
 
   // Import a pre-defined seed course (e.g. Design Thinking + S4I) — Phase 6
@@ -807,6 +866,7 @@ export default function App() {
   // evalScore is keyed by `${teamId}-${dimension}` so each team keeps its own scores.
   const [evalScore, setEvalScore] = useState({});
   const [evalComment, setEvalComment] = useState('');
+  const [expandedCriteriaId, setExpandedCriteriaId] = useState(null);
   // Aggregated team scores from /api/team-scores — drives the EVAL-MATRIX.
   const [teamScores, setTeamScores] = useState([]);
 
@@ -824,6 +884,12 @@ export default function App() {
   const [editingUser, setEditingUser] = useState(null);
   const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'student', teamId: '' });
   const [newTeam, setNewTeam] = useState({ name: '', teacherId: '' });
+
+  // ─── Team Edit Modal ───────────────────────────────────────────────────────
+  const [teamModal, setTeamModal] = useState(null); // team doc | null
+  const [teamModalEdit, setTeamModalEdit] = useState({ photo: '', leaderId: '', teacherId: '', memberIds: [], memberSearch: '' });
+  const [teamTeachers, setTeamTeachers] = useState([]);
+  const [teamModalSaving, setTeamModalSaving] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('eco_user');
@@ -899,13 +965,18 @@ export default function App() {
     };
   }, [user?.role]); // Re-run if role changes (e.g. login/logout)
 
-  // Load student list for member selector (team-setup tab)
+  // Load student list + refresh teams เมื่อเปิด tab team-setup
   useEffect(() => {
-    if (activeTab === 'team-setup' && user && teamStudents.length === 0) {
+    if (activeTab !== 'team-setup' || !user) return;
+
+    // Refresh teams list (เผื่อ subscription ไม่ทัน)
+    getTeams().then(setTeams).catch(err => console.error('Refresh teams failed:', err));
+
+    if (teamStudents.length === 0) {
       getUsers().then(all => {
         const students = all.filter(u => u.role === 'student');
         setTeamStudents(students);
-        // Pre-select teammates who share the same team_id
+        setTeamTeachers(all.filter(u => u.role === 'teacher' || u.role === 'facilitator'));
         const myTeamId = user.team_id || user.teamId;
         if (myTeamId) {
           const preSelected = students
@@ -1100,12 +1171,13 @@ export default function App() {
             <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> {t('Explorer UI')}</div>
             <div className={`tab-item ${activeTab === 'mission-inbox' ? 'active' : ''}`} onClick={() => setActiveTab('mission-inbox')}><Inbox size={16} /> {t('Mission Inbox')}</div>
             <div className={`tab-item ${activeTab === 'collector' ? 'active' : ''}`} onClick={() => setActiveTab('collector')}><Camera size={16} /> {t('On-site Collector')}</div>
-            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
+            {currentCourse?.worksheets?.length > 0 ? (
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> ส่งงาน / Worksheets ({currentCourse.worksheets.length})</div>
+            ) : (
+              <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
+            )}
             <div className={`tab-item ${activeTab === 'evaluation-hub' ? 'active' : ''}`} onClick={() => setActiveTab('evaluation-hub')}><Star size={16} /> {t('Evaluation Hub')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
-            {currentCourse?.worksheets?.length > 0 && (
-              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
-            )}
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
@@ -1125,11 +1197,11 @@ export default function App() {
         )}
         {user?.role === 'sage' && (
           <>
+            {currentCourse?.worksheets?.length > 0 && (
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> ให้คะแนน Worksheets ({currentCourse.worksheets.length})</div>
+            )}
             <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
-            {currentCourse?.worksheets?.length > 0 && (
-              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
-            )}
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
@@ -1336,8 +1408,14 @@ export default function App() {
                   {/* ─── รายชื่อทีมทั้งหมด ─── */}
                   {teams.length > 0 && (
                     <div style={{ marginTop: '1.5rem' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Users size={14} /> ทีมทั้งหมด ({teams.length} ทีม)
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Users size={14} /> ทีมทั้งหมด ({teams.length} ทีม)</span>
+                        <button
+                          onClick={() => getTeams().then(setTeams).catch(console.error)}
+                          style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '2px 8px', fontSize: '0.7rem', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          🔄 รีเฟรช
+                        </button>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {teams.map(t => {
@@ -1346,7 +1424,22 @@ export default function App() {
                           const members   = teamStudents.filter(s => String(s.team_id || s.teamId) === String(t.id));
                           const leader    = teamStudents.find(s => s.id === t.leader_id);
                           return (
-                            <div key={t.id} style={{ border: `2px solid ${isMyTeam ? 'var(--color-primary)' : '#e2e8f0'}`, borderRadius: '10px', overflow: 'hidden', background: '#fff' }}>
+                            <div
+                              key={t.id}
+                              style={{ border: `2px solid ${isMyTeam ? 'var(--color-primary)' : '#e2e8f0'}`, borderRadius: '10px', overflow: 'hidden', background: '#fff', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                              onClick={() => {
+                                setTeamModal(t);
+                                setTeamModalEdit({
+                                  photo: t.photo || '',
+                                  leaderId: t.leader_id || '',
+                                  teacherId: t.teacher_id || '',
+                                  memberIds: members.map(m => m.id),
+                                  memberSearch: '',
+                                });
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)'}
+                              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                            >
                               {/* header */}
                               <div style={{ background: isMyTeam ? 'var(--color-primary)' : '#f1f5f9', padding: '0.6rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1356,32 +1449,15 @@ export default function App() {
                                     {isMyTeam && <span style={{ marginLeft: '6px', fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: '#fff', borderRadius: '4px', padding: '1px 6px' }}>ทีมของฉัน</span>}
                                   </div>
                                 </div>
-                                <span style={{ fontSize: '0.7rem', color: isMyTeam ? 'rgba(255,255,255,0.8)' : '#94a3b8' }}>👥 {members.length} คน</span>
+                                <span style={{ fontSize: '0.7rem', color: isMyTeam ? 'rgba(255,255,255,0.8)' : '#94a3b8' }}>👥 {members.length} คน · คลิกเพื่อแก้ไข</span>
                               </div>
 
                               {/* leader row */}
                               <div style={{ padding: '0.5rem 0.875rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ fontSize: '0.8rem' }}>👑</span>
-                                {isMyTeam ? (
-                                  <select
-                                    style={{ flex: 1, padding: '3px 6px', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff' }}
-                                    value={t.leader_id || ''}
-                                    onChange={async e => {
-                                      try { await adminUpdateTeam(t.id, { leader_id: e.target.value }); }
-                                      catch (err) { alert(err.message); }
-                                    }}
-                                  >
-                                    <option value="">-- เลือกหัวหน้าทีม --</option>
-                                    {members.length > 0
-                                      ? members.map(m => <option key={m.id} value={m.id}>{m.name}{m.nickname ? ` (${m.nickname})` : ''}</option>)
-                                      : teamStudents.map(m => <option key={m.id} value={m.id}>{m.name}{m.nickname ? ` (${m.nickname})` : ''}</option>)
-                                    }
-                                  </select>
-                                ) : (
-                                  <span style={{ fontSize: '0.8125rem', color: leader ? '#d97706' : '#94a3b8', fontWeight: leader ? 600 : 400 }}>
-                                    {leader ? `${leader.name}${leader.nickname ? ` (${leader.nickname})` : ''}` : 'ยังไม่มีหัวหน้าทีม'}
-                                  </span>
-                                )}
+                                <span style={{ fontSize: '0.8125rem', color: leader ? '#d97706' : '#94a3b8', fontWeight: leader ? 600 : 400 }}>
+                                  {leader ? `${leader.name}${leader.nickname ? ` (${leader.nickname})` : ''}` : 'ยังไม่มีหัวหน้าทีม'}
+                                </span>
                               </div>
 
                               {/* members */}
@@ -1406,8 +1482,11 @@ export default function App() {
 
           {activeTab === 'mission-inbox' && (
             <motion.div key="mi" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="lane">
-              <div className="lane-header bg-purple-light">Mission Inbox & Notification — รับโจทย์ภารกิจ</div>
+              <div className="lane-header bg-purple-light">
+                {currentCourse?.missionConfig?.title || 'Mission Inbox & Notification'} — รับโจทย์ภารกิจ
+              </div>
               <div className="lane-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Status / Rejection feedback */}
                 <div style={{ padding: '0.75rem', background: missionStatus.status === 'Rejected' ? '#fef2f2' : '#eff6ff', border: `1px solid ${missionStatus.status === 'Rejected' ? '#fecaca' : '#bfdbfe'}`, borderRadius: '8px', fontSize: '0.8125rem' }}>
                    <strong>Status: </strong> <span style={{ color: missionStatus.status === 'Rejected' ? '#dc2626' : 'var(--color-primary)', fontWeight: 600 }}>{missionStatus.status}</span>
                    {missionStatus.status === 'Rejected' ? (
@@ -1418,26 +1497,75 @@ export default function App() {
                       <p style={{ marginTop: '0.25rem', color: '#475569' }}>หากครู "Reject" ไอเดีย จะมีข้อความแจ้งเตือนและข้อเสนอแนะแสดงที่นี่</p>
                    )}
                 </div>
-                <div className="grid-2">
-                  <div>
-                    <label className="ldt-stat-lbl">เลือก Module (1-4)</label>
-                    <select className="login-input" value={missionData.module} onChange={e=>setMissionData({...missionData, module: e.target.value})}>
-                      <option value="">-- โปรดเลือก Module --</option>
-                      <option value="1">อัตลักษณ์ที่ 1: วิถีเกษตรและอาหาร</option>
-                      <option value="2">อัตลักษณ์ที่ 2: อุตสาหกรรมสร้างสรรค์</option>
-                      <option value="3">อัตลักษณ์ที่ 3: ทรัพยากรธรรมชาติ</option>
-                      <option value="4">อัตลักษณ์ที่ 4: พลังงานและนวัตกรรม</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="ldt-stat-lbl">ผลิตภัณฑ์ที่สนใจ</label>
-                    <input className="login-input" value={missionData.product} onChange={e=>setMissionData({...missionData, product: e.target.value})} placeholder="ระบุผลิตภัณฑ์..." />
-                  </div>
-                </div>
-                <div>
-                  <label className="ldt-stat-lbl">เหตุผลในการเลือก (Reasoning)</label>
-                  <textarea className="login-input" rows={4} value={missionData.reason} onChange={e=>setMissionData({...missionData, reason: e.target.value})} placeholder="ทำไมถึงเลือกผลิตภัณฑ์นี้..." />
-                </div>
+
+                {currentCourse?.missionConfig?.fields?.length > 0 ? (
+                  /* ── Course-aware Mission Form (DT+S4I และ courses อื่นที่มี missionConfig) ── */
+                  <>
+                    {currentCourse.missionConfig.subtitle && (
+                      <p style={{ fontSize: '0.8125rem', color: '#475569', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', padding: '0.625rem 0.875rem' }}>
+                        💡 {currentCourse.missionConfig.subtitle}
+                      </p>
+                    )}
+                    {currentCourse.missionConfig.fields.map(f => (
+                      <div key={f.id}>
+                        <label className="ldt-stat-lbl">
+                          {f.label}
+                          {f.required && <span style={{ color: '#dc2626', marginLeft: 3 }}>*</span>}
+                        </label>
+                        {f.type === 'select' ? (
+                          <select
+                            className="login-input"
+                            value={missionData[f.id] || ''}
+                            onChange={e => setMissionData({ ...missionData, [f.id]: e.target.value })}
+                          >
+                            <option value="">{f.placeholder || '-- เลือก --'}</option>
+                            {(f.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        ) : f.type === 'textarea' ? (
+                          <textarea
+                            className="login-input"
+                            rows={f.rows || 4}
+                            value={missionData[f.id] || ''}
+                            onChange={e => setMissionData({ ...missionData, [f.id]: e.target.value })}
+                            placeholder={f.placeholder || ''}
+                          />
+                        ) : (
+                          <input
+                            className="login-input"
+                            value={missionData[f.id] || ''}
+                            onChange={e => setMissionData({ ...missionData, [f.id]: e.target.value })}
+                            placeholder={f.placeholder || ''}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  /* ── Legacy Green Rayong Mission Form (Module 1-4 + Product) ── */
+                  <>
+                    <div className="grid-2">
+                      <div>
+                        <label className="ldt-stat-lbl">เลือก Module (1-4)</label>
+                        <select className="login-input" value={missionData.module || ''} onChange={e=>setMissionData({...missionData, module: e.target.value})}>
+                          <option value="">-- โปรดเลือก Module --</option>
+                          <option value="1">อัตลักษณ์ที่ 1: วิถีเกษตรและอาหาร</option>
+                          <option value="2">อัตลักษณ์ที่ 2: อุตสาหกรรมสร้างสรรค์</option>
+                          <option value="3">อัตลักษณ์ที่ 3: ทรัพยากรธรรมชาติ</option>
+                          <option value="4">อัตลักษณ์ที่ 4: พลังงานและนวัตกรรม</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="ldt-stat-lbl">ผลิตภัณฑ์ที่สนใจ</label>
+                        <input className="login-input" value={missionData.product || ''} onChange={e=>setMissionData({...missionData, product: e.target.value})} placeholder="ระบุผลิตภัณฑ์..." />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="ldt-stat-lbl">เหตุผลในการเลือก (Reasoning)</label>
+                      <textarea className="login-input" rows={4} value={missionData.reason || ''} onChange={e=>setMissionData({...missionData, reason: e.target.value})} placeholder="ทำไมถึงเลือกผลิตภัณฑ์นี้..." />
+                    </div>
+                  </>
+                )}
+
                 <button onClick={() => handleSave('mission-inbox', missionData)} className="login-btn"><CheckCircle2 size={18} /> รับภารกิจ</button>
               </div>
             </motion.div>
@@ -1466,6 +1594,25 @@ export default function App() {
           {activeTab === 'gateway' && (
             <motion.div key="sg" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="lane">
               <div className="lane-header bg-primary-light">Submission Gateway — ประตูส่งงานสมบูรณ์</div>
+              {currentCourse?.worksheets?.length > 0 ? (
+                <div className="lane-content">
+                  <div className="card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem', maxWidth: 500, margin: '0 auto' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📝</div>
+                    <h4 style={{ marginBottom: '0.5rem', color: '#0f172a' }}>หลักสูตรนี้ใช้ระบบ Worksheets</h4>
+                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.25rem' }}>
+                      การส่งงานทำผ่าน <strong>Worksheets</strong> ทีละใบตามขั้นตอน Design Thinking<br />
+                      กรอก Worksheet ให้ครบแล้วกด <strong>"ส่งงานสมบูรณ์"</strong> ในหน้า Worksheets
+                    </p>
+                    <button className="login-btn" style={{ width: 'auto', padding: '0.5rem 1.75rem' }}
+                      onClick={() => setActiveTab('worksheets')}>
+                      ไปที่ Worksheets →
+                    </button>
+                    <div style={{ marginTop: '1.5rem', padding: '0.75rem', background: '#f1f5f9', borderRadius: 8, fontSize: '0.75rem', color: '#64748b', textAlign: 'left' }}>
+                      <strong>หลักสูตร Legacy (Green Rayong):</strong> ยังใช้ Submission Gateway แบบเดิมได้ — สลับหลักสูตรที่ header
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <div className="lane-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                 <div className="grid-2">
                    <div>
@@ -1501,6 +1648,7 @@ export default function App() {
                 </div>
                 <button onClick={() => handleSave('gateway', gatewayData)} className="login-btn"><Send size={18} /> ยืนยันการส่งงานทั้งหมด</button>
               </div>
+              )}
             </motion.div>
           )}
 
@@ -2045,6 +2193,8 @@ export default function App() {
                                        try {
                                           await adminCreateTeam(newTeam);
                                           setNewTeam({ name: '', teacherId: '' });
+                                          const updated = await getTeams();
+                                          setTeams(updated);
                                        } catch (err) { alert(err.message); }
                                     }}
                                  >
@@ -2069,7 +2219,7 @@ export default function App() {
                                                    👑 {assignedLeader ? assignedLeader.name : 'ยังไม่มีหัวหน้าทีม'}
                                                 </div>
                                              </div>
-                                             <button onClick={async () => { if(confirm('Delete team?')) await adminDeleteTeam(t.id); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><LogOut size={14} /></button>
+                                             <button onClick={async () => { if(confirm('Delete team?')) { await adminDeleteTeam(t.id); const updated = await getTeams(); setTeams(updated); } }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><LogOut size={14} /></button>
                                           </div>
                                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                                              <select
@@ -2077,8 +2227,11 @@ export default function App() {
                                                 style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1, minWidth: '140px' }}
                                                 value={t.teacher_id || ''}
                                                 onChange={async (e) => {
-                                                   try { await adminUpdateTeam(t.id, { ...t, teacher_id: e.target.value }); }
-                                                   catch (err) { alert(err.message); }
+                                                   try {
+                                                      await adminUpdateTeam(t.id, { ...t, teacher_id: e.target.value });
+                                                      const updated = await getTeams();
+                                                      setTeams(updated);
+                                                   } catch (err) { alert(err.message); }
                                                 }}
                                              >
                                                 <option value="">Assign Teacher...</option>
@@ -2091,8 +2244,11 @@ export default function App() {
                                                 style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1, minWidth: '140px' }}
                                                 value={t.leader_id || ''}
                                                 onChange={async (e) => {
-                                                   try { await adminUpdateTeam(t.id, { ...t, leader_id: e.target.value }); }
-                                                   catch (err) { alert(err.message); }
+                                                   try {
+                                                      await adminUpdateTeam(t.id, { ...t, leader_id: e.target.value });
+                                                      const updated = await getTeams();
+                                                      setTeams(updated);
+                                                   } catch (err) { alert(err.message); }
                                                 }}
                                              >
                                                 <option value="">👑 เลือกหัวหน้าทีม...</option>
@@ -2820,41 +2976,19 @@ export default function App() {
                         </div>
                      )}
                      {adminSubTab === 'reports' && (
-                        <div className="card">
-                           <h5>R1: Score Summary Report (Mock Data)</h5>
-                           <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '1rem' }}>ตารางสรุปคะแนนประเมินรวม 5 มิติ ของทุกทีม (Export PDF/CSV ได้)</p>
-                           <div style={{ overflowX: 'auto' }}>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', textAlign: 'left' }}>
-                                 <thead>
-                                    <tr style={{ background: '#f1f5f9', color: '#334155' }}>
-                                       <th style={{ padding: '0.5rem' }}>Team Name</th>
-                                       <th style={{ padding: '0.5rem' }}>Self (10%)</th>
-                                       <th style={{ padding: '0.5rem' }}>Peer (15%)</th>
-                                       <th style={{ padding: '0.5rem' }}>Teacher (35%)</th>
-                                       <th style={{ padding: '0.5rem' }}>Sage (30%)</th>
-                                       <th style={{ padding: '0.5rem' }}>AI (10%)</th>
-                                       <th style={{ padding: '0.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>Total (100)</th>
-                                    </tr>
-                                 </thead>
-                                 <tbody>
-                                    {mockReportData.map((row, idx) => (
-                                       <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                          <td style={{ padding: '0.5rem', fontWeight: 600 }}>{row.team}</td>
-                                          <td style={{ padding: '0.5rem' }}>{row.self}</td>
-                                          <td style={{ padding: '0.5rem' }}>{row.peer}</td>
-                                          <td style={{ padding: '0.5rem' }}>{row.teacher}</td>
-                                          <td style={{ padding: '0.5rem' }}>{row.sage}</td>
-                                          <td style={{ padding: '0.5rem' }}>{row.ai}</td>
-                                          <td style={{ padding: '0.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>{row.total}</td>
-                                       </tr>
-                                    ))}
-                                 </tbody>
-                              </table>
-                           </div>
-                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                              <button className="login-btn" style={{ background: 'var(--color-blue)', width: 'fit-content', fontSize: '0.75rem' }}>Export PDF</button>
-                              <button className="login-btn" style={{ background: 'var(--color-amber)', width: 'fit-content', fontSize: '0.75rem' }}>Export CSV</button>
-                           </div>
+                        <div className="card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+                           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📊</div>
+                           <h5 style={{ marginBottom: '0.5rem' }}>รายงาน R1–R6</h5>
+                           <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '1.25rem' }}>
+                             รายงานฉบับเต็มพร้อมข้อมูลจริงจาก Firestore อยู่ที่ tab รายงาน R1-R6
+                           </p>
+                           <button
+                             className="login-btn"
+                             style={{ width: 'auto', padding: '0.5rem 1.5rem' }}
+                             onClick={() => setActiveTab('teacher-reports')}
+                           >
+                             ไปที่รายงาน R1-R6 →
+                           </button>
                         </div>
                      )}
                   </div>
@@ -3032,36 +3166,98 @@ export default function App() {
                               </div>
                            </div>
 
-                           {/* --- Scoring Section (Phase 8: course-aware rubric) --- */}
+                           {/* --- Scoring Section (Phase 8: course-aware rubric with criteria guide) --- */}
                            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
-                              <h4 style={{ marginBottom: '0.5rem' }}>Scoring Matrix</h4>
+                              <h4 style={{ marginBottom: '0.25rem' }}>Scoring Matrix</h4>
                               <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
-                                 ใช้ rubric ของหลักสูตร <strong style={{ color: currentCourse.branding?.primaryColor }}>{currentCourse.name}</strong> ({(currentCourse.rubric || []).length} ด้าน)
+                                 rubric: <strong style={{ color: currentCourse.branding?.primaryColor }}>{currentCourse.name}</strong>
+                                 {' · '}{(currentCourse.rubric || []).length} ด้าน
+                                 {(currentCourse.rubric || []).reduce((s, d) => s + (d.criteria?.length || 0), 0) > 0 && (
+                                   <span> · {(currentCourse.rubric || []).reduce((s, d) => s + (d.criteria?.length || 0), 0)} เกณฑ์</span>
+                                 )}
                               </p>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                  {(currentCourse.rubric || []).map(rDim => {
                                     const r = rDim.label;
+                                    const dimId = rDim.dimensionId || r;
                                     const key = `${selectedTeam.id}-${r}`;
                                     const current = evalScore[key] || 0;
+                                    const isExpanded = expandedCriteriaId === dimId;
+                                    const criteria = rDim.criteria || [];
+                                    // Level descriptor for current score (index = score-1, but levelDescriptors may have 5 items)
+                                    const levelDesc = current > 0 && rDim.levelDescriptors ? rDim.levelDescriptors[current - 1] : null;
+                                    const LEVEL_COLORS = ['#fef2f2','#fff7ed','#fffbeb','#f0fdf4','#eff6ff'];
+                                    const LEVEL_BORDER = ['#fca5a5','#fdba74','#fcd34d','#86efac','#93c5fd'];
                                     return (
-                                       <div key={r}>
-                                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                                             <label className="ldt-stat-lbl">{r} {rDim.weight ? <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 400 }}>· {rDim.weight}%</span> : null}</label>
-                                             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: current ? 'var(--color-primary)' : '#94a3b8' }}>
-                                                {current ? `${current} / 5` : 'ยังไม่ได้ให้คะแนน'}
-                                             </span>
+                                       <div key={r} style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+                                          {/* Dimension header row */}
+                                          <div style={{ padding: '0.75rem 1rem', background: '#f8fafc' }}>
+                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                <div>
+                                                   <label style={{ fontWeight: 700, fontSize: '0.875rem' }}>{r}</label>
+                                                   {rDim.labelEN && r !== rDim.labelEN && <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginLeft: '6px' }}>({rDim.labelEN})</span>}
+                                                   {rDim.weight ? <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 400, marginLeft: '6px' }}>{rDim.weight}%</span> : null}
+                                                </div>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: current ? 'var(--color-primary)' : '#94a3b8' }}>
+                                                   {current ? `⭐ ${current} / 5` : '—'}
+                                                </span>
+                                             </div>
+                                             {/* Score buttons */}
+                                             <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                {[1,2,3,4,5].map(v => (
+                                                   <button
+                                                      key={v}
+                                                      onClick={() => setEvalScore(prev => ({ ...prev, [key]: v }))}
+                                                      style={{ flex: 1, height: '34px', borderRadius: '6px', border: `2px solid ${current === v ? 'var(--color-primary)' : 'var(--color-border)'}`, background: current === v ? 'var(--color-primary)' : current > v ? '#e0f2fe' : 'white', color: current === v ? 'white' : 'inherit', cursor: 'pointer', fontWeight: current === v ? 700 : 400, transition: 'all 0.15s', fontSize: '0.875rem' }}
+                                                   >{v}</button>
+                                                ))}
+                                             </div>
+                                             {/* Level descriptor */}
+                                             {levelDesc && (
+                                                <div style={{ marginTop: '0.4rem', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', background: LEVEL_COLORS[current-1] || '#f0fdf4', border: `1px solid ${LEVEL_BORDER[current-1] || '#86efac'}`, color: '#475569' }}>
+                                                   ระดับ {current}: {levelDesc}
+                                                </div>
+                                             )}
                                           </div>
-                                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                             {[1,2,3,4,5].map(v => (
+                                          {/* Criteria toggle */}
+                                          {criteria.length > 0 && (
+                                             <div>
                                                 <button
-                                                   key={v}
-                                                   onClick={() => setEvalScore(prev => ({ ...prev, [key]: v }))}
-                                                   style={{ flex: 1, height: '32px', borderRadius: '6px', border: '1px solid var(--color-border)', background: current >= v ? 'var(--color-primary)' : 'white', color: current >= v ? 'white' : 'inherit', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                   onClick={() => setExpandedCriteriaId(isExpanded ? null : dimId)}
+                                                   style={{ width: '100%', padding: '0.4rem 1rem', background: isExpanded ? '#eff6ff' : '#fff', border: 'none', borderTop: '1px solid var(--color-border)', cursor: 'pointer', fontSize: '0.7rem', color: '#64748b', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                                                 >
-                                                   {v}
+                                                   <span>{isExpanded ? '▲' : '▼'} เกณฑ์ประเมิน ({criteria.length} ข้อ)</span>
+                                                   <span style={{ opacity: 0.5 }}>{rDim.description}</span>
                                                 </button>
-                                             ))}
-                                          </div>
+                                                {isExpanded && (
+                                                   <div style={{ padding: '0.75rem 1rem', background: '#fafafa', borderTop: '1px solid var(--color-border)' }}>
+                                                      <table style={{ width: '100%', fontSize: '0.7rem', borderCollapse: 'collapse' }}>
+                                                         <thead>
+                                                            <tr style={{ background: '#f1f5f9' }}>
+                                                               <th style={{ padding: '4px 6px', textAlign: 'left', width: '30%' }}>เกณฑ์</th>
+                                                               <th style={{ padding: '4px 6px', width: '10%', textAlign: 'center' }}>WS</th>
+                                                               <th style={{ padding: '4px 6px', textAlign: 'left', color: '#dc2626' }}>L1 ปรับปรุง</th>
+                                                               <th style={{ padding: '4px 6px', textAlign: 'left', color: '#d97706' }}>L2 พอใช้</th>
+                                                               <th style={{ padding: '4px 6px', textAlign: 'left', color: '#16a34a' }}>L3-4 ดี</th>
+                                                               <th style={{ padding: '4px 6px', textAlign: 'left', color: '#2563eb' }}>L5 ดีเยี่ยม</th>
+                                                            </tr>
+                                                         </thead>
+                                                         <tbody>
+                                                            {criteria.map((c, ci) => (
+                                                               <tr key={c.id} style={{ background: ci % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                                                                  <td style={{ padding: '5px 6px', fontWeight: 500 }}>{c.label}</td>
+                                                                  <td style={{ padding: '5px 6px', textAlign: 'center', color: '#6366f1', fontSize: '0.65rem', fontWeight: 600 }}>{c.wsRef}</td>
+                                                                  {(c.levels || []).map((lv, li) => (
+                                                                     <td key={li} style={{ padding: '5px 6px', color: '#475569' }}>{lv}</td>
+                                                                  ))}
+                                                               </tr>
+                                                            ))}
+                                                         </tbody>
+                                                      </table>
+                                                   </div>
+                                                )}
+                                             </div>
+                                          )}
                                        </div>
                                     );
                                  })}
@@ -3408,12 +3604,32 @@ export default function App() {
           {activeTab === 'worksheets' && (() => {
             const ws = (currentCourse.worksheets || []).find(w => w.id === selectedWorksheetId);
             const submittedIds = new Set(worksheetSubmissions.map(s => s.worksheet_id));
+            const viewingTeam = teams.find(t => t.id === effectiveWsTeamId);
             return (
             <motion.div key="ws" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane">
-               <div className="lane-header" style={{ background: 'linear-gradient(90deg, ' + (currentCourse.branding?.primaryColor || '#16a34a') + '22 0%, ' + (currentCourse.branding?.secondaryColor || '#0ea5e9') + '22 100%)', color: '#0f172a' }}>
+               <div className="lane-header" style={{ background: 'linear-gradient(90deg, ' + (currentCourse.branding?.primaryColor || '#16a34a') + '22 0%, ' + (currentCourse.branding?.secondaryColor || '#0ea5e9') + '22 100%)', color: '#0f172a', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <span style={{ fontSize: '1.5rem' }}>{currentCourse.branding?.logoEmoji}</span>
                   <strong>{currentCourse.name}</strong> · Worksheets {worksheetSubmissions.length}/{currentCourse.worksheets?.length || 0} ส่งแล้ว
+                  {canViewAnyTeam && (
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#475569' }}>👁 ดูทีม:</span>
+                      <select
+                        value={adminWsTeamId}
+                        onChange={e => { setAdminWsTeamId(e.target.value); setSelectedWorksheetId(null); }}
+                        style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff' }}
+                      >
+                        <option value="">— เลือกทีม —</option>
+                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                </div>
+               {canViewAnyTeam && effectiveWsTeamId && (
+                 <div style={{ padding: '0.4rem 1rem', background: '#fef9c3', borderBottom: '1px solid #fde68a', fontSize: '0.78rem', color: '#854d0e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                   👁 โหมดดูข้อมูล · ทีม: <strong>{viewingTeam?.name || effectiveWsTeamId}</strong>
+                   {canGrade && <span style={{ marginLeft: 4, opacity: 0.7, color: '#d97706' }}>· สามารถให้คะแนนได้</span>}
+                 </div>
+               )}
                <div className="lane-content" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
                   {/* Left: stage + worksheet list */}
                   <div style={{ flex: '0 0 320px', maxHeight: '70vh', overflowY: 'auto' }}>
@@ -3454,12 +3670,63 @@ export default function App() {
                            );
                         })
                      )}
+                     {/* ── Progress + Final Submit ── */}
+                     {effectiveWsTeamId && (currentCourse.worksheets || []).length > 0 && (() => {
+                        const totalWs = currentCourse.worksheets.length;
+                        const doneWs = worksheetSubmissions.filter(s => s.worksheet_id !== '__SUBMIT__').length;
+                        const finalSub = worksheetSubmissions.find(s => s.worksheet_id === '__SUBMIT__');
+                        const pct = Math.round((doneWs / totalWs) * 100);
+                        const allDone = doneWs === totalWs;
+                        return (
+                           <div className="card" style={{ marginTop: '0.75rem', padding: '0.85rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#475569', marginBottom: 6 }}>
+                                 <span>ความคืบหน้า</span>
+                                 <strong style={{ color: allDone ? '#16a34a' : '#0ea5e9' }}>{doneWs}/{totalWs} ใบ ({pct}%)</strong>
+                              </div>
+                              <div style={{ background: '#e2e8f0', borderRadius: 999, height: 8, overflow: 'hidden', marginBottom: '0.85rem' }}>
+                                 <div style={{ width: pct + '%', height: '100%', background: allDone ? '#16a34a' : '#0ea5e9', transition: 'width 0.4s ease', borderRadius: 999 }} />
+                              </div>
+                              {finalSub ? (
+                                 <div style={{ textAlign: 'center', padding: '0.6rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                                    <div style={{ fontSize: '1.4rem' }}>🎉</div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#166534' }}>ส่งงานสมบูรณ์แล้ว</div>
+                                    <div style={{ fontSize: '0.65rem', color: '#4ade80', marginTop: 2 }}>
+                                       {finalSub.content?.submitted_at ? new Date(finalSub.content.submitted_at).toLocaleString('th-TH') : ''}
+                                       {' · '}{finalSub.content?.completed}/{finalSub.content?.total} ใบ
+                                    </div>
+                                    {!isPrivilegedUser && (
+                                       <button onClick={handleWorksheetFinalSubmit} disabled={worksheetFinalSubmitting}
+                                          style={{ marginTop: '0.5rem', fontSize: '0.7rem', padding: '0.2rem 0.7rem', background: 'none', border: '1px solid #bbf7d0', borderRadius: 6, color: '#166534', cursor: 'pointer' }}>
+                                          ส่งซ้ำ / อัปเดต
+                                       </button>
+                                    )}
+                                 </div>
+                              ) : (
+                                 <button onClick={handleWorksheetFinalSubmit} disabled={worksheetFinalSubmitting || (isPrivilegedUser && !!adminWsTeamId && !myTeamIdForWorksheets)}
+                                    className="login-btn"
+                                    style={{ width: '100%', background: allDone ? '#16a34a' : '#0ea5e9', fontSize: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                    {worksheetFinalSubmitting ? '⏳ กำลังส่งงาน...' : allDone ? '🎉 ส่งงานสมบูรณ์' : `📤 ส่งงาน (${doneWs}/${totalWs} ใบ)`}
+                                 </button>
+                              )}
+                           </div>
+                        );
+                     })()}
                   </div>
                   {/* Right: selected worksheet form */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                     {!myTeamIdForWorksheets ? (
+                     {!effectiveWsTeamId ? (
                         <div className="card" style={{ borderStyle: 'dashed', textAlign: 'center', padding: '3rem' }}>
-                           <p style={{ color: '#94a3b8' }}>คุณยังไม่ได้สังกัดทีม — กรุณาให้ครูเพิ่มคุณเข้าทีมก่อน</p>
+                           {canViewAnyTeam ? (
+                             <>
+                               <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👆</p>
+                               <p style={{ color: '#64748b', fontWeight: 600 }}>เลือกทีมที่ต้องการดูจาก dropdown ด้านบน</p>
+                               <p style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+                                 {isSage ? 'ปราชญ์สามารถดูและให้คะแนน Worksheet ของแต่ละทีมได้' : 'Admin/ครู สามารถดู บันทึก และให้คะแนน Worksheet แทนทีมได้'}
+                               </p>
+                             </>
+                           ) : (
+                             <p style={{ color: '#94a3b8' }}>คุณยังไม่ได้สังกัดทีม — กรุณาให้ครูเพิ่มคุณเข้าทีมก่อน</p>
+                           )}
                         </div>
                      ) : !ws ? (
                         <div className="card" style={{ borderStyle: 'dashed', textAlign: 'center', padding: '3rem' }}>
@@ -3473,20 +3740,81 @@ export default function App() {
                               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                                  <span style={{ fontSize: '1.8rem' }}>{ws.icon}</span>
                                  {ws.labelTH || ws.label}
+                                 {wsViewOnly && <span style={{ fontSize: '0.7rem', background: '#fef9c3', color: '#854d0e', padding: '0.1rem 0.4rem', borderRadius: 4, fontWeight: 400 }}>👁 Read-only</span>}
                               </h3>
                               <div style={{ display: 'flex', gap: 6 }}>
-                                 <button onClick={saveCurrentWorksheet} disabled={worksheetSaving} className="login-btn" style={{ background: '#16a34a', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
-                                    {worksheetSaving ? '⏳ กำลังบันทึก...' : '💾 บันทึก Worksheet'}
-                                 </button>
+                                 {!wsViewOnly && (
+                                    <button onClick={saveCurrentWorksheet} disabled={worksheetSaving} className="login-btn" style={{ background: '#16a34a', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
+                                       {worksheetSaving ? '⏳ กำลังบันทึก...' : '💾 บันทึก Worksheet'}
+                                    </button>
+                                 )}
                                  <button onClick={() => setSelectedWorksheetId(null)} className="login-btn" style={{ background: '#64748b', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>ปิด</button>
                               </div>
                            </div>
-                           {submittedIds.has(ws.id) && (
+
+                           {/* Score badge — shown to students when graded */}
+                           {!canGrade && (() => {
+                              const sub = worksheetSubmissions.find(s => s.worksheet_id === ws.id);
+                              if (!sub || sub.score == null) return null;
+                              return (
+                                 <div style={{ padding: '0.6rem 0.75rem', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 6, marginBottom: '0.75rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: 700, color: '#92400e' }}>⭐ คะแนน: {sub.score}/10</span>
+                                    {sub.score_comment && <span style={{ color: '#78350f' }}>· "{sub.score_comment}"</span>}
+                                    {sub.graded_by_name && <span style={{ color: '#a16207', fontSize: '0.72rem' }}>— {sub.graded_by_name}</span>}
+                                 </div>
+                              );
+                           })()}
+
+                           {submittedIds.has(ws.id) && !wsViewOnly && (
                               <div style={{ padding: '0.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, marginBottom: '0.75rem', fontSize: '0.75rem', color: '#166534' }}>
                                  ✅ ส่งแล้ว · แก้ไขเพิ่มเติมแล้วกด "บันทึก" อีกครั้งจะ overwrite ของเดิม
                               </div>
                            )}
-                           <GenericForm schema={ws} value={worksheetFormDraft} onChange={setWorksheetFormDraft} />
+
+                           <GenericForm schema={ws} value={worksheetFormDraft} onChange={setWorksheetFormDraft} disabled={wsViewOnly} />
+
+                           {/* Grading panel — teacher / facilitator / sage */}
+                           {canGrade && submittedIds.has(ws.id) && (() => {
+                              const sub = worksheetSubmissions.find(s => s.worksheet_id === ws.id);
+                              const hasScore = sub?.score != null;
+                              return (
+                                 <div style={{ marginTop: '1.25rem', padding: '1rem', background: '#fef9c3', border: '2px solid #fde68a', borderRadius: 8 }}>
+                                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#854d0e', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                       ✏️ ให้คะแนนใบงานนี้
+                                       {hasScore && (
+                                          <span style={{ fontWeight: 400, fontSize: '0.75rem', color: '#a16207' }}>
+                                             · ให้คะแนนแล้ว: <strong>{sub.score}/10</strong> โดย {sub.graded_by_name || 'ไม่ระบุ'}
+                                          </span>
+                                       )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                       <div>
+                                          <label style={{ fontSize: '0.72rem', display: 'block', marginBottom: 4, color: '#78350f', fontWeight: 600 }}>คะแนน (0–10)</label>
+                                          <input type="number" min={0} max={10} step={0.5}
+                                             value={wScoreDraft.score}
+                                             onChange={e => setWScoreDraft(d => ({ ...d, score: e.target.value }))}
+                                             style={{ width: 80, padding: '0.45rem', border: '2px solid #fbbf24', borderRadius: 6, fontSize: '1rem', fontWeight: 700, textAlign: 'center' }} />
+                                       </div>
+                                       <div style={{ flex: 1, minWidth: 200 }}>
+                                          <label style={{ fontSize: '0.72rem', display: 'block', marginBottom: 4, color: '#78350f', fontWeight: 600 }}>ความคิดเห็น / Feedback</label>
+                                          <textarea rows={2} value={wScoreDraft.comment}
+                                             onChange={e => setWScoreDraft(d => ({ ...d, comment: e.target.value }))}
+                                             style={{ width: '100%', padding: '0.4rem', border: '1px solid #fde68a', borderRadius: 6, fontSize: '0.8rem', resize: 'vertical', fontFamily: 'inherit' }}
+                                             placeholder="ข้อเสนอแนะสำหรับทีม..." />
+                                       </div>
+                                       <button onClick={handleSaveWsScore} disabled={wScoreSaving || wScoreDraft.score === ''}
+                                          className="login-btn" style={{ background: '#d97706', padding: '0.5rem 1rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                          {wScoreSaving ? '⏳...' : hasScore ? '🔄 อัปเดตคะแนน' : '💾 บันทึกคะแนน'}
+                                       </button>
+                                    </div>
+                                 </div>
+                              );
+                           })()}
+                           {canGrade && !submittedIds.has(ws.id) && (
+                              <div style={{ marginTop: '1rem', padding: '0.6rem', background: '#f1f5f9', border: '1px dashed #cbd5e1', borderRadius: 6, fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>
+                                 ยังไม่มีการส่งงาน Worksheet นี้ — ไม่สามารถให้คะแนนได้ในขณะนี้
+                              </div>
+                           )}
                         </div>
                      )}
                   </div>
@@ -3982,6 +4310,233 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* ─── Team Edit Modal ─── */}
+      {teamModal && (() => {
+        const canEdit = user?.role === 'admin' || user?.role === 'teacher' || user?.role === 'facilitator' ||
+                        String(teamModal.id) === String(user?.team_id || user?.teamId);
+        const originalMemberIds = teamStudents.filter(s => String(s.team_id || s.teamId) === String(teamModal.id)).map(s => s.id);
+        // teacher list: prefer users[] (admin has it) else teamTeachers
+        const teacherList = (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'facilitator')).length > 0
+          ? (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'facilitator'))
+          : teamTeachers;
+
+        const filteredStudents = teamStudents.filter(s => {
+          const q = (teamModalEdit.memberSearch || '').toLowerCase();
+          return !q || (s.name || '').toLowerCase().includes(q) || (s.username || '').toLowerCase().includes(q) || (s.nickname || '').toLowerCase().includes(q);
+        });
+
+        const handleTeamModalSave = async () => {
+          setTeamModalSaving(true);
+          try {
+            // 1. Update team doc
+            await adminUpdateTeam(teamModal.id, {
+              photo:     teamModalEdit.photo,
+              leader_id: teamModalEdit.leaderId,
+              teacher_id: teamModalEdit.teacherId,
+            });
+
+            // 2. Member changes (only if canEdit and role allows writing user docs)
+            if (canEdit) {
+              const added   = teamModalEdit.memberIds.filter(id => !originalMemberIds.includes(id));
+              const removed = originalMemberIds.filter(id => !teamModalEdit.memberIds.includes(id));
+              for (const uid of added)   await adminUpdateUser(uid, { team_id: teamModal.id });
+              for (const uid of removed) await adminUpdateUser(uid, { team_id: null });
+            }
+
+            // 3. Refresh state
+            const updatedTeams = await getTeams();
+            setTeams(updatedTeams);
+            const allUsers = await getUsers();
+            setTeamStudents(allUsers.filter(u => u.role === 'student'));
+
+            setTeamModal(null);
+          } catch (err) {
+            alert('บันทึกไม่สำเร็จ: ' + err.message);
+          } finally {
+            setTeamModalSaving(false);
+          }
+        };
+
+        const selectedMemberObjs = teamModalEdit.memberIds.map(id => teamStudents.find(s => s.id === id)).filter(Boolean);
+
+        return (
+          <>
+            {/* backdrop */}
+            <div
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9990 }}
+              onClick={() => setTeamModal(null)}
+            />
+            {/* modal box */}
+            <div style={{
+              position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+              background: '#fff', borderRadius: '14px', padding: '1.5rem',
+              width: 'min(92vw, 540px)', maxHeight: '88vh', overflowY: 'auto',
+              zIndex: 9991, boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+              display: 'flex', flexDirection: 'column', gap: '1rem',
+            }}>
+
+              {/* header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {teamModalEdit.photo && (
+                    <img src={teamModalEdit.photo} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary)' }} onError={e => { e.target.style.display='none'; }} />
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>{teamModal.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: canEdit ? '#16a34a' : '#94a3b8' }}>{canEdit ? '✏️ แก้ไขได้' : '👁 ดูอย่างเดียว'}</div>
+                  </div>
+                </div>
+                <button onClick={() => setTeamModal(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 34, height: 34, cursor: 'pointer', fontSize: '1rem', fontWeight: 700, color: '#64748b' }}>✕</button>
+              </div>
+
+              <hr style={{ margin: 0, borderColor: '#f1f5f9' }} />
+
+              {/* photo */}
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>📸 รูปภาพทีม (URL)</label>
+                {canEdit ? (
+                  <input
+                    className="login-input"
+                    value={teamModalEdit.photo}
+                    onChange={e => setTeamModalEdit(p => ({ ...p, photo: e.target.value }))}
+                    placeholder="https://..."
+                    style={{ fontSize: '0.8125rem' }}
+                  />
+                ) : (
+                  <div style={{ fontSize: '0.8125rem', color: '#475569' }}>{teamModalEdit.photo || '—'}</div>
+                )}
+              </div>
+
+              {/* teacher */}
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>👨‍🏫 ครูพี่เลี้ยงทีม</label>
+                {canEdit ? (
+                  <select
+                    className="login-input"
+                    value={teamModalEdit.teacherId}
+                    onChange={e => setTeamModalEdit(p => ({ ...p, teacherId: e.target.value }))}
+                    style={{ fontSize: '0.8125rem' }}
+                  >
+                    <option value="">— ยังไม่กำหนด —</option>
+                    {teacherList.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                ) : (
+                  <div style={{ fontSize: '0.8125rem', color: '#475569' }}>
+                    {teacherList.find(u => u.id === teamModalEdit.teacherId)?.name || '—'}
+                  </div>
+                )}
+              </div>
+
+              {/* members */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>👥 สมาชิกทีม ({teamModalEdit.memberIds.length} คน)</label>
+                  {canEdit && (
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>เลือก / ยกเลิกเลือก</span>
+                  )}
+                </div>
+                {canEdit && (
+                  <input
+                    className="login-input"
+                    value={teamModalEdit.memberSearch}
+                    onChange={e => setTeamModalEdit(p => ({ ...p, memberSearch: e.target.value }))}
+                    placeholder="🔍 ค้นหาชื่อ..."
+                    style={{ marginBottom: '0.4rem', fontSize: '0.8125rem' }}
+                  />
+                )}
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', background: '#fafafa' }}>
+                  {canEdit ? (
+                    filteredStudents.length === 0 ? (
+                      <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>ไม่พบนักเรียน</div>
+                    ) : (
+                      filteredStudents.map(s => {
+                        const checked = teamModalEdit.memberIds.includes(s.id);
+                        return (
+                          <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.4rem 0.75rem', cursor: 'pointer', background: checked ? '#eff6ff' : 'transparent', borderBottom: '1px solid #f1f5f9' }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={ev => setTeamModalEdit(p => ({
+                                ...p,
+                                memberIds: ev.target.checked
+                                  ? [...p.memberIds, s.id]
+                                  : p.memberIds.filter(id => id !== s.id),
+                                // clear leader if removed
+                                leaderId: !ev.target.checked && p.leaderId === s.id ? '' : p.leaderId,
+                              }))}
+                              style={{ width: 15, height: 15, accentColor: 'var(--color-primary)', flexShrink: 0 }}
+                            />
+                            <span style={{ fontSize: '0.875rem', fontWeight: checked ? 600 : 400 }}>{s.name}</span>
+                            {s.nickname && <span style={{ fontSize: '0.7rem', color: '#64748b' }}>({s.nickname})</span>}
+                            <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.username}</span>
+                          </label>
+                        );
+                      })
+                    )
+                  ) : (
+                    selectedMemberObjs.length === 0
+                      ? <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>ยังไม่มีสมาชิก</div>
+                      : selectedMemberObjs.map(s => (
+                          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.4rem 0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+                            <span style={{ fontSize: '0.875rem' }}>{s.name}{s.nickname ? ` (${s.nickname})` : ''}</span>
+                            <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.username}</span>
+                          </div>
+                        ))
+                  )}
+                </div>
+              </div>
+
+              {/* leader */}
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>👑 หัวหน้าทีม</label>
+                {canEdit ? (
+                  <select
+                    className="login-input"
+                    value={teamModalEdit.leaderId}
+                    onChange={e => setTeamModalEdit(p => ({ ...p, leaderId: e.target.value }))}
+                    style={{ fontSize: '0.8125rem' }}
+                  >
+                    <option value="">— ยังไม่กำหนด —</option>
+                    {(teamModalEdit.memberIds.length > 0 ? selectedMemberObjs : teamStudents).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}{s.nickname ? ` (${s.nickname})` : ''}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ fontSize: '0.8125rem', color: teamModalEdit.leaderId ? '#d97706' : '#94a3b8', fontWeight: teamModalEdit.leaderId ? 600 : 400 }}>
+                    {selectedMemberObjs.find(s => s.id === teamModalEdit.leaderId)?.name || '—'}
+                  </div>
+                )}
+              </div>
+
+              {/* footer buttons */}
+              {canEdit && (
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
+                  <button
+                    onClick={() => setTeamModal(null)}
+                    style={{ padding: '0.45rem 1.1rem', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', fontSize: '0.875rem', color: '#64748b' }}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    onClick={handleTeamModalSave}
+                    disabled={teamModalSaving}
+                    className="login-btn"
+                    style={{ padding: '0.45rem 1.25rem', width: 'auto', fontSize: '0.875rem', opacity: teamModalSaving ? 0.7 : 1 }}
+                  >
+                    {teamModalSaving ? '⏳ กำลังบันทึก...' : '💾 บันทึก'}
+                  </button>
+                </div>
+              )}
+              {!canEdit && (
+                <div style={{ textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8', paddingTop: '0.25rem' }}>
+                  เฉพาะสมาชิกทีมหรืออาจารย์เท่านั้นที่แก้ไขได้
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {/* ─── Pitching Timer Modal Overlay (E quick win) ─── */}
       {pitchTimerOpen && (() => {

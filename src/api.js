@@ -9,6 +9,7 @@ import {
 import {
   collection,
   getDocs,
+  getDocsFromServer,
   doc,
   getDoc,
   setDoc,
@@ -527,10 +528,16 @@ export function subscribeToFeed(callback) {
 }
 
 export function subscribeToTeams(callback) {
-  return onSnapshot(collection(db, "teams"), (snap) => {
-    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    callback(data);
-  });
+  return onSnapshot(
+    collection(db, "teams"),
+    (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      callback(data);
+    },
+    (err) => {
+      console.error('[subscribeToTeams] listener error:', err.code, err.message);
+    }
+  );
 }
 
 // ── ติดตาม user doc ของตัวเอง (sync team_id / role เมื่อ Admin แก้ไข) ──────
@@ -542,7 +549,8 @@ export function subscribeToUserDoc(uid, callback) {
 
 // ─── Teams ───────────────────────────────────────────────
 export async function getTeams() {
-  const snap = await getDocs(collection(db, "teams"));
+  // getDocsFromServer บังคับดึงจาก Firestore server ตรง ๆ (ไม่ใช้ cache)
+  const snap = await getDocsFromServer(collection(db, "teams"));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
@@ -2116,6 +2124,20 @@ export async function saveWorksheetSubmission(teamId, courseId, worksheetId, dat
     submitted_by_name : me.name || null
   }, { merge: true });
   return { ok: true, id: submissionId };
+}
+
+export async function saveWorksheetScore(teamId, courseId, worksheetId, { score, comment }) {
+  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const safeWsId = String(worksheetId).replace(/[^\w-]/g, '_');
+  const submissionId = `${String(teamId)}_${courseId}_${safeWsId}`;
+  await setDoc(doc(db, 'submissions', submissionId), {
+    score           : score !== '' && score != null ? Number(score) : null,
+    score_comment   : comment || '',
+    graded_by_id    : me.id || null,
+    graded_by_name  : me.name || null,
+    graded_at       : serverTimestamp(),
+  }, { merge: true });
+  return { ok: true };
 }
 
 export function subscribeToWorksheetSubmissions(teamId, courseId, callback) {
