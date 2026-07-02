@@ -42,6 +42,8 @@ import {
 import StatBox from './components/StatBox';
 import RadarChart from './components/RadarChart';
 import GenericForm, { FIELD_TYPES } from './components/GenericForm';
+import SubjectPicker from './components/SubjectPicker';
+import InstructorPicker from './components/InstructorPicker';
 import {
   logout,
   getUsers,
@@ -2808,103 +2810,32 @@ export default function App() {
                                  </div>
                               </div>
 
-                              {/* ─── รายวิชาที่สอนในหลักสูตร ─── */}
-                              {(() => {
-                                 const selIds = newCourseForm.subjectIds || [];
-                                 const toggleSubj = (sid) => {
-                                    const next = selIds.includes(sid) ? selIds.filter(x => x !== sid) : [...selIds, sid];
+                              {/* ─── รายวิชาบูรณาการ ─── */}
+                              <SubjectPicker
+                                 subjects={subjects}
+                                 selectedIds={newCourseForm.subjectIds || []}
+                                 primaryId={newCourseForm.primarySubjectId || ''}
+                                 onToggle={(sid) => {
+                                    const next = (newCourseForm.subjectIds || []).includes(sid)
+                                       ? (newCourseForm.subjectIds || []).filter(x => x !== sid)
+                                       : [...(newCourseForm.subjectIds || []), sid];
                                     const primary = next.includes(newCourseForm.primarySubjectId) ? newCourseForm.primarySubjectId : (next[0] || '');
                                     setNewCourseForm({ ...newCourseForm, subjectIds: next, primarySubjectId: primary });
-                                 };
-                                 return (
-                                    <div style={{ marginTop: 10 }}>
-                                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>📖 รายวิชาที่สอนในหลักสูตร (เลือกได้มากกว่า 1 วิชา)</div>
-                                       {subjects.length === 0 ? (
-                                          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มีรายวิชา — ไปเพิ่มที่แท็บ "📖 รายวิชา" ก่อน</p>
-                                       ) : (
-                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                             {subjects.map(s => {
-                                                const selected = selIds.includes(s.id);
-                                                const isPrimary = newCourseForm.primarySubjectId === s.id;
-                                                return (
-                                                   <button key={s.id} onClick={() => toggleSubj(s.id)}
-                                                      style={{
-                                                         padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
-                                                         fontWeight: selected ? 700 : 400,
-                                                         background: isPrimary ? '#dbeafe' : selected ? '#f0fdf4' : '#f8fafc',
-                                                         color: isPrimary ? '#1d4ed8' : selected ? '#166534' : '#64748b',
-                                                         border: `1.5px solid ${isPrimary ? '#93c5fd' : selected ? '#bbf7d0' : '#e2e8f0'}`,
-                                                      }}>
-                                                      {isPrimary ? '⭐ ' : selected ? '✓ ' : ''}{s.name}
-                                                      {s.credits && <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 3 }}>({s.credits})</span>}
-                                                   </button>
-                                                );
-                                             })}
-                                          </div>
-                                       )}
-                                       {selIds.length > 1 && (
-                                          <div style={{ marginTop: 8 }}>
-                                             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>⭐ วิชาหลักของหลักสูตร</div>
-                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                {selIds.map(sid => {
-                                                   const s = subjects.find(x => x.id === sid);
-                                                   if (!s) return null;
-                                                   return (
-                                                      <button key={sid} onClick={() => setNewCourseForm({ ...newCourseForm, primarySubjectId: sid })}
-                                                         style={{
-                                                            padding: '0.25rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
-                                                            background: newCourseForm.primarySubjectId === sid ? '#dbeafe' : '#f8fafc',
-                                                            color: newCourseForm.primarySubjectId === sid ? '#1d4ed8' : '#64748b',
-                                                            border: `1.5px solid ${newCourseForm.primarySubjectId === sid ? '#93c5fd' : '#e2e8f0'}`,
-                                                            fontWeight: newCourseForm.primarySubjectId === sid ? 700 : 400,
-                                                         }}>
-                                                         {newCourseForm.primarySubjectId === sid ? '⭐ ' : ''}{s.name}
-                                                      </button>
-                                                   );
-                                                })}
-                                             </div>
-                                          </div>
-                                       )}
-                                    </div>
-                                 );
-                              })()}
+                                 }}
+                                 onSetPrimary={(sid) => setNewCourseForm({ ...newCourseForm, primarySubjectId: sid })}
+                              />
 
                               {/* ─── อาจารย์ผู้สอน/ผู้ควบคุม ─── */}
-                              {(() => {
-                                 const pool = (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'sage' || u.role === 'facilitator'));
-                                 const selIds = newCourseForm.instructorIds || [];
-                                 const toggle = (uid) => {
-                                    const next = selIds.includes(uid) ? selIds.filter(x => x !== uid) : [...selIds, uid];
+                              <InstructorPicker
+                                 pool={(users || []).filter(u => u && (u.role === 'teacher' || u.role === 'sage' || u.role === 'facilitator'))}
+                                 selectedIds={newCourseForm.instructorIds || []}
+                                 onToggle={(uid) => {
+                                    const next = (newCourseForm.instructorIds || []).includes(uid)
+                                       ? (newCourseForm.instructorIds || []).filter(x => x !== uid)
+                                       : [...(newCourseForm.instructorIds || []), uid];
                                     setNewCourseForm({ ...newCourseForm, instructorIds: next });
-                                 };
-                                 return (
-                                    <div style={{ marginTop: 10 }}>
-                                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>👩‍🏫 อาจารย์ผู้สอน/ผู้ควบคุม</div>
-                                       {pool.length === 0 ? (
-                                          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มี Teacher/Sage/Facilitator ในระบบ</p>
-                                       ) : (
-                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                             {pool.map(u => {
-                                                const selected = selIds.includes(u.id);
-                                                return (
-                                                   <button key={u.id} onClick={() => toggle(u.id)}
-                                                      style={{
-                                                         padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
-                                                         fontWeight: selected ? 700 : 400,
-                                                         background: selected ? '#fef3c7' : '#f8fafc',
-                                                         color: selected ? '#92400e' : '#64748b',
-                                                         border: `1.5px solid ${selected ? '#fcd34d' : '#e2e8f0'}`,
-                                                      }}>
-                                                      {selected ? '✓ ' : ''}{u.name}
-                                                      <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 4 }}>({u.role})</span>
-                                                   </button>
-                                                );
-                                             })}
-                                          </div>
-                                       )}
-                                    </div>
-                                 );
-                              })()}
+                                 }}
+                              />
 
                               <button onClick={handleCreateCourse} className="login-btn" style={{ marginTop: 12, background: '#16a34a', padding: '0.5rem 1.5rem' }}>+ สร้างหลักสูตร</button>
                            </div>
@@ -2984,122 +2915,34 @@ export default function App() {
                                              </div>
 
                                              {/* ─── ผู้ดูแลหลักสูตร ──────────────────────────── */}
-                                             {(() => {
-                                                const staffList = (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'sage' || u.role === 'facilitator'));
-                                                const fallbackList = teamTeachers || [];
-                                                const pool = staffList.length > 0 ? staffList : fallbackList;
-                                                const currentIds = editCourseDraft.instructorIds || [];
-                                                const toggleInstructor = (uid) => {
-                                                   const next = currentIds.includes(uid)
-                                                      ? currentIds.filter(id => id !== uid)
-                                                      : [...currentIds, uid];
+                                             <InstructorPicker
+                                                pool={(() => {
+                                                   const staffList = (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'sage' || u.role === 'facilitator'));
+                                                   return staffList.length > 0 ? staffList : (teamTeachers || []);
+                                                })()}
+                                                selectedIds={editCourseDraft.instructorIds || []}
+                                                onToggle={(uid) => {
+                                                   const next = (editCourseDraft.instructorIds || []).includes(uid)
+                                                      ? (editCourseDraft.instructorIds || []).filter(id => id !== uid)
+                                                      : [...(editCourseDraft.instructorIds || []), uid];
                                                    setEditCourseDraft({ ...editCourseDraft, instructorIds: next });
-                                                };
-                                                return (
-                                                   <div style={{ marginTop: 10 }}>
-                                                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                                                         👩‍🏫 ผู้ดูแลหลักสูตร ({currentIds.length} คน)
-                                                      </div>
-                                                      {pool.length === 0 ? (
-                                                         <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มี Teacher/Sage ในระบบ</p>
-                                                      ) : (
-                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                            {pool.map(u => {
-                                                               const selected = currentIds.includes(u.id);
-                                                               return (
-                                                                  <button key={u.id} onClick={() => toggleInstructor(u.id)}
-                                                                     style={{
-                                                                        padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
-                                                                        fontWeight: selected ? 700 : 400,
-                                                                        background: selected ? '#dbeafe' : '#f8fafc',
-                                                                        color: selected ? '#1d4ed8' : '#64748b',
-                                                                        border: `1.5px solid ${selected ? '#93c5fd' : '#e2e8f0'}`,
-                                                                        transition: 'all 0.15s',
-                                                                     }}>
-                                                                     {selected ? '✓ ' : ''}{u.name}
-                                                                     <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 4 }}>({u.role})</span>
-                                                                  </button>
-                                                               );
-                                                            })}
-                                                         </div>
-                                                      )}
-                                                      {currentIds.length > 0 && (
-                                                         <div style={{ fontSize: '0.68rem', color: '#1d4ed8', marginTop: 5 }}>
-                                                            ✅ {pool.filter(u => currentIds.includes(u.id)).map(u => u.name).join(', ')}
-                                                         </div>
-                                                      )}
-                                                   </div>
-                                                );
-                                             })()}
+                                                }}
+                                             />
 
                                              {/* ─── รายวิชาบูรณาการ ──────────────────────────── */}
-                                             {(() => {
-                                                const selIds = editCourseDraft.subjectIds || [];
-                                                const toggleSubj = (sid) => {
-                                                   const next = selIds.includes(sid) ? selIds.filter(x => x !== sid) : [...selIds, sid];
+                                             <SubjectPicker
+                                                subjects={subjects}
+                                                selectedIds={editCourseDraft.subjectIds || []}
+                                                primaryId={editCourseDraft.primarySubjectId || ''}
+                                                onToggle={(sid) => {
+                                                   const next = (editCourseDraft.subjectIds || []).includes(sid)
+                                                      ? (editCourseDraft.subjectIds || []).filter(x => x !== sid)
+                                                      : [...(editCourseDraft.subjectIds || []), sid];
                                                    const primary = next.includes(editCourseDraft.primarySubjectId) ? editCourseDraft.primarySubjectId : (next[0] || '');
                                                    setEditCourseDraft({ ...editCourseDraft, subjectIds: next, primarySubjectId: primary });
-                                                };
-                                                return (
-                                                   <div style={{ marginTop: 10 }}>
-                                                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>
-                                                         📖 รายวิชาบูรณาการ ({selIds.length} วิชา)
-                                                      </div>
-                                                      {subjects.length === 0 ? (
-                                                         <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มีรายวิชา — ไปเพิ่มที่แท็บ "📖 รายวิชา" ก่อน</p>
-                                                      ) : (
-                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                            {subjects.map(s => {
-                                                               const selected = selIds.includes(s.id);
-                                                               const isPrimary = editCourseDraft.primarySubjectId === s.id;
-                                                               return (
-                                                                  <button key={s.id} onClick={() => toggleSubj(s.id)}
-                                                                     style={{
-                                                                        padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
-                                                                        fontWeight: selected ? 700 : 400,
-                                                                        background: isPrimary ? '#dbeafe' : selected ? '#f0fdf4' : '#f8fafc',
-                                                                        color: isPrimary ? '#1d4ed8' : selected ? '#166534' : '#64748b',
-                                                                        border: `1.5px solid ${isPrimary ? '#93c5fd' : selected ? '#bbf7d0' : '#e2e8f0'}`,
-                                                                     }}>
-                                                                     {isPrimary ? '⭐ ' : selected ? '✓ ' : ''}{s.name}
-                                                                     {s.credits && <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 3 }}>({s.credits})</span>}
-                                                                  </button>
-                                                               );
-                                                            })}
-                                                         </div>
-                                                      )}
-                                                      {selIds.length > 0 && (
-                                                         <div style={{ marginTop: 8 }}>
-                                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>⭐ วิชาหลัก (กดเพื่อเลือก)</div>
-                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                               {selIds.map(sid => {
-                                                                  const s = subjects.find(x => x.id === sid);
-                                                                  if (!s) return null;
-                                                                  const isPrimary = editCourseDraft.primarySubjectId === sid;
-                                                                  return (
-                                                                     <button key={sid} onClick={() => setEditCourseDraft({ ...editCourseDraft, primarySubjectId: sid })}
-                                                                        style={{
-                                                                           padding: '0.25rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
-                                                                           background: isPrimary ? '#dbeafe' : '#f8fafc',
-                                                                           color: isPrimary ? '#1d4ed8' : '#64748b',
-                                                                           border: `1.5px solid ${isPrimary ? '#93c5fd' : '#e2e8f0'}`,
-                                                                           fontWeight: isPrimary ? 700 : 400,
-                                                                        }}>
-                                                                        {isPrimary ? '⭐ ' : ''}{s.name}
-                                                                     </button>
-                                                                  );
-                                                               })}
-                                                            </div>
-                                                            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 4 }}>
-                                                               {editCourseDraft.primarySubjectId
-                                                                  ? `⭐ วิชาหลัก: ${subjects.find(x => x.id === editCourseDraft.primarySubjectId)?.name || ''} · รายวิชาร่วม: ${selIds.filter(x => x !== editCourseDraft.primarySubjectId).map(x => subjects.find(s => s.id === x)?.name).filter(Boolean).join(', ') || '-'}`
-                                                                  : 'กดเลือกวิชาหลักด้านบน'}
-                                                            </div>
-                                                         </div>
-                                                      )}
-                                                   </div>
-                                                );
-                                             })()}
+                                                }}
+                                                onSetPrimary={(sid) => setEditCourseDraft({ ...editCourseDraft, primarySubjectId: sid })}
+                                             />
 
                                              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                                                 <button onClick={saveEditCourse} className="login-btn" style={{ flex: 1, background: '#16a34a', padding: '0.45rem' }}>💾 บันทึก</button>
