@@ -965,6 +965,7 @@ export default function App() {
   const [changePwdForm, setChangePwdForm]   = useState({ current: '', next: '', confirm: '' });
   const [changePwdStatus, setChangePwdStatus] = useState(null); // null | 'saving' | 'ok' | 'error'
   const [changePwdMsg, setChangePwdMsg]     = useState('');
+  const [showPwdText, setShowPwdText]       = useState(false);
   const handleChangePwd = async () => {
     if (!changePwdForm.next || changePwdForm.next.length < 4) {
       setChangePwdStatus('error'); setChangePwdMsg('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร'); return;
@@ -5410,29 +5411,47 @@ export default function App() {
           title="🔒 เปลี่ยนรหัสผ่าน"
           subtitle={`ผู้ใช้: ${user?.name} (${user?.role})`}
           width="min(92vw, 380px)"
-          onClose={() => { setShowChangePwd(false); setChangePwdStatus(null); setChangePwdMsg(''); setChangePwdForm({ current: '', next: '', confirm: '' }); }}
+          onClose={() => { setShowChangePwd(false); setChangePwdStatus(null); setChangePwdMsg(''); setChangePwdForm({ current: '', next: '', confirm: '' }); setShowPwdText(false); }}
           noClose={changePwdStatus === 'saving'}
         >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>รหัสผ่านเดิม</label>
-              <input type="password" value={changePwdForm.current}
-                onChange={e => setChangePwdForm(p => ({ ...p, current: e.target.value }))}
-                placeholder="รหัสผ่านปัจจุบัน"
-                style={{ padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem' }} />
+              <div style={{ position: 'relative' }}>
+                <input type={showPwdText ? 'text' : 'password'} value={changePwdForm.current}
+                  onChange={e => setChangePwdForm(p => ({ ...p, current: e.target.value }))}
+                  placeholder="รหัสผ่านปัจจุบัน"
+                  style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }} />
+                <button type="button" onClick={() => setShowPwdText(p => !p)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: '#94a3b8', lineHeight: 1 }}>
+                  {showPwdText ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>รหัสผ่านใหม่ (≥ 4 ตัว)</label>
-              <input type="password" value={changePwdForm.next}
-                onChange={e => setChangePwdForm(p => ({ ...p, next: e.target.value }))}
-                placeholder="รหัสผ่านใหม่"
-                style={{ padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem' }} />
+              <div style={{ position: 'relative' }}>
+                <input type={showPwdText ? 'text' : 'password'} value={changePwdForm.next}
+                  onChange={e => setChangePwdForm(p => ({ ...p, next: e.target.value }))}
+                  placeholder="รหัสผ่านใหม่"
+                  style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }} />
+                <button type="button" onClick={() => setShowPwdText(p => !p)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: '#94a3b8', lineHeight: 1 }}>
+                  {showPwdText ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>ยืนยันรหัสผ่านใหม่</label>
-              <input type="password" value={changePwdForm.confirm}
-                onChange={e => setChangePwdForm(p => ({ ...p, confirm: e.target.value }))}
-                placeholder="ยืนยันรหัสผ่านใหม่"
-                style={{ padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem' }} />
+              <div style={{ position: 'relative' }}>
+                <input type={showPwdText ? 'text' : 'password'} value={changePwdForm.confirm}
+                  onChange={e => setChangePwdForm(p => ({ ...p, confirm: e.target.value }))}
+                  placeholder="ยืนยันรหัสผ่านใหม่"
+                  style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }} />
+                <button type="button" onClick={() => setShowPwdText(p => !p)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: '#94a3b8', lineHeight: 1 }}>
+                  {showPwdText ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
 
             {changePwdMsg && (
@@ -5445,7 +5464,7 @@ export default function App() {
             )}
 
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
-              <button onClick={() => { setShowChangePwd(false); setChangePwdStatus(null); setChangePwdMsg(''); setChangePwdForm({ current: '', next: '', confirm: '' }); }}
+              <button onClick={() => { setShowChangePwd(false); setChangePwdStatus(null); setChangePwdMsg(''); setChangePwdForm({ current: '', next: '', confirm: '' }); setShowPwdText(false); }}
                 disabled={changePwdStatus === 'saving'}
                 style={{ padding: '0.5rem 1rem', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: '0.875rem' }}>
                 ยกเลิก
