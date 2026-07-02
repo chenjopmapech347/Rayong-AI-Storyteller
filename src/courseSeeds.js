@@ -602,10 +602,876 @@ export const DESIGN_THINKING_S4I_COURSE = {
   ]
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// 31910-2002 ระบบจัดการฐานข้อมูล (Database System)
+// หลักสูตร ปวส. 2567 สาขาวิชาเทคโนโลยีธุรกิจดิจิทัล
+// ─────────────────────────────────────────────────────────────────────
+export const DATABASE_SYSTEM_COURSE = {
+  schemaVersion: 1,
+  id: '31910-2002',
+  name: '31910-2002 ระบบจัดการฐานข้อมูล',
+  nameTH: 'ระบบจัดการฐานข้อมูล',
+  nameEN: 'Database System',
+  methodology: ['Project-Based'],
+  isDefault: false,
+  // ── ข้อมูลจากหลักสูตร ปวส. 2567 (31910v4-65.pdf) ──────────────────
+  curriculum: 'หลักสูตรประกาศนียบัตรวิชาชีพชั้นสูง พุทธศักราช 2567',
+  credits: '2-2-3',
+  standards: ['รหัส 12305 ระดับ 4', 'รหัส 3012 ระดับ 5'],
+  learningOutcomes: 'อธิบาย ออกแบบ จัดการ และพัฒนาระบบฐานข้อมูลสำหรับงานธุรกิจดิจิทัล ด้วยความละเอียดรอบคอบและถูกต้อง',
+  objectives: [
+    'เข้าใจเกี่ยวกับหลักการของระบบจัดการฐานข้อมูล (DBMS)',
+    'มีทักษะในการออกแบบฐานข้อมูลเชิงสัมพันธ์ ER Model และ Normalization',
+    'มีความสามารถในการเขียน SQL และพัฒนาระบบฐานข้อมูลสำหรับงานธุรกิจดิจิทัล',
+    'มีเจตคติและกิจนิสัยที่ดีในการปฏิบัติงานด้วยความละเอียด รอบคอบและถูกต้อง',
+  ],
+  competencies: [
+    'ประมวลความรู้เกี่ยวกับหลักการระบบจัดการฐานข้อมูล (DBMS) ตามหลักการ',
+    'ออกแบบและพัฒนาฐานข้อมูลเชิงสัมพันธ์สำหรับงานธุรกิจดิจิทัล',
+    'ประยุกต์ใช้ SQL และฐานข้อมูลบนคลาวด์ในงานธุรกิจดิจิทัล',
+  ],
+  description: 'ศึกษาและปฏิบัติเกี่ยวกับหลักการของระบบฐานข้อมูล ER Model Normalization การออกแบบฐานข้อมูลเชิงสัมพันธ์ SQL NoSQL และฐานข้อมูลบนคลาวด์',
+  branding: {
+    brandName: 'Database System',
+    brandTagline: 'ออกแบบฐานข้อมูลอย่างมืออาชีพ',
+    logoEmoji: '🗄️',
+    primaryColor: '#1d4ed8',
+    secondaryColor: '#3b82f6',
+  },
+  rubric: [
+    {
+      dimensionId: 'db-concept',
+      label: 'ความเข้าใจหลักการฐานข้อมูล',
+      labelEN: 'DB Concepts',
+      weight: 25,
+      description: 'อธิบายหลักการ สถาปัตยกรรม และแบบจำลองข้อมูลได้ถูกต้อง',
+      levelDescriptors: [
+        'อธิบายหลักการไม่ได้ หรือเข้าใจผิดพื้นฐาน',
+        'เข้าใจบางส่วน อธิบายได้ไม่ครบ',
+        'อธิบายหลักการครบถ้วน ถูกต้อง',
+        'อธิบายได้ดี + ยกตัวอย่างประยุกต์ใช้งานจริง',
+        'เข้าใจลึก + เปรียบเทียบ RDBMS/NoSQL/Cloud DB ได้',
+      ],
+      criteria: [
+        { id: 'db-c1', label: 'อธิบายหลักการ DBMS และ 3-tier architecture ได้', levels: ['ไม่ได้', 'ได้บางส่วน', 'ได้ครบ', 'ได้ครบ+ยกตัวอย่าง'] },
+        { id: 'db-c2', label: 'เข้าใจความแตกต่าง File System กับ DBMS', levels: ['ไม่เข้าใจ', 'เข้าใจบางส่วน', 'เข้าใจดี', 'อธิบาย+เปรียบเทียบได้'] },
+      ],
+    },
+    {
+      dimensionId: 'db-design',
+      label: 'การออกแบบ ER และ Normalization',
+      labelEN: 'DB Design',
+      weight: 30,
+      description: 'วาด ER Diagram ถูกต้อง และทำ Normalization ถึง 3NF ได้',
+      levelDescriptors: [
+        'วาด ER ไม่ถูก หรือ Normalization ผิดพลาดมาก',
+        'ER ถูกบางส่วน ทำ 1NF ได้',
+        'ER ถูกต้องครบ ทำ 2NF-3NF ได้',
+        'ER + Normalization ครบ + อธิบายเหตุผลได้',
+        'ออกแบบ DB ที่ซับซ้อน + BCNF + มีประสิทธิภาพ',
+      ],
+      criteria: [
+        { id: 'db-d1', label: 'วาด ER Diagram (Entity / Attribute / Relationship) ถูกต้อง', levels: ['ผิดหมด', 'ถูกบางส่วน', 'ถูกต้อง', 'ถูก+ครบ+อธิบายได้'] },
+        { id: 'db-d2', label: 'ทำ Normalization 1NF → 2NF → 3NF ได้', levels: ['ไม่ได้', 'ทำ 1NF ได้', 'ทำ 3NF ได้', 'ทำ BCNF ได้+อธิบาย'] },
+        { id: 'db-d3', label: 'แปลง ER เป็น Relational Schema ได้ถูกต้อง', levels: ['ไม่ได้', 'ได้บางส่วน', 'ได้ถูกต้อง', 'ได้ครบ+กำหนด PK/FK ถูก'] },
+      ],
+    },
+    {
+      dimensionId: 'db-sql',
+      label: 'ทักษะการใช้ SQL',
+      labelEN: 'SQL Skills',
+      weight: 30,
+      description: 'เขียน SQL คำสั่ง DDL DML และ DQL ได้ถูกต้องและมีประสิทธิภาพ',
+      levelDescriptors: [
+        'เขียน SQL ไม่ได้ หรือ Syntax ผิดทั้งหมด',
+        'เขียน SELECT พื้นฐานได้ มี Error บางส่วน',
+        'เขียน DDL/DML/SELECT ได้ถูกต้อง',
+        'JOIN หลายตาราง + Subquery + Aggregate ได้',
+        'SQL ซับซ้อน + Optimize + Transaction + View/Procedure',
+      ],
+      criteria: [
+        { id: 'db-s1', label: 'สร้างตาราง (CREATE TABLE) + กำหนด Constraint ได้', levels: ['ไม่ได้', 'ได้บางส่วน', 'ได้ถูกต้อง', 'ได้+Constraint ครบ'] },
+        { id: 'db-s2', label: 'INSERT / UPDATE / DELETE ข้อมูลได้ถูกต้อง', levels: ['ไม่ได้', 'ได้บางส่วน', 'ได้', 'ได้+Transaction'] },
+        { id: 'db-s3', label: 'SELECT พร้อม JOIN / WHERE / GROUP BY / ORDER BY ได้', levels: ['SELECT ง่ายเท่านั้น', 'JOIN 2 ตาราง', 'JOIN หลายตาราง+Aggregate', 'Subquery+View+Procedure'] },
+      ],
+    },
+    {
+      dimensionId: 'db-apply',
+      label: 'การประยุกต์ใช้งาน',
+      labelEN: 'Applied DB',
+      weight: 15,
+      description: 'ออกแบบและสร้างฐานข้อมูลสำหรับงานธุรกิจดิจิทัลได้จริง',
+      levelDescriptors: [
+        'ไม่สามารถประยุกต์ใช้กับงานจริงได้',
+        'ประยุกต์ได้เล็กน้อย โดยมีการแนะนำ',
+        'สร้างฐานข้อมูลสำหรับโปรเจกต์ได้',
+        'DB ใช้งานได้จริง + มี UI เชื่อมต่อ',
+        'DB + Application + Deploy บน Cloud ได้',
+      ],
+      criteria: [
+        { id: 'db-a1', label: 'ออกแบบ DB ให้ตรงกับโจทย์ธุรกิจ', levels: ['ไม่ตรง', 'ตรงบางส่วน', 'ตรงดี', 'ตรง+เหมาะสม+ขยายได้'] },
+      ],
+    },
+  ],
+
+  missionConfig: {
+    title: 'โปรเจกต์ฐานข้อมูล',
+    fields: [
+      { id: 'project_topic',    label: 'ชื่อโปรเจกต์ฐานข้อมูล',    placeholder: 'เช่น ระบบจัดการร้านค้า / ระบบลงทะเบียนเรียน' },
+      { id: 'business_context', label: 'บริบทธุรกิจ',              placeholder: 'อธิบายระบบที่จะพัฒนา' },
+      { id: 'problem_statement',label: 'ปัญหาที่แก้ด้วย DB',        placeholder: 'ปัญหาปัจจุบันที่ระบบ DB จะช่วยแก้ได้' },
+      { id: 'db_type',          label: 'ประเภท DB ที่เลือกใช้',     placeholder: 'เช่น MySQL / PostgreSQL / MongoDB' },
+    ],
+  },
+
+  worksheets: [
+    {
+      id: 'WS-DB-01', icon: '📚', order: 1,
+      labelTH: '1 · หลักการ DBMS', label: 'DB Fundamentals',
+      instructionTH: 'ศึกษาหลักการระบบจัดการฐานข้อมูล ขั้นตอนการพัฒนา และสถาปัตยกรรม',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่', required: true },
+        { id: 'q1_dbms_meaning', type: 'textarea', rows: 4, label: '1. DBMS คืออะไร? แตกต่างจาก File System อย่างไร?' },
+        { id: 'q2_advantages', type: 'list', label: '2. ข้อดีของ DBMS (≥ 4 ข้อ)', minItems: 4,
+          itemSchema: [{ id: 'adv', type: 'text', label: 'ข้อดี' }]
+        },
+        { id: 'q3_architecture', type: 'textarea', rows: 4, label: '3. อธิบาย 3-tier Architecture ของระบบ DBMS' },
+        { id: 'q4_dev_steps', type: 'list', label: '4. ขั้นตอนการพัฒนาระบบฐานข้อมูล (เรียงลำดับ)', minItems: 5,
+          itemSchema: [
+            { id: 'step', type: 'number', label: 'ลำดับ' },
+            { id: 'name', type: 'text',   label: 'ขั้นตอน' },
+            { id: 'desc', type: 'text',   label: 'รายละเอียด' }
+          ]
+        },
+        { id: 'q5_roles', type: 'textarea', rows: 3, label: '5. บทบาทของ DBA (Database Administrator)' },
+      ]
+    },
+
+    {
+      id: 'WS-DB-02', icon: '🗺️', order: 2,
+      labelTH: '2 · แบบจำลองข้อมูล', label: 'Data Models',
+      instructionTH: 'เปรียบเทียบแบบจำลองข้อมูลประเภทต่าง ๆ',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_models', type: 'list', label: '1. แบบจำลองข้อมูล ≥ 3 แบบ พร้อมตัวอย่าง', minItems: 3,
+          itemSchema: [
+            { id: 'model_name', type: 'text', label: 'ชื่อแบบจำลอง' },
+            { id: 'structure',  type: 'text', label: 'โครงสร้างข้อมูล' },
+            { id: 'example',    type: 'text', label: 'ตัวอย่าง DBMS ที่ใช้' }
+          ]
+        },
+        { id: 'q2_relational', type: 'textarea', rows: 4, label: '2. อธิบาย Relational Model — Relation / Tuple / Attribute / Domain' },
+        { id: 'q3_integrity', type: 'textarea', rows: 4, label: '3. Entity Integrity vs Referential Integrity คืออะไร? ต่างกันอย่างไร?' },
+      ]
+    },
+
+    {
+      id: 'WS-DB-03', icon: '🔗', order: 3,
+      labelTH: '3 · แบบจำลอง ER', label: 'ER Diagram',
+      instructionTH: 'วาด ER Diagram จากโจทย์ที่กำหนด',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_components', type: 'list', label: '1. องค์ประกอบของ ER Diagram', minItems: 3,
+          itemSchema: [
+            { id: 'component', type: 'text', label: 'องค์ประกอบ' },
+            { id: 'symbol',    type: 'text', label: 'สัญลักษณ์ (รูปร่าง)' },
+            { id: 'desc',      type: 'text', label: 'ความหมาย' }
+          ]
+        },
+        { id: 'q2_cardinality', type: 'textarea', rows: 4, label: '2. อธิบาย Cardinality: 1:1 / 1:N / M:N พร้อมตัวอย่าง' },
+        { id: 'q3_er_scenario', type: 'textarea', rows: 4, label: '3. โจทย์: อธิบาย Entity และ Relationship ของระบบที่เลือก' },
+        { id: 'q4_er_diagram', type: 'image', label: '4. ภาพ ER Diagram ที่วาด (ถ่ายภาพ/upload)' },
+        { id: 'q5_attributes', type: 'list', label: '5. Attribute แต่ละ Entity (Primary Key ระบุด้วย)', minItems: 2,
+          itemSchema: [
+            { id: 'entity',  type: 'text', label: 'Entity' },
+            { id: 'pk',      type: 'text', label: 'Primary Key' },
+            { id: 'attrs',   type: 'text', label: 'Attributes อื่น ๆ' }
+          ]
+        }
+      ]
+    },
+
+    {
+      id: 'WS-DB-04', icon: '📐', order: 4,
+      labelTH: '4 · Normalization', label: 'Normalization',
+      instructionTH: 'ทำ Normalization ตั้งแต่ Unnormalized ถึง 3NF',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_normal_forms', type: 'list', label: '1. สรุป Normal Forms 1NF / 2NF / 3NF', minItems: 3,
+          itemSchema: [
+            { id: 'form', type: 'text', label: 'Normal Form' },
+            { id: 'rule', type: 'textarea', rows: 2, label: 'กฎ/เงื่อนไข' },
+          ]
+        },
+        { id: 'q2_unnormalized', type: 'textarea', rows: 5, label: '2. ตารางก่อน Normalize (Unnormalized Form) — วางโครงสร้าง' },
+        { id: 'q3_1nf', type: 'textarea', rows: 5, label: '3. ผลลัพธ์หลังทำ 1NF' },
+        { id: 'q4_2nf', type: 'textarea', rows: 5, label: '4. ผลลัพธ์หลังทำ 2NF' },
+        { id: 'q5_3nf', type: 'textarea', rows: 5, label: '5. ผลลัพธ์หลังทำ 3NF' },
+        { id: 'q6_fds', type: 'textarea', rows: 4, label: '6. Functional Dependencies ที่ระบุ' },
+      ]
+    },
+
+    {
+      id: 'WS-DB-05', icon: '💻', order: 5,
+      labelTH: '5 · SQL — DDL', label: 'SQL DDL',
+      instructionTH: 'เขียน SQL คำสั่ง DDL: CREATE TABLE, ALTER, DROP พร้อม Constraint',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_ddl_commands', type: 'textarea', rows: 3, label: '1. คำสั่ง DDL มีอะไรบ้าง?' },
+        { id: 'q2_create_table', type: 'textarea', rows: 10, label: '2. เขียน CREATE TABLE จากโปรเจกต์ (≥ 3 ตาราง) พร้อม PK, FK, NOT NULL', placeholder: 'CREATE TABLE ...' },
+        { id: 'q3_alter',        type: 'textarea', rows: 5, label: '3. ตัวอย่างคำสั่ง ALTER TABLE (เพิ่ม/แก้ไข column)' },
+        { id: 'q4_constraints', type: 'list', label: '4. Constraint ที่ใช้ในตาราง', minItems: 3,
+          itemSchema: [
+            { id: 'constraint_type', type: 'select', label: 'ประเภท', options: ['PRIMARY KEY','FOREIGN KEY','UNIQUE','NOT NULL','CHECK','DEFAULT'] },
+            { id: 'table_name',      type: 'text',   label: 'ตาราง' },
+            { id: 'column_name',     type: 'text',   label: 'Column' },
+            { id: 'purpose',         type: 'text',   label: 'จุดประสงค์' }
+          ]
+        }
+      ]
+    },
+
+    {
+      id: 'WS-DB-06', icon: '🔍', order: 6,
+      labelTH: '6 · SQL — DML & SELECT', label: 'SQL DML & Query',
+      instructionTH: 'เขียน SQL คำสั่ง INSERT UPDATE DELETE และ SELECT พร้อม JOIN',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_insert', type: 'textarea', rows: 6, label: '1. เขียน INSERT INTO ≥ 3 ตาราง ตารางละ ≥ 5 records' },
+        { id: 'q2_update', type: 'textarea', rows: 4, label: '2. เขียน UPDATE พร้อม WHERE condition' },
+        { id: 'q3_delete', type: 'textarea', rows: 3, label: '3. เขียน DELETE พร้อม WHERE condition' },
+        { id: 'q4_select_basic', type: 'textarea', rows: 4, label: '4. SELECT ด้วย WHERE, ORDER BY, GROUP BY' },
+        { id: 'q5_join', type: 'textarea', rows: 6, label: '5. SELECT + INNER JOIN / LEFT JOIN ≥ 2 ตาราง' },
+        { id: 'q6_aggregate', type: 'textarea', rows: 4, label: '6. ใช้ Aggregate Functions: COUNT / SUM / AVG / MAX / MIN' },
+        { id: 'q7_result_screenshot', type: 'image', label: '7. ภาพ Screenshot ผลลัพธ์การ Query' },
+      ]
+    },
+
+    {
+      id: 'WS-DB-07', icon: '☁️', order: 7,
+      labelTH: '7 · NoSQL และ Cloud DB', label: 'NoSQL & Cloud DB',
+      instructionTH: 'เปรียบเทียบ NoSQL กับ SQL และศึกษา Cloud Database Services',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_nosql_types', type: 'list', label: '1. ประเภท NoSQL Database', minItems: 3,
+          itemSchema: [
+            { id: 'type',    type: 'text', label: 'ประเภท' },
+            { id: 'example', type: 'text', label: 'ตัวอย่าง DBMS' },
+            { id: 'usecase', type: 'text', label: 'เหมาะกับงานแบบใด' }
+          ]
+        },
+        { id: 'q2_sql_vs_nosql', type: 'textarea', rows: 5, label: '2. เปรียบเทียบ SQL vs NoSQL — เลือกใช้เมื่อไหร่?' },
+        { id: 'q3_cloud_db', type: 'list', label: '3. Cloud Database Services ที่รู้จัก ≥ 3 บริการ', minItems: 3,
+          itemSchema: [
+            { id: 'service',  type: 'text', label: 'ชื่อบริการ' },
+            { id: 'provider', type: 'text', label: 'ผู้ให้บริการ (AWS/GCP/Azure/etc.)' },
+            { id: 'db_type',  type: 'text', label: 'ประเภท DB' },
+            { id: 'feature',  type: 'text', label: 'จุดเด่น' }
+          ]
+        },
+        { id: 'q4_firebase_exp', type: 'textarea', rows: 4, label: '4. ทดลองใช้ Firestore/Firebase หรือ Cloud DB อื่น — สรุปประสบการณ์' }
+      ]
+    },
+
+    {
+      id: 'WS-DB-08', icon: '🚀', order: 8,
+      labelTH: '8 · โปรเจกต์ฐานข้อมูล', label: 'DB Project',
+      instructionTH: 'นำเสนอการออกแบบและพัฒนาระบบฐานข้อมูลสำหรับโปรเจกต์',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'project_name', type: 'text', label: 'ชื่อโปรเจกต์' },
+        { id: 'business_desc', type: 'textarea', rows: 4, label: '1. อธิบายระบบที่พัฒนา' },
+        { id: 'er_final', type: 'image', label: '2. ER Diagram ฉบับสมบูรณ์' },
+        { id: 'tables_list', type: 'list', label: '3. ตารางทั้งหมดในฐานข้อมูล', minItems: 3,
+          itemSchema: [
+            { id: 'table_name', type: 'text', label: 'ชื่อตาราง' },
+            { id: 'pk',         type: 'text', label: 'Primary Key' },
+            { id: 'records_count', type: 'number', label: 'จำนวน records ที่เตรียม' }
+          ]
+        },
+        { id: 'queries_showcase', type: 'textarea', rows: 8, label: '4. Query ที่ซับซ้อนที่สุด (≥ 3 คำสั่ง) + อธิบายผลลัพธ์' },
+        { id: 'reflection', type: 'textarea', rows: 4, label: '5. สิ่งที่เรียนรู้จากการทำโปรเจกต์' },
+      ]
+    },
+  ],
+
+  evaluatorWeights: { self: 10, peer: 10, teacher: 50, sage: 20, ai: 10 },
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// 31910-2004 หลักการคิดเชิงออกแบบและนวัตกรรมธุรกิจดิจิทัล
+// Design Thinking and Business Digital Innovation
+// ─────────────────────────────────────────────────────────────────────
+export const DESIGN_THINKING_BIZ_COURSE = {
+  schemaVersion: 1,
+  id: '31910-2004',
+  name: '31910-2004 หลักการคิดเชิงออกแบบฯ',
+  nameTH: 'หลักการคิดเชิงออกแบบและนวัตกรรมธุรกิจดิจิทัล',
+  nameEN: 'Design Thinking and Business Digital Innovation',
+  methodology: ['DesignThinking', 'BusinessModel'],
+  isDefault: false,
+  // ── ข้อมูลจากหลักสูตร ปวส. 2567 (31910v4-67.pdf) ──────────────────
+  curriculum: 'หลักสูตรประกาศนียบัตรวิชาชีพชั้นสูง พุทธศักราช 2567',
+  credits: '2-2-3',
+  standards: ['รหัส 10101 ระดับ 4', 'รหัส 10103 ระดับ 4'],
+  learningOutcomes: 'ออกแบบนวัตกรรมธุรกิจดิจิทัลโดยใช้กระบวนการ Design Thinking และ Business Model Canvas ด้วยความคิดสร้างสรรค์และมุ่งเน้นผู้ใช้',
+  objectives: [
+    'เข้าใจเกี่ยวกับหลักการคิดเชิงออกแบบ (Design Thinking) และนวัตกรรมธุรกิจดิจิทัล',
+    'มีทักษะในการทำ Empathize Define Ideate Prototype และ Test',
+    'มีความสามารถในการวิเคราะห์และเขียน Business Model Canvas',
+    'มีเจตคติและกิจนิสัยที่ดีในการคิดสร้างสรรค์และทำงานเป็นทีม',
+  ],
+  competencies: [
+    'ประมวลความรู้เกี่ยวกับหลักการคิดเชิงออกแบบ (Design Thinking) ตามหลักการ',
+    'ออกแบบนวัตกรรมธุรกิจดิจิทัลโดยใช้กระบวนการ Design Thinking 5 ขั้น',
+    'ประยุกต์ใช้ Business Model Canvas ในการวางแผนนวัตกรรมธุรกิจดิจิทัล',
+  ],
+  description: 'ออกแบบนวัตกรรมธุรกิจดิจิทัลตาม Design Thinking 5 ขั้น (Empathize→Define→Ideate→Prototype→Test) และเขียน Business Model Canvas',
+  branding: {
+    brandName: 'Design Thinking Biz',
+    brandTagline: 'นวัตกรรมธุรกิจดิจิทัลที่ใช้ได้จริง',
+    logoEmoji: '🎨',
+    primaryColor: '#7c3aed',
+    secondaryColor: '#a855f7',
+  },
+  rubric: [
+    {
+      dimensionId: 'dt-process-biz',
+      label: 'กระบวนการ Design Thinking',
+      labelEN: 'DT Process',
+      weight: 30,
+      description: 'ผ่านครบ 5 ขั้น + มีหลักฐาน + iterative',
+      levelDescriptors: [
+        'ผ่านน้อยกว่า 3 ขั้น หรือขาดหลักฐาน',
+        'ผ่าน 3 ขั้น มีหลักฐานบางส่วน',
+        'ผ่านครบ 5 ขั้น มีหลักฐาน',
+        'ครบ 5 ขั้น + ทำซ้ำ + หลักฐานครบ',
+        'สมบูรณ์ + สะท้อนคิดลึก + เชื่อมโยงทุกขั้น',
+      ],
+      criteria: [
+        { id: 'dtb-c1', label: 'ทำ Empathize ด้วยการสัมภาษณ์/สังเกตผู้ใช้จริง ≥ 3 คน', levels: ['ไม่มี', '1-2 คน', '3 คนขึ้นไป', '3+ คน + หลากหลายวิธี'] },
+        { id: 'dtb-c2', label: 'กำหนดปัญหา Define ด้วย POV + HMW ชัดเจน', levels: ['ไม่มี POV', 'กว้างเกิน', 'ชัดเจน', 'ชัด + เชื่อมกับ Empathize'] },
+        { id: 'dtb-c3', label: 'ระดมไอเดีย Ideate ≥ 10 ข้อ + เลือก Solution', levels: ['< 5 ข้อ', '5-9 ข้อ', '≥ 10 ข้อ', '≥ 10 + Decision Matrix'] },
+        { id: 'dtb-c4', label: 'สร้าง Prototype และทดสอบ Test', levels: ['ไม่มี', 'มี Prototype เท่านั้น', 'Test + feedback', 'Test ≥ 2 รอบ + ปรับปรุง'] },
+      ],
+    },
+    {
+      dimensionId: 'empathize-insight',
+      label: 'ความเข้าใจลูกค้า (Empathize)',
+      labelEN: 'Customer Empathy',
+      weight: 20,
+      description: 'เข้าใจ Pain / Gain ของกลุ่มเป้าหมายอย่างลึกซึ้ง',
+      levelDescriptors: [
+        'ไม่มีข้อมูลจากลูกค้าจริง',
+        'มีข้อมูลผิวเผิน',
+        'เข้าใจ Pain / Gain ชัดเจน',
+        'มี Empathy Map + Insight ที่ลึก',
+        'Insight สะท้อนพฤติกรรมจริง + นำไปกำหนด HMW ได้ดีเลิศ',
+      ],
+      criteria: [
+        { id: 'emp-c1', label: 'ข้อมูลจากการสัมภาษณ์ครบ ≥ 3 คน', levels: ['ไม่มี', '1-2', '3+', '3+ + Empathy Map'] },
+        { id: 'emp-c2', label: 'ระบุ Insight / Pain / Gain ชัดเจน', levels: ['ไม่ระบุ', 'กว้างเกิน', 'ชัดเจน', 'ลึก + มีหลักฐาน'] },
+      ],
+    },
+    {
+      dimensionId: 'prototype-test',
+      label: 'Prototype & Test',
+      labelEN: 'Prototype & Test',
+      weight: 25,
+      description: 'สร้าง prototype ที่ทดสอบได้และปรับปรุงตาม feedback',
+      levelDescriptors: [
+        'ไม่มี Prototype',
+        'มี Prototype แต่ไม่ทดสอบ',
+        'ทดสอบ 1 รอบ',
+        'ทดสอบ + ปรับปรุง ≥ 2 รอบ',
+        'Iterative + บันทึก feedback ทุกรอบ + แสดงพัฒนาการ',
+      ],
+      criteria: [
+        { id: 'pt-c1', label: 'Prototype ตรงกับ HMW และแก้ Pain ได้', levels: ['ไม่ตรง', 'ตรงบางส่วน', 'ตรง', 'ตรงและมีคุณค่าสูง'] },
+        { id: 'pt-c2', label: 'บันทึก Test Results และปรับปรุง', levels: ['ไม่มี', 'มีบันทึก', 'บันทึก + ปรับ', 'ปรับ ≥ 2 รอบ + เหตุผล'] },
+      ],
+    },
+    {
+      dimensionId: 'business-model',
+      label: 'Business Model Canvas',
+      labelEN: 'BMC',
+      weight: 25,
+      description: 'เขียน BMC ครบ 9 ช่อง เชื่อมโยงสอดคล้อง',
+      levelDescriptors: [
+        'ไม่มี BMC หรือขาดมากกว่า 5 ช่อง',
+        'มี BMC แต่ขาด 3-4 ช่อง หรือไม่สอดคล้อง',
+        'BMC ครบ 9 ช่อง',
+        'BMC ครบ + เชื่อมโยง Value Proposition กับ Revenue',
+        'BMC สมบูรณ์ + วิเคราะห์ Break-even + แผน Scale',
+      ],
+      criteria: [
+        { id: 'bmc-c1', label: 'Value Proposition ชัดเจน ตรงกลุ่มลูกค้า', levels: ['ไม่ชัด', 'พอชัด', 'ชัด', 'ชัด + ตรงใจลูกค้า'] },
+        { id: 'bmc-c2', label: 'Revenue Stream สมเหตุสมผล', levels: ['ไม่มี', 'คลุมเครือ', 'ชัดเจน', 'หลาย Stream + ยั่งยืน'] },
+        { id: 'bmc-c3', label: 'BMC ครบ 9 ช่อง', levels: ['< 5 ช่อง', '5-7 ช่อง', '8-9 ช่อง', 'ครบ + เชื่อมโยง'] },
+      ],
+    },
+  ],
+
+  missionConfig: {
+    title: 'โจทย์นวัตกรรมธุรกิจดิจิทัล',
+    fields: [
+      { id: 'business_idea',    label: 'แนวคิดนวัตกรรมธุรกิจดิจิทัล', placeholder: 'อธิบายไอเดียนวัตกรรมที่จะพัฒนา' },
+      { id: 'target_customer',  label: 'กลุ่มลูกค้าเป้าหมาย',          placeholder: 'ใครคือลูกค้าหลัก?' },
+      { id: 'problem_to_solve', label: 'ปัญหาที่ต้องการแก้',           placeholder: 'ปัญหาของลูกค้าคืออะไร?' },
+      { id: 'digital_element',  label: 'องค์ประกอบดิจิทัลที่ใช้',      placeholder: 'AI / App / Platform / IoT / etc.' },
+    ],
+  },
+
+  worksheets: [
+    {
+      id: 'WS-DT-01', icon: '💡', order: 1,
+      labelTH: '1 · หลักการ Design Thinking', label: 'DT Overview',
+      instructionTH: 'ทบทวนความหมาย ความสำคัญ และ 5 ขั้นตอนของ Design Thinking',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่', required: true },
+        { id: 'q1_dt_meaning', type: 'textarea', rows: 4, label: '1. Design Thinking คืออะไร? ทำไมถึงสำคัญในยุคดิจิทัล?' },
+        { id: 'q2_5stages', type: 'list', label: '2. 5 ขั้นตอนของ Design Thinking', minItems: 5,
+          itemSchema: [
+            { id: 'stage', type: 'text', label: 'ขั้นตอน' },
+            { id: 'goal',  type: 'text', label: 'เป้าหมาย' },
+            { id: 'tools', type: 'text', label: 'เครื่องมือ/วิธีการ' }
+          ]
+        },
+        { id: 'q3_dt_vs_traditional', type: 'textarea', rows: 4, label: '3. Design Thinking แตกต่างจากกระบวนการแก้ปัญหาแบบดั้งเดิมอย่างไร?' },
+        { id: 'q4_example_company', type: 'textarea', rows: 4, label: '4. ยกตัวอย่างบริษัทที่ประสบความสำเร็จด้วย Design Thinking + อธิบาย' },
+      ]
+    },
+
+    {
+      id: 'WS-DT-02', icon: '❤️', order: 2,
+      labelTH: '2 · Empathize ทำความเข้าใจลูกค้า', label: 'Empathize',
+      instructionTH: 'สัมภาษณ์และสังเกตกลุ่มเป้าหมาย ≥ 3 คน แล้วสรุป Pain/Gain',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'target_group', type: 'text', label: 'กลุ่มเป้าหมายที่สัมภาษณ์' },
+        { id: 'interviews', type: 'list', label: 'บันทึกการสัมภาษณ์ (≥ 3 คน)', minItems: 3,
+          itemSchema: [
+            { id: 'interviewee', type: 'text',     label: 'ชื่อ/อาชีพ' },
+            { id: 'age',         type: 'text',     label: 'อายุ/ประสบการณ์' },
+            { id: 'pain',        type: 'textarea', rows: 2, label: 'Pain (ปัญหา/ความยากลำบาก)' },
+            { id: 'gain',        type: 'textarea', rows: 2, label: 'Gain (สิ่งที่ต้องการ/ความฝัน)' },
+            { id: 'quote',       type: 'text',     label: 'คำพูดสำคัญ (Quote)' }
+          ]
+        },
+        { id: 'empathy_map', type: 'image', label: 'Empathy Map (ถ่ายภาพหรือ upload)' },
+        { id: 'insight_summary', type: 'textarea', rows: 5, label: 'สรุป Insight ที่ค้นพบ' },
+      ]
+    },
+
+    {
+      id: 'WS-DT-03', icon: '🎯', order: 3,
+      labelTH: '3 · Define กำหนดปัญหา', label: 'Define',
+      instructionTH: 'กำหนดปัญหาที่ชัดเจน ด้วย POV Statement และ HMW Question',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'insights_from_empathize', type: 'textarea', rows: 4, label: '1. Insight จาก Empathize ที่เลือกมาแก้ปัญหา' },
+        { id: 'pov_statement', type: 'textarea', rows: 4, label: '2. POV Statement: [ชื่อ User] ต้องการ [need] เพราะ [insight]' },
+        { id: 'hmw_questions', type: 'list', label: '3. HMW Questions (How Might We...) ≥ 5 ข้อ', minItems: 5,
+          itemSchema: [{ id: 'hmw', type: 'text', label: 'How Might We...' }]
+        },
+        { id: 'selected_hmw', type: 'textarea', rows: 3, label: '4. HMW ที่เลือกเพื่อนำไป Ideate + เหตุผล' },
+      ]
+    },
+
+    {
+      id: 'WS-DT-04', icon: '🌪️', order: 4,
+      labelTH: '4 · Ideate ระดมความคิด', label: 'Ideate',
+      instructionTH: 'ระดมไอเดีย ≥ 10 ข้อ ด้วยเทคนิค Brainstorming แล้วเลือก Solution ที่ดีที่สุด',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'brainstorm_method', type: 'select', label: 'เทคนิคที่ใช้', options: ['Brainstorming', 'Crazy Eights', 'SCAMPER', 'Mind Map', 'Worst Possible Idea', 'อื่น ๆ'] },
+        { id: 'all_ideas', type: 'list', label: 'ไอเดียทั้งหมด (≥ 10 ข้อ)', minItems: 10,
+          itemSchema: [
+            { id: 'idea_no', type: 'number', label: 'ลำดับ' },
+            { id: 'idea',    type: 'text',   label: 'ไอเดีย' }
+          ]
+        },
+        { id: 'decision_matrix', type: 'textarea', rows: 5, label: 'เกณฑ์การเลือก Solution (Decision Matrix / เหตุผล)' },
+        { id: 'selected_solution', type: 'textarea', rows: 5, label: 'Solution ที่เลือก + เหตุผล' },
+      ]
+    },
+
+    {
+      id: 'WS-DT-05', icon: '🛠️', order: 5,
+      labelTH: '5 · Prototype สร้างแบบจำลอง', label: 'Prototype',
+      instructionTH: 'สร้าง Prototype ที่ทดสอบได้ (Lo-Fi / Hi-Fi / Paper prototype)',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'prototype_type', type: 'select', label: 'ประเภท Prototype', options: ['Paper Prototype', 'Lo-Fi Wireframe', 'Hi-Fi Mockup', 'Physical Model', 'Clickable Prototype', 'MVP'] },
+        { id: 'prototype_goal', type: 'textarea', rows: 3, label: '1. เป้าหมายของ Prototype นี้ (ทดสอบอะไร?)' },
+        { id: 'prototype_photos', type: 'image', label: '2. ภาพ Prototype (ถ่ายภาพ/upload)' },
+        { id: 'prototype_desc', type: 'textarea', rows: 5, label: '3. อธิบาย Prototype — ทำงานอย่างไร? Features หลัก?' },
+        { id: 'test_plan', type: 'textarea', rows: 4, label: '4. แผนการทดสอบ — ทดสอบกับใคร? ทดสอบอะไร? วัดผลอย่างไร?' },
+      ]
+    },
+
+    {
+      id: 'WS-DT-06', icon: '🧪', order: 6,
+      labelTH: '6 · Test ทดสอบและปรับปรุง', label: 'Test',
+      instructionTH: 'ทดสอบ Prototype กับกลุ่มเป้าหมาย ≥ 3 คน รวบรวม Feedback และปรับปรุง',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'test_results', type: 'list', label: 'ผลการทดสอบ (≥ 3 คน)', minItems: 3,
+          itemSchema: [
+            { id: 'tester',   type: 'text',     label: 'ผู้ทดสอบ' },
+            { id: 'likes',    type: 'textarea', rows: 2, label: 'ชอบอะไร?' },
+            { id: 'dislikes', type: 'textarea', rows: 2, label: 'ไม่ชอบอะไร / ปัญหา?' },
+            { id: 'suggest',  type: 'textarea', rows: 2, label: 'ข้อเสนอแนะ' }
+          ]
+        },
+        { id: 'improvements', type: 'textarea', rows: 5, label: 'สิ่งที่จะปรับปรุงจาก Feedback' },
+        { id: 'prototype_v2', type: 'image', label: 'ภาพ Prototype หลังปรับปรุง (ถ้ามี)' },
+      ]
+    },
+
+    {
+      id: 'WS-DT-07', icon: '📊', order: 7,
+      labelTH: '7 · Business Model Canvas', label: 'BMC',
+      instructionTH: 'เขียน Business Model Canvas ครบ 9 ช่อง สำหรับนวัตกรรมธุรกิจดิจิทัล',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'bmc_image', type: 'image', label: 'ภาพ BMC ที่เขียน (ถ่ายภาพ/upload)' },
+        { id: 'value_proposition', type: 'textarea', rows: 4, label: '1. Value Proposition — สินค้า/บริการ + คุณค่าที่มอบให้ลูกค้า' },
+        { id: 'customer_segments', type: 'textarea', rows: 3, label: '2. Customer Segments — กลุ่มลูกค้า' },
+        { id: 'channels',         type: 'textarea', rows: 3, label: '3. Channels — ช่องทางเข้าถึงลูกค้า' },
+        { id: 'customer_relations',type:'textarea', rows: 3, label: '4. Customer Relationships — ความสัมพันธ์กับลูกค้า' },
+        { id: 'revenue_streams',  type: 'textarea', rows: 3, label: '5. Revenue Streams — รายได้' },
+        { id: 'key_resources',    type: 'textarea', rows: 3, label: '6. Key Resources — ทรัพยากรสำคัญ' },
+        { id: 'key_activities',   type: 'textarea', rows: 3, label: '7. Key Activities — กิจกรรมหลัก' },
+        { id: 'key_partners',     type: 'textarea', rows: 3, label: '8. Key Partners — พันธมิตร' },
+        { id: 'cost_structure',   type: 'textarea', rows: 3, label: '9. Cost Structure — โครงสร้างต้นทุน' },
+      ]
+    },
+
+    {
+      id: 'WS-DT-08', icon: '🎤', order: 8,
+      labelTH: '8 · นำเสนอและสะท้อนคิด', label: 'Pitch & Reflect',
+      instructionTH: 'เตรียมนำเสนอผลงาน + สะท้อนสิ่งที่เรียนรู้จากกระบวนการ Design Thinking',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'pitch_outline', type: 'list', label: '1. โครงสร้างการนำเสนอ', minItems: 4,
+          itemSchema: [
+            { id: 'section', type: 'text', label: 'หัวข้อ' },
+            { id: 'minutes', type: 'number', label: 'เวลา (นาที)' },
+            { id: 'content', type: 'text', label: 'เนื้อหาสำคัญ' }
+          ]
+        },
+        { id: 'team_reflection', type: 'textarea', rows: 5, label: '2. สะท้อนทีม — สิ่งที่ทำดีแล้ว + สิ่งที่จะพัฒนา' },
+        { id: 'dt_learning', type: 'textarea', rows: 5, label: '3. เรียนรู้อะไรจาก Design Thinking?' },
+        { id: 'next_steps', type: 'textarea', rows: 4, label: '4. หากได้พัฒนาต่อ จะทำอะไร?' },
+      ]
+    },
+  ],
+
+  evaluatorWeights: { self: 10, peer: 10, teacher: 45, sage: 25, ai: 10 },
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// 31910-2013 การประมวลผลแบบคลาวด์ (Cloud Computing)
+// หลักสูตร ปวส. 2567 สาขาวิชาเทคโนโลยีธุรกิจดิจิทัล
+// ─────────────────────────────────────────────────────────────────────
+export const CLOUD_COMPUTING_COURSE = {
+  schemaVersion: 1,
+  id: '31910-2013',
+  name: '31910-2013 การประมวลผลแบบคลาวด์',
+  nameTH: 'การประมวลผลแบบคลาวด์',
+  nameEN: 'Cloud Computing',
+  methodology: ['Project-Based'],
+  isDefault: false,
+  // ── ข้อมูลจากหลักสูตร ปวส. 2567 (31910v4-76.pdf) ──────────────────
+  curriculum: 'หลักสูตรประกาศนียบัตรวิชาชีพชั้นสูง พุทธศักราช 2567',
+  credits: '2-2-3',
+  standards: [],
+  learningOutcomes: 'ใช้บริการระบบประมวลผลแบบกลุ่มเมฆ และประยุกต์ใช้โปรแกรมประมวลผลแบบกลุ่มงานด้านธุรกิจดิจิทัลด้วยความละเอียด รอบคอบและถูกต้อง',
+  objectives: [
+    'เข้าใจเกี่ยวกับหลักการระบบประมวลผลแบบกลุ่มเมฆ (Cloud Computing)',
+    'มีทักษะในการใช้บริการระบบประมวลผลแบบกลุ่มเมฆ',
+    'มีความสามารถประยุกต์ใช้โปรแกรมประมวลผลแบบกลุ่มงานด้านธุรกิจดิจิทัล',
+    'มีเจตคติและกิจนิสัยที่ดีในการปฏิบัติงานด้วยความละเอียด รอบคอบและถูกต้อง',
+  ],
+  competencies: [
+    'ประมวลความรู้เกี่ยวกับการระบบประมวลผลแบบกลุ่มเมฆ (Cloud Computing) ตามหลักการ',
+    'ใช้บริการระบบประมวลผลแบบกลุ่มเมฆสำหรับงานธุรกิจดิจิทัล',
+    'ประยุกต์ใช้โปรแกรมประมวลผลแบบกลุ่มงานด้านธุรกิจดิจิทัล',
+  ],
+  description: 'ศึกษาและปฏิบัติเกี่ยวกับหลักการระบบประมวลผลแบบกลุ่มเมฆ (Cloud Computing) การใช้บริการระบบประมวลผลแบบกลุ่มเมฆ โมเดลระบบประมวลผลแบบกลุ่มเมฆ ซอฟต์แวร์ (SaaS) แพลตฟอร์ม (PaaS) โครงสร้างพื้นฐาน (IaaS) บริการระบบจัดเก็บข้อมูล บริการร่วมและรวม (Composite Service) การประยุกต์ใช้โปรแกรมประมวลผลแบบกลุ่มงานด้านธุรกิจดิจิทัล',
+  branding: {
+    brandName: 'Cloud Computing',
+    brandTagline: 'คลาวด์เทคโนโลยีสำหรับธุรกิจดิจิทัล',
+    logoEmoji: '☁️',
+    primaryColor: '#0e7490',
+    secondaryColor: '#06b6d4',
+  },
+  rubric: [
+    {
+      dimensionId: 'cloud-concept',
+      label: 'ความเข้าใจหลักการ Cloud',
+      labelEN: 'Cloud Concepts',
+      weight: 25,
+      description: 'อธิบายหลักการ โมเดล และประเภทบริการ Cloud ได้ถูกต้อง',
+      levelDescriptors: [
+        'อธิบายหลักการ Cloud ไม่ได้',
+        'เข้าใจบางส่วน อธิบายไม่ครบ',
+        'อธิบาย SaaS/PaaS/IaaS ได้ถูกต้อง',
+        'อธิบาย + เปรียบเทียบ Deployment Models ได้',
+        'เข้าใจลึก + วิเคราะห์ Trade-off แต่ละโมเดล',
+      ],
+      criteria: [
+        { id: 'cc-c1', label: 'อธิบาย Cloud Computing และข้อดีเทียบกับ On-premise', levels: ['ไม่ได้', 'ได้บางส่วน', 'ได้', 'ได้+ยกตัวอย่าง'] },
+        { id: 'cc-c2', label: 'แยกแยะ SaaS / PaaS / IaaS ได้', levels: ['ไม่ได้', 'ได้บางส่วน', 'ได้ครบ', 'ได้+ยกตัวอย่างแต่ละแบบ'] },
+        { id: 'cc-c3', label: 'อธิบาย Public / Private / Hybrid Cloud', levels: ['ไม่ได้', 'ได้บางส่วน', 'ได้', 'ได้+วิเคราะห์ use case'] },
+      ],
+    },
+    {
+      dimensionId: 'cloud-service',
+      label: 'การใช้บริการ Cloud',
+      labelEN: 'Cloud Service Usage',
+      weight: 35,
+      description: 'ใช้บริการ Cloud Storage บริการแบบ SaaS และ Platform ได้จริง',
+      levelDescriptors: [
+        'ใช้บริการ Cloud ไม่ได้',
+        'ใช้บริการพื้นฐานบางอย่างได้',
+        'ใช้ Storage + SaaS ทั่วไปได้คล่อง',
+        'ตั้งค่า PaaS + Deploy Application ได้',
+        'ออกแบบ Cloud Architecture + Optimize ค่าใช้จ่ายได้',
+      ],
+      criteria: [
+        { id: 'cc-s1', label: 'ใช้ Cloud Storage (Drive/S3/GCS) ได้', levels: ['ไม่ได้', 'ได้บ้าง', 'ได้คล่อง', 'ตั้งค่า Permission/Share ได้ดี'] },
+        { id: 'cc-s2', label: 'ใช้ SaaS (Google Workspace/Office365/etc.) ได้', levels: ['ไม่ได้', 'ได้บ้าง', 'ได้คล่อง', 'ใช้ Collaboration Features ได้'] },
+        { id: 'cc-s3', label: 'Deploy แอปพลิเคชันบน Cloud Platform ได้', levels: ['ไม่ได้', 'ทำตาม tutorial ได้', 'Deploy เองได้', 'Deploy + Config + Monitor ได้'] },
+      ],
+    },
+    {
+      dimensionId: 'cloud-apply',
+      label: 'การประยุกต์ใช้ธุรกิจดิจิทัล',
+      labelEN: 'Digital Business Application',
+      weight: 25,
+      description: 'ประยุกต์ใช้ Cloud สำหรับงานธุรกิจดิจิทัลได้จริง',
+      levelDescriptors: [
+        'ไม่สามารถเชื่อมโยง Cloud กับงานธุรกิจได้',
+        'เชื่อมโยงได้บ้าง โดยมีการแนะนำ',
+        'เลือก Cloud Service ที่เหมาะสมกับงานได้',
+        'ออกแบบ Cloud Solution สำหรับธุรกิจได้',
+        'Cloud Solution ที่ประหยัดต้นทุน + ปลอดภัย + Scale ได้',
+      ],
+      criteria: [
+        { id: 'cc-a1', label: 'เลือก Cloud Service ให้ตรงกับโจทย์ธุรกิจ', levels: ['เลือกไม่เหมาะ', 'เลือกพอใช้', 'เหมาะสม', 'เหมาะ+อธิบายเหตุผล'] },
+        { id: 'cc-a2', label: 'ทำโปรเจกต์ Cloud สำเร็จและใช้งานได้จริง', levels: ['ไม่สำเร็จ', 'สำเร็จบางส่วน', 'สำเร็จ', 'สำเร็จ+นำเสนอได้ดี'] },
+      ],
+    },
+    {
+      dimensionId: 'cloud-professional',
+      label: 'ความรับผิดชอบและรอบคอบ',
+      labelEN: 'Professionalism',
+      weight: 15,
+      description: 'ปฏิบัติงานด้วยความละเอียด รอบคอบ และตรงเวลา',
+      levelDescriptors: [
+        'ส่งงานไม่ครบ ขาดความรับผิดชอบ',
+        'ส่งงานช้า คุณภาพต่ำ',
+        'ส่งงานครบตรงเวลา คุณภาพดี',
+        'ส่งครบตรงเวลา + ละเอียดรอบคอบ',
+        'ดีเลิศ + ช่วยเพื่อน + Proactive',
+      ],
+      criteria: [
+        { id: 'cc-p1', label: 'ส่งงานครบตามกำหนด', levels: ['ไม่ส่ง', 'ส่งช้า', 'ตรงเวลา', 'ก่อนเวลา+คุณภาพสูง'] },
+      ],
+    },
+  ],
+
+  missionConfig: {
+    title: 'โปรเจกต์ Cloud Computing',
+    fields: [
+      { id: 'project_name',    label: 'ชื่อโปรเจกต์',               placeholder: 'เช่น ระบบ e-Commerce บน Cloud' },
+      { id: 'cloud_provider',  label: 'Cloud Provider ที่เลือก',     placeholder: 'AWS / GCP / Azure / Firebase / อื่น ๆ' },
+      { id: 'services_used',   label: 'บริการ Cloud ที่จะใช้',       placeholder: 'เช่น Cloud Storage, Hosting, Database, Auth' },
+      { id: 'business_problem',label: 'โจทย์ธุรกิจที่แก้ด้วย Cloud', placeholder: 'ปัญหาที่ Cloud ช่วยแก้ได้' },
+    ],
+  },
+
+  worksheets: [
+    {
+      id: 'WS-CC-01', icon: '☁️', order: 1,
+      labelTH: '1 · หลักการ Cloud Computing', label: 'Cloud Fundamentals',
+      instructionTH: 'ศึกษาหลักการ ประโยชน์ และโมเดลของ Cloud Computing',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่', required: true },
+        { id: 'q1_cloud_meaning', type: 'textarea', rows: 4, label: '1. Cloud Computing คืออะไร? มีลักษณะสำคัญ 5 ประการอะไรบ้าง?' },
+        { id: 'q2_benefits', type: 'list', label: '2. ข้อดีของ Cloud เทียบกับ On-premise (≥ 5 ข้อ)', minItems: 5,
+          itemSchema: [
+            { id: 'benefit',    type: 'text', label: 'ข้อดี' },
+            { id: 'comparison', type: 'text', label: 'On-premise เป็นอย่างไร?' }
+          ]
+        },
+        { id: 'q3_deployment_models', type: 'list', label: '3. Cloud Deployment Models', minItems: 3,
+          itemSchema: [
+            { id: 'model',    type: 'text', label: 'รูปแบบ (Public/Private/Hybrid/Community)' },
+            { id: 'desc',     type: 'text', label: 'ลักษณะ' },
+            { id: 'usecase',  type: 'text', label: 'เหมาะกับองค์กรแบบใด' }
+          ]
+        },
+        { id: 'q4_examples', type: 'textarea', rows: 4, label: '4. ยกตัวอย่าง Cloud Service ที่ใช้ในชีวิตประจำวัน ≥ 5 ตัวอย่าง' },
+      ]
+    },
+
+    {
+      id: 'WS-CC-02', icon: '🏗️', order: 2,
+      labelTH: '2 · โมเดลบริการ SaaS / PaaS / IaaS', label: 'Service Models',
+      instructionTH: 'เปรียบเทียบและยกตัวอย่าง Cloud Service Models ทั้ง 3 แบบ',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_saas', type: 'textarea', rows: 4, label: '1. SaaS (Software as a Service) — คืออะไร? ตัวอย่าง + ใช้เมื่อไหร่?' },
+        { id: 'q2_paas', type: 'textarea', rows: 4, label: '2. PaaS (Platform as a Service) — คืออะไร? ตัวอย่าง + ใช้เมื่อไหร่?' },
+        { id: 'q3_iaas', type: 'textarea', rows: 4, label: '3. IaaS (Infrastructure as a Service) — คืออะไร? ตัวอย่าง + ใช้เมื่อไหร่?' },
+        { id: 'q4_comparison', type: 'list', label: '4. เปรียบเทียบ SaaS/PaaS/IaaS — ใครรับผิดชอบอะไร?', minItems: 5,
+          itemSchema: [
+            { id: 'layer',  type: 'text', label: 'Layer (เช่น OS, Runtime, App)' },
+            { id: 'saas',   type: 'text', label: 'SaaS (Provider/Customer)' },
+            { id: 'paas',   type: 'text', label: 'PaaS' },
+            { id: 'iaas',   type: 'text', label: 'IaaS' },
+            { id: 'onprem', type: 'text', label: 'On-premise' },
+          ]
+        },
+        { id: 'q5_choose', type: 'textarea', rows: 4, label: '5. โจทย์: บริษัท Startup ที่มีทีม Dev 5 คน ควรเลือก SaaS/PaaS/IaaS แบบใด? เพราะอะไร?' },
+      ]
+    },
+
+    {
+      id: 'WS-CC-03', icon: '💾', order: 3,
+      labelTH: '3 · บริการ Cloud Storage', label: 'Cloud Storage',
+      instructionTH: 'ทดลองใช้บริการ Cloud Storage และตั้งค่า Permission การแชร์',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_storage_services', type: 'list', label: '1. บริการ Cloud Storage ที่รู้จัก ≥ 4 บริการ', minItems: 4,
+          itemSchema: [
+            { id: 'service',  type: 'text',   label: 'ชื่อบริการ' },
+            { id: 'provider', type: 'text',   label: 'ผู้ให้บริการ' },
+            { id: 'free_storage', type: 'text', label: 'ฟรี (GB)' },
+            { id: 'feature', type: 'text',    label: 'จุดเด่น' }
+          ]
+        },
+        { id: 'q2_practice', type: 'textarea', rows: 4, label: '2. ทดลองใช้ Google Drive / OneDrive — สรุปสิ่งที่ทดลอง' },
+        { id: 'q3_screenshot', type: 'image', label: '3. Screenshot การแชร์ไฟล์ / ตั้งค่า Permission' },
+        { id: 'q4_usecase', type: 'textarea', rows: 4, label: '4. ยกตัวอย่าง Use Case Cloud Storage สำหรับธุรกิจดิจิทัล ≥ 3 กรณี' },
+      ]
+    },
+
+    {
+      id: 'WS-CC-04', icon: '🔧', order: 4,
+      labelTH: '4 · Composite Service & API', label: 'Composite Services',
+      instructionTH: 'ศึกษาการรวมบริการ Cloud หลายอย่างเข้าด้วยกัน (Composite Service)',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'q1_composite', type: 'textarea', rows: 4, label: '1. Composite Service คืออะไร? ทำไมถึงสำคัญ?' },
+        { id: 'q2_api_role', type: 'textarea', rows: 4, label: '2. API มีบทบาทอย่างไรใน Cloud Ecosystem?' },
+        { id: 'q3_examples', type: 'list', label: '3. ตัวอย่าง Composite Service ≥ 3 กรณี', minItems: 3,
+          itemSchema: [
+            { id: 'scenario',  type: 'text', label: 'สถานการณ์/ธุรกิจ' },
+            { id: 'services',  type: 'text', label: 'Cloud Services ที่รวมกัน' },
+            { id: 'benefit',   type: 'text', label: 'ประโยชน์ที่ได้' }
+          ]
+        },
+        { id: 'q4_design', type: 'textarea', rows: 5, label: '4. ออกแบบ Composite Cloud Solution สำหรับร้านค้าออนไลน์ — ใช้ Services อะไรบ้าง?' },
+      ]
+    },
+
+    {
+      id: 'WS-CC-05', icon: '🚀', order: 5,
+      labelTH: '5 · ทดลอง Deploy บน Cloud', label: 'Cloud Deploy',
+      instructionTH: 'ทดลอง Deploy แอปพลิเคชันบน Cloud Platform เช่น Firebase Hosting หรือ Vercel',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'platform_used', type: 'select', label: 'Platform ที่ใช้', options: ['Firebase Hosting', 'Vercel', 'Netlify', 'GitHub Pages', 'AWS Amplify', 'Google App Engine', 'Heroku', 'อื่น ๆ'] },
+        { id: 'q1_steps', type: 'list', label: '1. ขั้นตอนการ Deploy', minItems: 3,
+          itemSchema: [
+            { id: 'step', type: 'number', label: 'ขั้นตอน' },
+            { id: 'desc', type: 'text',   label: 'รายละเอียด' }
+          ]
+        },
+        { id: 'q2_screenshot', type: 'image', label: '2. Screenshot แอปที่ Deploy สำเร็จ' },
+        { id: 'q3_url', type: 'text', label: '3. URL ของแอปที่ Deploy (ถ้ามี)' },
+        { id: 'q4_problems', type: 'textarea', rows: 4, label: '4. ปัญหาที่พบและวิธีแก้ไข' },
+        { id: 'q5_reflection', type: 'textarea', rows: 4, label: '5. สรุปสิ่งที่เรียนรู้' },
+      ]
+    },
+
+    {
+      id: 'WS-CC-06', icon: '💼', order: 6,
+      labelTH: '6 · Cloud สำหรับธุรกิจดิจิทัล', label: 'Cloud for Digital Business',
+      instructionTH: 'วิเคราะห์และออกแบบ Cloud Solution สำหรับธุรกิจดิจิทัล',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'business_type', type: 'text', label: 'ประเภทธุรกิจที่วิเคราะห์' },
+        { id: 'current_problems', type: 'textarea', rows: 4, label: '1. ปัญหาปัจจุบันของธุรกิจที่ Cloud แก้ได้' },
+        { id: 'cloud_solution', type: 'list', label: '2. Cloud Solution ที่เสนอ', minItems: 3,
+          itemSchema: [
+            { id: 'service',  type: 'text', label: 'Cloud Service' },
+            { id: 'purpose',  type: 'text', label: 'ใช้เพื่ออะไร' },
+            { id: 'benefit',  type: 'text', label: 'ประโยชน์ที่ธุรกิจได้รับ' }
+          ]
+        },
+        { id: 'cost_estimate', type: 'textarea', rows: 4, label: '3. ประมาณค่าใช้จ่าย Cloud ต่อเดือน (เทียบกับ On-premise)' },
+        { id: 'architecture_diagram', type: 'image', label: '4. Cloud Architecture Diagram (วาด/upload)' },
+      ]
+    },
+
+    {
+      id: 'WS-CC-07', icon: '🏆', order: 7,
+      labelTH: '7 · โปรเจกต์ Cloud Computing', label: 'Cloud Project',
+      instructionTH: 'สรุปโปรเจกต์ Cloud Computing — ออกแบบ พัฒนา และนำเสนอ',
+      fields: [
+        { id: 'team', type: 'text', label: 'ชื่อกลุ่ม/ชื่อนักศึกษา', required: true },
+        { id: 'date', type: 'date', label: 'วันที่' },
+        { id: 'project_name', type: 'text', label: 'ชื่อโปรเจกต์' },
+        { id: 'project_desc', type: 'textarea', rows: 4, label: '1. อธิบายโปรเจกต์ Cloud Computing' },
+        { id: 'services_used', type: 'list', label: '2. Cloud Services ที่ใช้', minItems: 2,
+          itemSchema: [
+            { id: 'service',  type: 'text', label: 'บริการ' },
+            { id: 'provider', type: 'text', label: 'ผู้ให้บริการ' },
+            { id: 'role',     type: 'text', label: 'บทบาทในโปรเจกต์' }
+          ]
+        },
+        { id: 'demo_screenshot', type: 'image', label: '3. Screenshot การทำงานของระบบ' },
+        { id: 'demo_url', type: 'text', label: '4. URL สาธิต (ถ้ามี)' },
+        { id: 'cost_analysis', type: 'textarea', rows: 4, label: '5. วิเคราะห์ค่าใช้จ่าย Cloud ที่เกิดขึ้นจริง' },
+        { id: 'reflection', type: 'textarea', rows: 5, label: '6. สรุปสิ่งที่เรียนรู้ + ข้อเสนอแนะ' },
+      ]
+    },
+  ],
+
+  evaluatorWeights: { self: 10, peer: 10, teacher: 50, sage: 20, ai: 10 },
+};
+
 // Registry — easy to add more seed courses in the future
 export const COURSE_SEEDS = {
   'design-thinking-s4i': DESIGN_THINKING_S4I_COURSE,
-  // Future:
-  // 'lean-startup':       LEAN_STARTUP_COURSE,
-  // 'project-based':      PROJECT_BASED_LEARNING_COURSE,
+  '31910-2002':           DATABASE_SYSTEM_COURSE,
+  '31910-2004':           DESIGN_THINKING_BIZ_COURSE,
+  '31910-2013':           CLOUD_COMPUTING_COURSE,
 };

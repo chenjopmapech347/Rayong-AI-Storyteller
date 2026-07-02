@@ -745,6 +745,24 @@ export async function adminUpdateUser(id, data) {
   await updateDoc(doc(db, "users", id), data);
 }
 
+// เปลี่ยนรหัสผ่านของตัวเอง — ตรวจสอบ currentPassword ก่อน แล้วอัปเดต
+export async function changeOwnPassword(userId, currentPassword, newPassword) {
+  const snap = await getDoc(doc(db, 'users', userId));
+  if (!snap.exists()) throw new Error('ไม่พบข้อมูลผู้ใช้');
+  const stored = snap.data().password;
+  if (stored !== currentPassword) throw new Error('รหัสผ่านเดิมไม่ถูกต้อง');
+  if (!newPassword || newPassword.length < 4) throw new Error('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร');
+  await updateDoc(doc(db, 'users', userId), { password: newPassword });
+  // อัปเดต localStorage ด้วย
+  try {
+    const cached = JSON.parse(localStorage.getItem('eco_user') || '{}');
+    if (cached.id === userId) {
+      cached.password = newPassword;
+      localStorage.setItem('eco_user', JSON.stringify(cached));
+    }
+  } catch {}
+}
+
 // ─── Admin: Teams CRUD ──────────────────────────────────
 // v2.0: teams can join multiple courses via team.courseIds (decision #2).
 // Legacy teams (team.courseId or no courseId field) auto-default to ['green-rayong'].
@@ -2078,6 +2096,32 @@ export async function setDefaultCourse(courseId) {
   await Promise.all(batch);
 }
 
+// ─── Subjects (รายวิชา) — standalone subject records, referenced by courses ──────
+// Firestore collection: `subjects`  key: subject code (e.g. "30204-2003")
+
+export function subscribeToSubjects(callback) {
+  return onSnapshot(collection(db, 'subjects'), (snap) => {
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(rows.sort((a, b) => (a.code || a.name || a.id).localeCompare(b.code || b.name || b.id)));
+  });
+}
+
+export async function createSubject(subjectId, data) {
+  if (!subjectId) throw new Error('subjectId is required');
+  await setDoc(doc(db, 'subjects', subjectId), {
+    ...data,
+    created_at: new Date().toISOString(),
+  });
+}
+
+export async function updateSubject(subjectId, patch) {
+  await updateDoc(doc(db, 'subjects', subjectId), { ...patch, updated_at: new Date().toISOString() });
+}
+
+export async function deleteSubject(subjectId) {
+  await deleteDoc(doc(db, 'subjects', subjectId));
+}
+
 // Worksheet versioning helper (decision #3 — auto-migrate matching field IDs)
 // Given old worksheet data + new worksheet schema, keep matching fields, leave new fields blank.
 export function migrateWorksheetData(oldData, newSchema) {
@@ -2141,13 +2185,18 @@ export async function saveWorksheetScore(teamId, courseId, worksheetId, { score,
 }
 
 export function subscribeToWorksheetSubmissions(teamId, courseId, callback) {
-  // Returns all worksheet submissions for the given (team, course).
-  // We filter client-side from the existing global subscriptions to avoid
-  // requiring composite Firestore indexes.
-  return onSnapshot(collection(db, 'submissions'), (snap) => {
+  // Narrow the listener to the current course only (single-field index — auto-created by Firestore).
+  // Then filter team_id client-side.  This eliminates the "whole submissions collection" listener
+  // that was firing on every write from any team and causing the worksheet form to reset while typing.
+  if (!teamId || !courseId) {
+    callback([]);
+    return () => {};
+  }
+  const q = query(collection(db, 'submissions'), where('course_id', '==', courseId));
+  return onSnapshot(q, (snap) => {
     const rows = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(s => String(s.team_id) === String(teamId) && s.course_id === courseId);
+      .filter(s => String(s.team_id) === String(teamId));
     callback(rows);
   });
 }

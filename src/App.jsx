@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPage from './LoginPage';
+import Modal from './Modal';
 import { COURSE_SEEDS } from './courseSeeds';
 import { makeT } from './constants/i18n';
 import { DEFAULT_BRANDING, BRAND_PRESETS, applyBrandColors } from './constants/branding';
@@ -59,6 +60,7 @@ import {
   adminDeleteUser,
   adminCreateUser,
   adminUpdateUser,
+  changeOwnPassword,
   subscribeToGoodPrompts,
   saveGoodPrompt,
   deleteGoodPrompt,
@@ -103,7 +105,12 @@ import {
   // Demo user top-up (Sep 2026)
   topUpDemoUsers,
   // Import real students from Excel
-  importRealStudents
+  importRealStudents,
+  // Subjects (รายวิชา)
+  subscribeToSubjects,
+  createSubject,
+  updateSubject,
+  deleteSubject,
 } from './api';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -172,10 +179,21 @@ export default function App() {
   const [coursesAll, setCoursesAll] = useState([]);
   const [coursesSeeded, setCoursesSeeded] = useState(false);
   const [newCourseForm, setNewCourseForm] = useState({
-    id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿'
+    id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿',
+    subjectIds: [], primarySubjectId: '', instructorIds: [],
   });
   const [editingCourseId, setEditingCourseId] = useState(null);
   const [editCourseDraft, setEditCourseDraft] = useState(null);
+
+  // ─── Subjects (รายวิชา) ───
+  const [subjects, setSubjects] = useState([]);
+  const [newSubjectForm, setNewSubjectForm] = useState({ id: '', code: '', name: '', credits: '2-2-3', standardRef: '', learningOutcome: '', objectives: '', competencies: '', description: '' });
+  const [editingSubjectId, setEditingSubjectId] = useState(null);
+  const [editSubjectDraft, setEditSubjectDraft] = useState(null);
+  useEffect(() => {
+    const unsub = subscribeToSubjects(setSubjects);
+    return () => unsub?.();
+  }, []);
   useEffect(() => {
     const unsub = subscribeToCourses((rows) => {
       setCoursesAll(rows);
@@ -183,6 +201,17 @@ export default function App() {
       if (rows.length === 0 && !coursesSeeded) {
         setCoursesSeeded(true);
         seedLegacyGreenRayongCourse(LEGACY_GREEN_RAYONG_COURSE).catch(() => {});
+      }
+      // If student never set a course (no localStorage entry), default to first course in DB
+      // This avoids hardcoded green-rayong as the default for new users.
+      const stored = (() => { try { return localStorage.getItem('rep_active_course'); } catch { return null; } })();
+      if (!stored && rows.length > 0) {
+        // Prefer first non-legacy course if available
+        const preferred = rows.find(c => c.id !== 'green-rayong') || rows[0];
+        if (preferred) {
+          setCurrentCourseId(preferred.id);
+          try { localStorage.setItem('rep_active_course', preferred.id); } catch { /* ignore */ }
+        }
       }
     });
     return () => unsub?.();
@@ -202,6 +231,18 @@ export default function App() {
     try { localStorage.setItem('rep_active_course', id); } catch { /* ignore */ }
     setSelectedWorksheetId(null); // close any open worksheet when switching
   };
+  // ─── Auto-switch to default course for admin / teacher / sage ────────────
+  // Declared after switchCourse to avoid TDZ. Fires once per session (guarded
+  // by ref) so these roles always open on the isDefault course in Firestore.
+  useEffect(() => {
+    if (hasAutoSwitchedToDefault.current) return;
+    if (!user || !coursesAll.length) return;
+    if (!['admin', 'teacher', 'sage', 'facilitator'].includes(user.role)) return;
+    const defaultCourse = coursesAll.find(c => c.isDefault);
+    if (defaultCourse) switchCourse(defaultCourse.id);
+    hasAutoSwitchedToDefault.current = true;
+  // eslint-disable-next-line
+  }, [user, coursesAll]);
   // Resolved current course object (Firestore doc merged with built-in fallback)
   const currentCourse = (function getCurrentCourse() {
     if (!coursesAll || coursesAll.length === 0) return LEGACY_GREEN_RAYONG_COURSE;
@@ -232,21 +273,66 @@ export default function App() {
     return () => unsub?.();
   // eslint-disable-next-line
   }, [effectiveWsTeamId, currentCourseId]);
-  // Load saved draft when selecting a worksheet
+  // ── Worksheet draft loading — TWO-EFFECT pattern ───────────────────────────────────────────
+  //
+  // WHY TWO EFFECTS instead of one?
+  //   The old single effect had [selectedWorksheetId, worksheetSubmissions] as deps.
+  //   Every Firestore write by anyone in the course caused `worksheetSubmissions` to update,
+  //   which re-ran the effect and could reset the form while the student was mid-typing.
+  //   The `loadedWsIdRef` guard helped but didn't cover every edge case.
+  //
+  // EFFECT 1 — runs ONLY when the selected worksheet changes.
+  //   Clears the dirty flag, loads from current submissions snapshot (or autofill).
+  //   Does NOT depend on `worksheetSubmissions` so Firestore updates never trigger it.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!selectedWorksheetId) { setWorksheetFormDraft({}); return; }
+    setWsSaveResult(null);
+    wsFormDirtyRef.current = false;          // new worksheet → user hasn't typed yet
+    if (!selectedWorksheetId) {
+      setWorksheetFormDraft({});
+      loadedWsIdRef.current = null;
+      return;
+    }
+    loadedWsIdRef.current = selectedWorksheetId;
     const existing = worksheetSubmissions.find(s => s.worksheet_id === selectedWorksheetId);
-    setWorksheetFormDraft(existing?.content || {});
+    if (existing?.content) {
+      setWorksheetFormDraft(existing.content);
+    } else {
+      // Auto-fill team name for students on first open
+      const myTeam = (typeof teams !== 'undefined' ? teams : [])
+        .find(t => t && String(t.id) === String(user?.team_id || user?.teamId));
+      const autoFill = myTeam?.name ? { team: myTeam.name } : {};
+      setWorksheetFormDraft(autoFill);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWorksheetId]); // worksheetSubmissions intentionally NOT a dep
+
+  // EFFECT 2 — runs when Firestore delivers (or updates) submissions.
+  //   ONLY populates the form if the user hasn't started typing yet (dirty === false).
+  //   This handles the case where submissions arrive AFTER the worksheet was selected
+  //   (slow connection / cache miss) — without ever overwriting the user's in-progress work.
+  useEffect(() => {
+    if (!selectedWorksheetId) return;
+    if (wsFormDirtyRef.current) return;      // user is typing — never overwrite
+    const existing = worksheetSubmissions.find(s => s.worksheet_id === selectedWorksheetId);
+    if (existing?.content) {
+      setWorksheetFormDraft(existing.content);
+      // Leave wsFormDirtyRef.current = false so teacher live-view keeps refreshing too
+    }
   }, [selectedWorksheetId, worksheetSubmissions]);
   const [worksheetFinalSubmitting, setWorksheetFinalSubmitting] = useState(false);
+  // ── inline save result (replaces window.alert) ─────────────────────────────
+  const [wsSaveResult, setWsSaveResult] = useState(null); // { ok, msg, at }
   const saveCurrentWorksheet = async () => {
     if (!effectiveWsTeamId || !currentCourseId || !selectedWorksheetId) return;
     setWorksheetSaving(true);
+    setWsSaveResult(null);
     try {
       await saveWorksheetSubmission(effectiveWsTeamId, currentCourseId, selectedWorksheetId, worksheetFormDraft);
-      window.alert('✅ บันทึก Worksheet สำเร็จ');
-    } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+      const now = new Date();
+      setWsSaveResult({ ok: true, msg: 'บันทึก Worksheet สำเร็จ', at: now.toLocaleTimeString('th-TH') });
+    } catch (e) {
+      setWsSaveResult({ ok: false, msg: e?.message || String(e), at: new Date().toLocaleTimeString('th-TH') });
+    }
     finally { setWorksheetSaving(false); }
   };
   const handleWorksheetFinalSubmit = async () => {
@@ -274,6 +360,7 @@ export default function App() {
   // ─── Worksheet Grading (teacher / facilitator / sage) ─────────────────────
   const [wScoreDraft, setWScoreDraft] = useState({ score: '', comment: '' });
   const [wScoreSaving, setWScoreSaving] = useState(false);
+  const [wScoreSaveResult, setWScoreSaveResult] = useState(null); // { ok, msg, at }
   // Sync score draft whenever selected worksheet changes
   useEffect(() => {
     if (!selectedWorksheetId) { setWScoreDraft({ score: '', comment: '' }); return; }
@@ -287,10 +374,13 @@ export default function App() {
   const handleSaveWsScore = async () => {
     if (!effectiveWsTeamId || !currentCourseId || !selectedWorksheetId) return;
     setWScoreSaving(true);
+    setWScoreSaveResult(null);
     try {
       await saveWorksheetScore(effectiveWsTeamId, currentCourseId, selectedWorksheetId, wScoreDraft);
-      window.alert('✅ บันทึกคะแนนสำเร็จ');
-    } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+      setWScoreSaveResult({ ok: true, msg: 'บันทึกคะแนนสำเร็จ', at: new Date().toLocaleTimeString('th-TH') });
+    } catch (e) {
+      setWScoreSaveResult({ ok: false, msg: e?.message || String(e), at: new Date().toLocaleTimeString('th-TH') });
+    }
     finally { setWScoreSaving(false); }
   };
 
@@ -323,6 +413,9 @@ export default function App() {
         nameTH: newCourseForm.name,
         methodology: [newCourseForm.methodology],
         isDefault: false,
+        subjectIds: newCourseForm.subjectIds || [],
+        primarySubjectId: newCourseForm.primarySubjectId || '',
+        instructorIds: newCourseForm.instructorIds || [],
         branding: {
           brandName: newCourseForm.name,
           brandTagline: newCourseForm.methodology + ' Learning',
@@ -336,7 +429,7 @@ export default function App() {
         evaluatorWeights: LEGACY_GREEN_RAYONG_COURSE.evaluatorWeights,
         worksheets: [],
       });
-      setNewCourseForm({ id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿' });
+      setNewCourseForm({ id: '', name: '', methodology: 'DesignThinking', primaryColor: '#16a34a', secondaryColor: '#0ea5e9', logoEmoji: '🌿', subjectIds: [], primarySubjectId: '', instructorIds: [] });
       window.alert('✅ สร้างหลักสูตรสำเร็จ');
     } catch (e) {
       window.alert('❌ สร้างไม่สำเร็จ: ' + (e?.message || e));
@@ -368,6 +461,7 @@ export default function App() {
       primaryColor: course.branding?.primaryColor || '#16a34a',
       secondaryColor: course.branding?.secondaryColor || '#0ea5e9',
       logoEmoji: course.branding?.logoEmoji || '🌿',
+      instructorIds: Array.isArray(course.instructorIds) ? course.instructorIds : [],
     });
   };
   const saveEditCourse = async () => {
@@ -376,6 +470,7 @@ export default function App() {
       await updateCourse(editingCourseId, {
         name: editCourseDraft.name,
         methodology: [editCourseDraft.methodology],
+        instructorIds: editCourseDraft.instructorIds || [],
         branding: {
           brandName: editCourseDraft.name,
           brandTagline: editCourseDraft.methodology + ' Learning',
@@ -698,6 +793,16 @@ export default function App() {
   const [importRunning,  setImportRunning]  = useState(false);
   const [importResult,   setImportResult]   = useState(null);
   const importFileRef = useRef(null);
+  // ── Auto-switch guard — only fire once per login session ──────────────────
+  const hasAutoSwitchedCourse = useRef(false);
+  // ── Auto-switch to default course for admin/teacher/sage (once per session) ─
+  const hasAutoSwitchedToDefault = useRef(false);
+  // ── Guard refs for worksheet draft loading ──────────────────────────────────────────────────
+  const loadedWsIdRef = useRef(null);   // the worksheetId that was last loaded into the form
+  // wsFormDirtyRef: set to true the moment the user starts typing.
+  // While true, Firestore snapshots are NOT allowed to overwrite the form draft.
+  // Reset to false whenever a new worksheet is opened.
+  const wsFormDirtyRef = useRef(false);
 
   const handleImportFile = async (e) => {
     const file = e.target.files?.[0];
@@ -854,6 +959,30 @@ export default function App() {
   // --- Mock Data for Testing ---
   const [missionStatus] = useState({ status: 'Pending', feedback: '' });
   const [showEvalForm, setShowEvalForm] = useState(null); // 'self' or 'peer'
+
+  // ─── Change Password Modal ────────────────────────────────────────────────
+  const [showChangePwd, setShowChangePwd]   = useState(false);
+  const [changePwdForm, setChangePwdForm]   = useState({ current: '', next: '', confirm: '' });
+  const [changePwdStatus, setChangePwdStatus] = useState(null); // null | 'saving' | 'ok' | 'error'
+  const [changePwdMsg, setChangePwdMsg]     = useState('');
+  const handleChangePwd = async () => {
+    if (!changePwdForm.next || changePwdForm.next.length < 4) {
+      setChangePwdStatus('error'); setChangePwdMsg('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร'); return;
+    }
+    if (changePwdForm.next !== changePwdForm.confirm) {
+      setChangePwdStatus('error'); setChangePwdMsg('รหัสผ่านใหม่ไม่ตรงกัน'); return;
+    }
+    setChangePwdStatus('saving');
+    try {
+      await changeOwnPassword(user.id, changePwdForm.current, changePwdForm.next);
+      setChangePwdStatus('ok');
+      setChangePwdMsg('เปลี่ยนรหัสผ่านสำเร็จ ✅');
+      setChangePwdForm({ current: '', next: '', confirm: '' });
+    } catch (err) {
+      setChangePwdStatus('error');
+      setChangePwdMsg(err.message || 'เกิดข้อผิดพลาด');
+    }
+  };
   const mockReportData = [
     { team: 'Team Alpha', self: 8.5, peer: 12, teacher: 30, sage: 28, ai: 9, total: 87.5 },
     { team: 'Team Beta', self: 9.0, peer: 14, teacher: 32, sage: 25, ai: 8, total: 88.0 },
@@ -928,16 +1057,22 @@ export default function App() {
       // ─── Auto-pick course based on user's team (Phase 7 — done here to avoid TDZ) ───
       // We do this inside the teams callback because `teams` is declared after the
       // Active Course block; reading from the callback's argument `t` is safe.
-      const me = JSON.parse(localStorage.getItem('eco_user') || 'null');
-      const activeCourseId = (() => { try { return localStorage.getItem('rep_active_course') || 'green-rayong'; } catch { return 'green-rayong'; } })();
-      if (me && t?.length) {
-        const myTeamId = me.team_id || me.teamId;
-        const myTeam = t.find(x => x && String(x.id) === String(myTeamId));
-        if (myTeam) {
-          const myCourseIds = getTeamCourseIds(myTeam);
-          if (!myCourseIds.includes(activeCourseId)) {
-            // Switch to team's first course (deferred via setState to avoid render issues)
-            setTimeout(() => switchCourse(myCourseIds[0]), 0);
+      // Auto-pick course on first load — ONLY when the team has an EXPLICIT courseIds field.
+      // If team has no courseIds (defaults to green-rayong), we do NOT auto-switch so that
+      // students stay on whatever course they (or the page default) already selected.
+      if (!hasAutoSwitchedCourse.current) {
+        const me = JSON.parse(localStorage.getItem('eco_user') || 'null');
+        const activeCourseId = (() => { try { return localStorage.getItem('rep_active_course') || ''; } catch { return ''; } })();
+        if (me && t?.length) {
+          const myTeamId = me.team_id || me.teamId;
+          const myTeam = t.find(x => x && String(x.id) === String(myTeamId));
+          if (myTeam) {
+            // Only switch if team has EXPLICIT courseIds set by admin (not the default fallback)
+            const hasExplicit = Array.isArray(myTeam.courseIds) && myTeam.courseIds.length > 0;
+            if (hasExplicit && !myTeam.courseIds.includes(activeCourseId)) {
+              setTimeout(() => switchCourse(myTeam.courseIds[0]), 0);
+            }
+            hasAutoSwitchedCourse.current = true;
           }
         }
       }
@@ -981,9 +1116,10 @@ export default function App() {
     }
   }, [activeTab, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load student list + refresh teams เมื่อเปิด tab team-setup
+  // Load student list + refresh teams เมื่อเปิด tab team-setup หรือ teacher-dashboard
   useEffect(() => {
-    if (activeTab !== 'team-setup' || !user) return;
+    const needLoad = activeTab === 'team-setup' || activeTab === 'teacher-dashboard';
+    if (!needLoad || !user) return;
 
     // Refresh teams list (เผื่อ subscription ไม่ทัน)
     getTeams().then(setTeams).catch(err => console.error('Refresh teams failed:', err));
@@ -1045,6 +1181,8 @@ export default function App() {
   const handleLogout = () => {
     logout();
     setUser(null);
+    hasAutoSwitchedCourse.current = false;    // reset so next login auto-picks team course again
+    hasAutoSwitchedToDefault.current = false; // reset so next login auto-picks default course again
   };
 
   const handleSave = async (tabName, data) => {
@@ -1126,6 +1264,11 @@ export default function App() {
                  <div className="card" style={{ padding: '0.4rem 0.8rem', margin: 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <User size={14} /> {user.name} ({user.role})
                  </div>
+                 <button onClick={() => { setShowChangePwd(true); setChangePwdStatus(null); setChangePwdMsg(''); }} className="card"
+                   title="เปลี่ยนรหัสผ่าน"
+                   style={{ padding: '0.4rem 0.8rem', margin: 0, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    🔒 รหัสผ่าน
+                 </button>
                  <button onClick={handleLogout} className="card" style={{ padding: '0.4rem 0.8rem', margin: 0, fontSize: '0.75rem', cursor: 'pointer' }}>
                     <LogOut size={14} /> {t('Logout')}
                  </button>
@@ -1162,17 +1305,32 @@ export default function App() {
                  transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
                  style={{ display: 'inline-flex', gap: '2rem' }}
               >
-                 {feed.length > 0 ? feed.map((f, i) => (
-                    <span key={i} style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                       <strong style={{ color: 'var(--color-text-primary)' }}>{f.team_name || 'Team'}:</strong> {f.action} {f.detail ? `(${f.detail})` : ''}
-                    </span>
-                 )) : <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>กำลังติดตามความเคลื่อนไหวล่าสุด...</span>}
+                 {feed.length > 0 ? feed.map((f, i) => {
+                    const teamObj = (teams || []).find(t => t && (String(t.id) === String(f.team_id) || t.name === f.team_name));
+                    const displayName = f.team_name || teamObj?.name || (f.team_id ? `ทีม ${f.team_id}` : 'ทีม');
+                    return (
+                       <span key={i} style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                          <strong style={{ color: 'var(--color-text-primary)' }}>{displayName}:</strong> {f.action} {f.detail ? `· ${f.detail}` : ''}
+                       </span>
+                    );
+                 }) : <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>กำลังติดตามความเคลื่อนไหวล่าสุด...</span>}
               </motion.div>
            </div>
         </div>
       </header>
 
       <nav className="tab-nav" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* ─── Course Switcher Tab (always first when ≥ 2 courses + logged in) ─── */}
+        {user && coursesAll.length > 1 && (
+          <div
+            className={`tab-item ${activeTab === 'course-select' ? 'active' : ''}`}
+            onClick={() => setActiveTab('course-select')}
+            style={{ fontWeight: 700, borderRight: '2px solid var(--color-border)', marginRight: 4 }}
+            title="เปลี่ยนหลักสูตร"
+          >
+            {currentCourse?.branding?.logoEmoji || '📚'} หลักสูตร: {currentCourse?.nameTH || currentCourse?.name || currentCourse?.id}
+          </div>
+        )}
         {!user && (
           <>
             <div className={`tab-item ${activeTab !== 'help' ? 'active' : ''}`} onClick={() => setActiveTab('public')}><LayoutDashboard size={16} /> {t('Public View')}</div>
@@ -1451,6 +1609,7 @@ export default function App() {
                                   teacherId: t.teacher_id || '',
                                   memberIds: members.map(m => m.id),
                                   memberSearch: '',
+                                  courseIds: Array.isArray(t.courseIds) ? t.courseIds : t.courseId ? [t.courseId] : ['green-rayong'],
                                 });
                               }}
                               onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)'}
@@ -1685,23 +1844,59 @@ export default function App() {
                    </div>
                 </div>
 
-                {/* Mock Form Display */}
-                {showEvalForm === 'self' && (
+                {/* Self Assessment Form — ใช้ rubric จาก currentCourse */}
+                {showEvalForm === 'self' && (() => {
+                   const rubric = currentCourse?.rubric || [];
+                   const LEVEL_LABELS = ['', '1 — ต้องปรับปรุง', '2 — พอใช้', '3 — ปานกลาง', '4 — ดีมาก', '5 — ดีเยี่ยม'];
+                   const selfKey = (dimId) => `self-${user?.id}-${dimId}`;
+                   const [selfScores, setSelfScores] = [evalScore, setEvalScore];
+                   return (
                    <div className="card" style={{ background: '#f8fafc' }}>
-                      <h5 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>แบบฟอร์มประเมินตนเอง (Mock)</h5>
-                      {[1,2,3].map(i => (
-                         <div key={i} style={{ marginBottom: '1rem' }}>
-                            <div style={{ fontSize: '0.8125rem', fontWeight: 600 }}>มิติที่ {i}: การมีส่วนร่วมและความรับผิดชอบ</div>
-                            <select className="login-input" style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>
-                               <option>เลือกระดับคะแนน (1-5)...</option>
-                               <option>5 - ดีเยี่ยม</option>
-                               <option>4 - ดีมาก</option>
+                      <h5 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>แบบฟอร์มประเมินตนเอง</h5>
+                      {rubric.length === 0 && (
+                         <p style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center' }}>ยังไม่มี Rubric สำหรับวิชานี้</p>
+                      )}
+                      {rubric.map((dim, idx) => (
+                         <div key={dim.dimensionId || idx} style={{ marginBottom: '1.25rem' }}>
+                            <div style={{ fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+                               มิติที่ {idx + 1}: {dim.label}
+                               {dim.weight ? <span style={{ fontWeight: 400, color: '#64748b', marginLeft: 6 }}>({dim.weight}%)</span> : null}
+                            </div>
+                            {dim.description && (
+                               <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.4rem' }}>{dim.description}</div>
+                            )}
+                            <select
+                               className="login-input"
+                               style={{ marginTop: '0.25rem', fontSize: '0.8rem' }}
+                               value={selfScores[selfKey(dim.dimensionId)] || ''}
+                               onChange={e => setSelfScores(prev => ({ ...prev, [selfKey(dim.dimensionId)]: e.target.value }))}
+                            >
+                               <option value="">เลือกระดับคะแนน (1-5)...</option>
+                               {[5,4,3,2,1].map(n => (
+                                  <option key={n} value={String(n)}>{LEVEL_LABELS[n]}</option>
+                               ))}
                             </select>
                          </div>
                       ))}
-                      <button className="login-btn" style={{ width: 'fit-content' }}>Submit Self-Assessment</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                         <button className="login-btn" style={{ width: 'fit-content' }}
+                            onClick={() => {
+                               const filled = rubric.every(dim => selfScores[selfKey(dim.dimensionId)]);
+                               if (!filled) { alert('กรุณาเลือกระดับคะแนนทุกมิติ'); return; }
+                               alert('บันทึก Self Assessment สำเร็จ ✅\n(ระบบบันทึก Firestore จะเปิดใช้งานในรอบถัดไป)');
+                               setShowEvalForm(null);
+                            }}>
+                            ✅ ส่งแบบประเมินตนเอง
+                         </button>
+                         {rubric.length > 0 && (
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                               ตอบแล้ว {rubric.filter(d => selfScores[selfKey(d.dimensionId)]).length}/{rubric.length} มิติ
+                            </span>
+                         )}
+                      </div>
                    </div>
-                )}
+                   );
+                })()}
 
                 {showEvalForm === 'peer' && (
                    <div className="card" style={{ background: '#f5f3ff' }}>
@@ -1845,15 +2040,22 @@ export default function App() {
                                  <Activity size={18} className="live-dot" /> Live Activity Feed
                               </h4>
                               <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                                 {feed.map((f, i) => (
-                                    <div key={i} style={{ fontSize: '0.8125rem', borderBottom: '1px solid #f1f5f9', padding: '0.8rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                       <div>
-                                          <strong>{f.team_name || 'Team'}:</strong> {f.action}
-                                          {f.detail && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{f.detail}</div>}
+                                 {feed.map((f, i) => {
+                                    const teamObj = (teams || []).find(t => t && (String(t.id) === String(f.team_id) || t.name === f.team_name));
+                                    const displayName = f.team_name || teamObj?.name || (f.team_id ? `ทีม ${f.team_id}` : 'ทีม');
+                                    return (
+                                       <div key={i} style={{ fontSize: '0.8125rem', borderBottom: '1px solid #f1f5f9', padding: '0.8rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                          <div style={{ flex: 1 }}>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                <strong style={{ color: '#1e40af' }}>{displayName}</strong>
+                                                <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.7rem', padding: '1px 6px', borderRadius: 10 }}>{f.action}</span>
+                                             </div>
+                                             {f.detail && <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '3px' }}>{f.detail}</div>}
+                                          </div>
+                                          <span style={{ fontSize: '0.625rem', color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>{new Date(f.created_at).toLocaleTimeString()}</span>
                                        </div>
-                                       <span style={{ fontSize: '0.625rem', opacity: 0.5 }}>{new Date(f.created_at).toLocaleTimeString()}</span>
-                                    </div>
-                                 ))}
+                                    );
+                                 })}
                                  {feed.length === 0 && <p style={{ fontSize: '0.75rem', opacity: 0.5, textAlign: 'center', padding: '2rem' }}>กำลังติดตามความเคลื่อนไหวล่าสุด...</p>}
                               </div>
                            </div>
@@ -1866,23 +2068,81 @@ export default function App() {
 
                      {assessorSubTab === 'teams' && (
                         <div>
-                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
-                              <h4>Managed Teams ({teams.filter(t => t && (t.teacher_id === user?.id || user?.role === 'admin')).length})</h4>
-                              <p style={{ fontSize: '0.75rem', color: '#64748b' }}>รายการทีมที่คุณได้รับมอบหมายให้ดูแล</p>
+                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                              <h4 style={{ margin: 0 }}>ทีมทั้งหมด ({teams.length} ทีม)</h4>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                 <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                    🟢 ทีมของฉัน: {teams.filter(t => t && t.teacher_id === user?.id).length} ทีม
+                                 </span>
+                                 <button onClick={() => getTeams().then(setTeams).catch(console.error)}
+                                    style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 10px', fontSize: '0.7rem', color: '#64748b', cursor: 'pointer' }}>
+                                    🔄 รีเฟรช
+                                 </button>
+                              </div>
                            </div>
-                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                              {teams.filter(t => t && (t.teacher_id === user?.id || user?.role === 'admin')).map(t => (
-                                 <div key={t.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
-                                    <div>
-                                       <div style={{ fontWeight: 600 }}>{t.name}</div>
-                                       <div style={{ fontSize: '0.625rem', opacity: 0.6 }}>Progress: Step 3 | Last update: 10m ago</div>
+                           {teams.length === 0 && (
+                              <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.875rem' }}>
+                                 ยังไม่มีทีมในระบบ — ให้ Admin สร้างทีมก่อน
+                              </div>
+                           )}
+                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                              {teams.map(t => {
+                                 if (!t) return null;
+                                 const isMyTeam = t.teacher_id === user?.id;
+                                 const members  = teamStudents.filter(s => String(s.team_id || s.teamId) === String(t.id));
+                                 const leader   = teamStudents.find(s => s.id === t.leader_id);
+                                 return (
+                                    <div key={t.id} className="card"
+                                       style={{
+                                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                          padding: '0.75rem 1rem', gap: '0.75rem',
+                                          border: `2px solid ${isMyTeam ? 'var(--color-primary)' : '#e2e8f0'}`,
+                                          background: isMyTeam ? 'var(--color-primary-light, #f0fdf4)' : '#fff',
+                                          cursor: 'pointer',
+                                       }}
+                                       onClick={() => {
+                                          setTeamModal(t);
+                                          setTeamModalEdit({
+                                             photo: t.photo || '',
+                                             leaderId: t.leader_id || '',
+                                             teacherId: t.teacher_id || '',
+                                             memberIds: members.map(m => m.id),
+                                             memberSearch: '',
+                                             courseIds: Array.isArray(t.courseIds) ? t.courseIds : t.courseId ? [t.courseId] : ['green-rayong'],
+                                          });
+                                       }}
+                                    >
+                                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                                          {t.photo && <img src={t.photo} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => e.target.style.display='none'} />}
+                                          <div style={{ minWidth: 0 }}>
+                                             <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {t.name || t.id}
+                                                {isMyTeam && <span style={{ background: 'var(--color-primary)', color: '#fff', fontSize: '0.6rem', padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>ทีมของฉัน</span>}
+                                             </div>
+                                             <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>
+                                                👥 {members.length} คน
+                                                {leader ? ` · 👑 ${leader.name}` : ''}
+                                                {t.teacher_id && t.teacher_id !== user?.id && (
+                                                   <span style={{ marginLeft: 6, color: '#94a3b8' }}>
+                                                      · ครู: {(users || teamTeachers || []).find(u => u.id === t.teacher_id)?.name || t.teacher_id}
+                                                   </span>
+                                                )}
+                                             </div>
+                                          </div>
+                                       </div>
+                                       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                          <button onClick={e => { e.stopPropagation(); setSelectedTeam(t); setActiveTab('worksheets'); }}
+                                             className="card" style={{ margin: 0, padding: '0.35rem 0.8rem', fontSize: '0.72rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', whiteSpace: 'nowrap' }}>
+                                             📝 Worksheets
+                                          </button>
+                                          <button onClick={e => { e.stopPropagation(); setSelectedTeam(t); setActiveTab('pitch-evaluator'); }}
+                                             className="card" style={{ margin: 0, padding: '0.35rem 0.8rem', fontSize: '0.72rem', background: 'var(--color-primary-light)', color: 'var(--color-primary)', border: 'none', whiteSpace: 'nowrap' }}>
+                                             ⭐ ประเมิน
+                                          </button>
+                                       </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                       <button onClick={() => { setSelectedTeam(t); setActiveTab('pitch-evaluator'); }} className="card" style={{ margin: 0, padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'var(--color-primary-light)', color: 'var(--color-primary)', border: 'none' }}>ตรวจงาน</button>
-                                       <button className="card" style={{ margin: 0, padding: '0.4rem 0.8rem', fontSize: '0.75rem', border: 'none' }}>แชททีม</button>
-                                    </div>
-                                 </div>
-                              ))}
+                                 );
+                              })}
                            </div>
                         </div>
                      )}
@@ -2133,6 +2393,7 @@ export default function App() {
                     { id: 'session',    label: t('admin_sub_session')    },
                     { id: 'moderation', label: t('admin_sub_moderation') },
                     { id: 'courses',    label: t('admin_sub_courses')    },
+                    { id: 'subjects',   label: '📖 รายวิชา'              },
                     { id: 'branding',   label: t('admin_sub_branding')   },
                     { id: 'settings',   label: t('admin_sub_settings')   },
                     { id: 'reports',    label: t('admin_sub_reports')    }
@@ -2530,7 +2791,7 @@ export default function App() {
                                     <option value="Custom">Custom</option>
                                  </select>
                               </div>
-                              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr auto', gap: 8, marginTop: '0.5rem', alignItems: 'center' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr', gap: 8, marginTop: '0.5rem', alignItems: 'center' }}>
                                  <input type="text" value={newCourseForm.logoEmoji} onChange={e => setNewCourseForm({ ...newCourseForm, logoEmoji: e.target.value })} maxLength={4} placeholder="🌿" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontSize: '1.3rem' }} />
                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <input type="color" value={newCourseForm.primaryColor} onChange={e => setNewCourseForm({ ...newCourseForm, primaryColor: e.target.value })} style={{ width: 40, height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
@@ -2540,8 +2801,107 @@ export default function App() {
                                     <input type="color" value={newCourseForm.secondaryColor} onChange={e => setNewCourseForm({ ...newCourseForm, secondaryColor: e.target.value })} style={{ width: 40, height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
                                     <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Secondary</span>
                                  </div>
-                                 <button onClick={handleCreateCourse} className="login-btn" style={{ background: '#16a34a', padding: '0.5rem 1.2rem' }}>+ สร้าง</button>
                               </div>
+
+                              {/* ─── รายวิชาที่สอนในหลักสูตร ─── */}
+                              {(() => {
+                                 const selIds = newCourseForm.subjectIds || [];
+                                 const toggleSubj = (sid) => {
+                                    const next = selIds.includes(sid) ? selIds.filter(x => x !== sid) : [...selIds, sid];
+                                    const primary = next.includes(newCourseForm.primarySubjectId) ? newCourseForm.primarySubjectId : (next[0] || '');
+                                    setNewCourseForm({ ...newCourseForm, subjectIds: next, primarySubjectId: primary });
+                                 };
+                                 return (
+                                    <div style={{ marginTop: 10 }}>
+                                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>📖 รายวิชาที่สอนในหลักสูตร (เลือกได้มากกว่า 1 วิชา)</div>
+                                       {subjects.length === 0 ? (
+                                          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มีรายวิชา — ไปเพิ่มที่แท็บ "📖 รายวิชา" ก่อน</p>
+                                       ) : (
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                             {subjects.map(s => {
+                                                const selected = selIds.includes(s.id);
+                                                const isPrimary = newCourseForm.primarySubjectId === s.id;
+                                                return (
+                                                   <button key={s.id} onClick={() => toggleSubj(s.id)}
+                                                      style={{
+                                                         padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
+                                                         fontWeight: selected ? 700 : 400,
+                                                         background: isPrimary ? '#dbeafe' : selected ? '#f0fdf4' : '#f8fafc',
+                                                         color: isPrimary ? '#1d4ed8' : selected ? '#166534' : '#64748b',
+                                                         border: `1.5px solid ${isPrimary ? '#93c5fd' : selected ? '#bbf7d0' : '#e2e8f0'}`,
+                                                      }}>
+                                                      {isPrimary ? '⭐ ' : selected ? '✓ ' : ''}{s.name}
+                                                      {s.credits && <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 3 }}>({s.credits})</span>}
+                                                   </button>
+                                                );
+                                             })}
+                                          </div>
+                                       )}
+                                       {selIds.length > 1 && (
+                                          <div style={{ marginTop: 8 }}>
+                                             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>⭐ วิชาหลักของหลักสูตร</div>
+                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                {selIds.map(sid => {
+                                                   const s = subjects.find(x => x.id === sid);
+                                                   if (!s) return null;
+                                                   return (
+                                                      <button key={sid} onClick={() => setNewCourseForm({ ...newCourseForm, primarySubjectId: sid })}
+                                                         style={{
+                                                            padding: '0.25rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
+                                                            background: newCourseForm.primarySubjectId === sid ? '#dbeafe' : '#f8fafc',
+                                                            color: newCourseForm.primarySubjectId === sid ? '#1d4ed8' : '#64748b',
+                                                            border: `1.5px solid ${newCourseForm.primarySubjectId === sid ? '#93c5fd' : '#e2e8f0'}`,
+                                                            fontWeight: newCourseForm.primarySubjectId === sid ? 700 : 400,
+                                                         }}>
+                                                         {newCourseForm.primarySubjectId === sid ? '⭐ ' : ''}{s.name}
+                                                      </button>
+                                                   );
+                                                })}
+                                             </div>
+                                          </div>
+                                       )}
+                                    </div>
+                                 );
+                              })()}
+
+                              {/* ─── อาจารย์ผู้สอน/ผู้ควบคุม ─── */}
+                              {(() => {
+                                 const pool = (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'sage' || u.role === 'facilitator'));
+                                 const selIds = newCourseForm.instructorIds || [];
+                                 const toggle = (uid) => {
+                                    const next = selIds.includes(uid) ? selIds.filter(x => x !== uid) : [...selIds, uid];
+                                    setNewCourseForm({ ...newCourseForm, instructorIds: next });
+                                 };
+                                 return (
+                                    <div style={{ marginTop: 10 }}>
+                                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>👩‍🏫 อาจารย์ผู้สอน/ผู้ควบคุม</div>
+                                       {pool.length === 0 ? (
+                                          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มี Teacher/Sage/Facilitator ในระบบ</p>
+                                       ) : (
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                             {pool.map(u => {
+                                                const selected = selIds.includes(u.id);
+                                                return (
+                                                   <button key={u.id} onClick={() => toggle(u.id)}
+                                                      style={{
+                                                         padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
+                                                         fontWeight: selected ? 700 : 400,
+                                                         background: selected ? '#fef3c7' : '#f8fafc',
+                                                         color: selected ? '#92400e' : '#64748b',
+                                                         border: `1.5px solid ${selected ? '#fcd34d' : '#e2e8f0'}`,
+                                                      }}>
+                                                      {selected ? '✓ ' : ''}{u.name}
+                                                      <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 4 }}>({u.role})</span>
+                                                   </button>
+                                                );
+                                             })}
+                                          </div>
+                                       )}
+                                    </div>
+                                 );
+                              })()}
+
+                              <button onClick={handleCreateCourse} className="login-btn" style={{ marginTop: 12, background: '#16a34a', padding: '0.5rem 1.5rem' }}>+ สร้างหลักสูตร</button>
                            </div>
 
                            {/* Course list */}
@@ -2566,6 +2926,24 @@ export default function App() {
                                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 4, fontFamily: 'monospace' }}>
                                                 ID: {c.id} · Methodology: {(Array.isArray(c.methodology) ? c.methodology.join(', ') : c.methodology) || '—'} · Stages: {c.stages?.length || 0} · Worksheets: {c.worksheets?.length || 0} · Identities: {c.identities?.length || 0}
                                              </div>
+                                             {Array.isArray(c.subjectIds) && c.subjectIds.length > 0 && (
+                                                <div style={{ fontSize: '0.7rem', color: '#0891b2', marginTop: 3 }}>
+                                                   📖 วิชา: {c.subjectIds.map(sid => {
+                                                      const s = subjects.find(x => x.id === sid);
+                                                      const label = s ? s.name : sid;
+                                                      const isPrimary = c.primarySubjectId === sid;
+                                                      return isPrimary ? `⭐${label}` : label;
+                                                   }).join(' · ')}
+                                                </div>
+                                             )}
+                                             {Array.isArray(c.instructorIds) && c.instructorIds.length > 0 && (
+                                                <div style={{ fontSize: '0.7rem', color: '#1d4ed8', marginTop: 3 }}>
+                                                   👩‍🏫 ผู้ดูแล: {c.instructorIds.map(uid => {
+                                                      const u = (users || []).find(x => x.id === uid) || (teamTeachers || []).find(x => x.id === uid);
+                                                      return u ? u.name : uid;
+                                                   }).join(' · ')}
+                                                </div>
+                                             )}
                                           </div>
                                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                              {!c.isDefault && <button onClick={() => handleSetDefault(c.id)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #16a34a', background: '#f0fdf4', color: '#16a34a', borderRadius: 4, cursor: 'pointer' }} title="ตั้งเป็นหลักสูตรเริ่มต้น">⭐ Set Default</button>}
@@ -2590,10 +2968,66 @@ export default function App() {
                                              </div>
                                              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr', gap: 8, marginTop: 6, alignItems: 'center' }}>
                                                 <input type="text" value={editCourseDraft.logoEmoji} onChange={e => setEditCourseDraft({ ...editCourseDraft, logoEmoji: e.target.value })} maxLength={4} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontSize: '1.3rem' }} />
-                                                <input type="color" value={editCourseDraft.primaryColor} onChange={e => setEditCourseDraft({ ...editCourseDraft, primaryColor: e.target.value })} style={{ width: '100%', height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
-                                                <input type="color" value={editCourseDraft.secondaryColor} onChange={e => setEditCourseDraft({ ...editCourseDraft, secondaryColor: e.target.value })} style={{ width: '100%', height: 36, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                   <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Primary Color</span>
+                                                   <input type="color" value={editCourseDraft.primaryColor} onChange={e => setEditCourseDraft({ ...editCourseDraft, primaryColor: e.target.value })} style={{ width: '100%', height: 32, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                   <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Secondary Color</span>
+                                                   <input type="color" value={editCourseDraft.secondaryColor} onChange={e => setEditCourseDraft({ ...editCourseDraft, secondaryColor: e.target.value })} style={{ width: '100%', height: 32, border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                </div>
                                              </div>
-                                             <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+
+                                             {/* ─── ผู้ดูแลหลักสูตร ──────────────────────────── */}
+                                             {(() => {
+                                                const staffList = (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'sage' || u.role === 'facilitator'));
+                                                const fallbackList = teamTeachers || [];
+                                                const pool = staffList.length > 0 ? staffList : fallbackList;
+                                                const currentIds = editCourseDraft.instructorIds || [];
+                                                const toggleInstructor = (uid) => {
+                                                   const next = currentIds.includes(uid)
+                                                      ? currentIds.filter(id => id !== uid)
+                                                      : [...currentIds, uid];
+                                                   setEditCourseDraft({ ...editCourseDraft, instructorIds: next });
+                                                };
+                                                return (
+                                                   <div style={{ marginTop: 10 }}>
+                                                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                                                         👩‍🏫 ผู้ดูแลหลักสูตร ({currentIds.length} คน)
+                                                      </div>
+                                                      {pool.length === 0 ? (
+                                                         <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มี Teacher/Sage ในระบบ</p>
+                                                      ) : (
+                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                            {pool.map(u => {
+                                                               const selected = currentIds.includes(u.id);
+                                                               return (
+                                                                  <button key={u.id} onClick={() => toggleInstructor(u.id)}
+                                                                     style={{
+                                                                        padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
+                                                                        fontWeight: selected ? 700 : 400,
+                                                                        background: selected ? '#dbeafe' : '#f8fafc',
+                                                                        color: selected ? '#1d4ed8' : '#64748b',
+                                                                        border: `1.5px solid ${selected ? '#93c5fd' : '#e2e8f0'}`,
+                                                                        transition: 'all 0.15s',
+                                                                     }}>
+                                                                     {selected ? '✓ ' : ''}{u.name}
+                                                                     <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 4 }}>({u.role})</span>
+                                                                  </button>
+                                                               );
+                                                            })}
+                                                         </div>
+                                                      )}
+                                                      {currentIds.length > 0 && (
+                                                         <div style={{ fontSize: '0.68rem', color: '#1d4ed8', marginTop: 5 }}>
+                                                            ✅ {pool.filter(u => currentIds.includes(u.id)).map(u => u.name).join(', ')}
+                                                         </div>
+                                                      )}
+                                                   </div>
+                                                );
+                                             })()}
+
+                                             <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                                                 <button onClick={saveEditCourse} className="login-btn" style={{ flex: 1, background: '#16a34a', padding: '0.45rem' }}>💾 บันทึก</button>
                                                 <button onClick={() => { setEditingCourseId(null); setEditCourseDraft(null); }} className="login-btn" style={{ flex: 1, background: '#64748b', padding: '0.45rem' }}>ยกเลิก</button>
                                              </div>
@@ -2700,6 +3134,146 @@ export default function App() {
                            </div>
                         </div>
                      )}
+                     {adminSubTab === 'subjects' && (() => {
+                        const handleCreateSubject = async () => {
+                           const { id, code, name, credits, standardRef, learningOutcome, objectives, competencies, description } = newSubjectForm;
+                           if (!id || !name) { window.alert('กรุณากรอก Subject ID + ชื่อวิชา'); return; }
+                           if (!/^[a-z0-9-]{3,40}$/.test(id)) { window.alert('Subject ID ใช้ a-z, 0-9, ขีดกลาง เท่านั้น (3-40 ตัวอักษร)'); return; }
+                           try {
+                              await createSubject(id, { code, name, credits, standardRef, learningOutcome, objectives, competencies, description });
+                              setNewSubjectForm({ id: '', code: '', name: '', credits: '2-2-3', standardRef: '', learningOutcome: '', objectives: '', competencies: '', description: '' });
+                              window.alert('✅ เพิ่มวิชาสำเร็จ');
+                           } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+                        };
+                        const handleSaveSubject = async () => {
+                           if (!editingSubjectId || !editSubjectDraft) return;
+                           try {
+                              await updateSubject(editingSubjectId, editSubjectDraft);
+                              setEditingSubjectId(null); setEditSubjectDraft(null);
+                           } catch (e) { window.alert('❌ ' + (e?.message || e)); }
+                        };
+                        const handleDeleteSubject = async (sid) => {
+                           if (!window.confirm(`ลบวิชา "${sid}" ออกจากระบบ? (หลักสูตรที่อ้างอิงวิชานี้ยังคงอยู่)`)) return;
+                           await deleteSubject(sid);
+                        };
+                        return (
+                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                              {/* Add new subject */}
+                              <div className="card">
+                                 <h5>➕ เพิ่มรายวิชาใหม่</h5>
+                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: '0.75rem' }}>
+                                    <input type="text" value={newSubjectForm.id}
+                                       onChange={e => setNewSubjectForm({ ...newSubjectForm, id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                                       placeholder="subject-id (a-z, 0-9, ขีดกลาง)" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, fontFamily: 'monospace', fontSize: '0.8rem' }} />
+                                    <input type="text" value={newSubjectForm.code}
+                                       onChange={e => setNewSubjectForm({ ...newSubjectForm, code: e.target.value })}
+                                       placeholder="รหัสวิชา เช่น 30204-2003" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                    <input type="text" value={newSubjectForm.name}
+                                       onChange={e => setNewSubjectForm({ ...newSubjectForm, name: e.target.value })}
+                                       placeholder="ชื่อวิชา เช่น ระบบฐานข้อมูล" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                    <input type="text" value={newSubjectForm.credits}
+                                       onChange={e => setNewSubjectForm({ ...newSubjectForm, credits: e.target.value })}
+                                       placeholder="หน่วยกิต เช่น 2-2-3" style={{ padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                 </div>
+                                 <textarea value={newSubjectForm.standardRef}
+                                    onChange={e => setNewSubjectForm({ ...newSubjectForm, standardRef: e.target.value })}
+                                    placeholder="อ้างอิงมาตรฐาน (ไม่บังคับ)"
+                                    rows={2} style={{ marginTop: 8, width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem', boxSizing: 'border-box' }} />
+                                 <textarea value={newSubjectForm.learningOutcome}
+                                    onChange={e => setNewSubjectForm({ ...newSubjectForm, learningOutcome: e.target.value })}
+                                    placeholder="ผลการเรียนรู้ระดับรายวิชา (ไม่บังคับ)"
+                                    rows={2} style={{ marginTop: 8, width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem', boxSizing: 'border-box' }} />
+                                 <textarea value={newSubjectForm.objectives}
+                                    onChange={e => setNewSubjectForm({ ...newSubjectForm, objectives: e.target.value })}
+                                    placeholder="จุดประสงค์รายวิชา (ไม่บังคับ)"
+                                    rows={3} style={{ marginTop: 8, width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem', boxSizing: 'border-box' }} />
+                                 <textarea value={newSubjectForm.competencies}
+                                    onChange={e => setNewSubjectForm({ ...newSubjectForm, competencies: e.target.value })}
+                                    placeholder="สมรรถนะรายวิชา (ไม่บังคับ)"
+                                    rows={3} style={{ marginTop: 8, width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem', boxSizing: 'border-box' }} />
+                                 <textarea value={newSubjectForm.description}
+                                    onChange={e => setNewSubjectForm({ ...newSubjectForm, description: e.target.value })}
+                                    placeholder="คำอธิบายรายวิชา (ไม่บังคับ)"
+                                    rows={3} style={{ marginTop: 8, width: '100%', padding: '0.5rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem', boxSizing: 'border-box' }} />
+                                 <button onClick={handleCreateSubject} className="login-btn" style={{ marginTop: 8, background: '#0891b2', padding: '0.45rem 1.2rem' }}>+ เพิ่มวิชา</button>
+                              </div>
+
+                              {/* Subject list */}
+                              {subjects.length === 0 ? (
+                                 <div className="card" style={{ borderStyle: 'dashed', textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.875rem' }}>
+                                    ยังไม่มีรายวิชา — กดปุ่ม "➕ เพิ่มรายวิชาใหม่" ด้านบน
+                                 </div>
+                              ) : subjects.map(s => {
+                                 const isEditS = editingSubjectId === s.id;
+                                 return (
+                                    <div key={s.id} className="card" style={{ borderLeft: '4px solid #0891b2' }}>
+                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                          {isEditS && editSubjectDraft ? (
+                                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                                                   <input type="text" value={editSubjectDraft.code || ''}
+                                                      onChange={e => setEditSubjectDraft({ ...editSubjectDraft, code: e.target.value })}
+                                                      placeholder="รหัสวิชา" style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                   <input type="text" value={editSubjectDraft.name || ''}
+                                                      onChange={e => setEditSubjectDraft({ ...editSubjectDraft, name: e.target.value })}
+                                                      placeholder="ชื่อวิชา" style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                   <input type="text" value={editSubjectDraft.credits || ''}
+                                                      onChange={e => setEditSubjectDraft({ ...editSubjectDraft, credits: e.target.value })}
+                                                      placeholder="หน่วยกิต" style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6 }} />
+                                                </div>
+                                                <textarea value={editSubjectDraft.standardRef || ''}
+                                                   onChange={e => setEditSubjectDraft({ ...editSubjectDraft, standardRef: e.target.value })}
+                                                   rows={2} placeholder="อ้างอิงมาตรฐาน"
+                                                   style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem' }} />
+                                                <textarea value={editSubjectDraft.learningOutcome || ''}
+                                                   onChange={e => setEditSubjectDraft({ ...editSubjectDraft, learningOutcome: e.target.value })}
+                                                   rows={2} placeholder="ผลการเรียนรู้ระดับรายวิชา"
+                                                   style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem' }} />
+                                                <textarea value={editSubjectDraft.objectives || ''}
+                                                   onChange={e => setEditSubjectDraft({ ...editSubjectDraft, objectives: e.target.value })}
+                                                   rows={3} placeholder="จุดประสงค์รายวิชา"
+                                                   style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem' }} />
+                                                <textarea value={editSubjectDraft.competencies || ''}
+                                                   onChange={e => setEditSubjectDraft({ ...editSubjectDraft, competencies: e.target.value })}
+                                                   rows={3} placeholder="สมรรถนะรายวิชา"
+                                                   style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem' }} />
+                                                <textarea value={editSubjectDraft.description || ''}
+                                                   onChange={e => setEditSubjectDraft({ ...editSubjectDraft, description: e.target.value })}
+                                                   rows={3} placeholder="คำอธิบายรายวิชา"
+                                                   style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: 6, resize: 'vertical', fontSize: '0.8rem' }} />
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                   <button onClick={handleSaveSubject} className="login-btn" style={{ background: '#16a34a', padding: '0.35rem 0.9rem', fontSize: '0.75rem' }}>💾 บันทึก</button>
+                                                   <button onClick={() => { setEditingSubjectId(null); setEditSubjectDraft(null); }} className="login-btn" style={{ background: '#64748b', padding: '0.35rem 0.9rem', fontSize: '0.75rem' }}>ยกเลิก</button>
+                                                </div>
+                                             </div>
+                                          ) : (
+                                             <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{s.name}</div>
+                                                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2, fontFamily: 'monospace' }}>
+                                                   ID: {s.id} {s.code ? `· รหัส: ${s.code}` : ''} {s.credits ? `· หน่วยกิต: ${s.credits}` : ''}
+                                                </div>
+                                                {s.standardRef && <div style={{ fontSize: '0.75rem', color: '#1e40af', marginTop: 6 }}><strong>อ้างอิงมาตรฐาน:</strong> {s.standardRef}</div>}
+                                                {s.learningOutcome && <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: 4 }}><strong>ผลการเรียนรู้:</strong> {s.learningOutcome}</div>}
+                                                {s.objectives && <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: 4 }}><strong>จุดประสงค์:</strong> {s.objectives}</div>}
+                                                {s.competencies && <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: 4 }}><strong>สมรรถนะ:</strong> {s.competencies}</div>}
+                                                {s.description && <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: 4 }}><strong>คำอธิบาย:</strong> {s.description}</div>}
+                                             </div>
+                                          )}
+                                          {!isEditS && (
+                                             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                                <button onClick={() => { setEditingSubjectId(s.id); setEditSubjectDraft({ code: s.code || '', name: s.name || '', credits: s.credits || '', standardRef: s.standardRef || '', learningOutcome: s.learningOutcome || '', objectives: s.objectives || '', competencies: s.competencies || '', description: s.description || '' }); }}
+                                                   style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 4, cursor: 'pointer' }}>✏️ แก้ไข</button>
+                                                <button onClick={() => handleDeleteSubject(s.id)}
+                                                   style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 4, cursor: 'pointer' }}>🗑 ลบ</button>
+                                             </div>
+                                          )}
+                                       </div>
+                                    </div>
+                                 );
+                              })}
+                           </div>
+                        );
+                     })()}
                      {adminSubTab === 'branding' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                            {/* Header */}
@@ -3668,39 +4242,54 @@ export default function App() {
                         <div className="card" style={{ textAlign: 'center', borderStyle: 'dashed', padding: '2rem' }}>
                            <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>หลักสูตรนี้ยังไม่มี worksheets — admin สามารถเพิ่มได้ใน Course Admin → 📝 Worksheets</p>
                         </div>
-                     ) : (
-                        (currentCourse.stages || []).map(stage => {
-                           const wsInStage = (currentCourse.worksheets || []).filter(w => w.stageId === stage.id);
-                           if (wsInStage.length === 0) return null;
+                     ) : (() => {
+                        // helper — renders a worksheet button (shared by both grouped and flat views)
+                        const renderWsBtn = (w) => {
+                           const isSelected = selectedWorksheetId === w.id;
+                           const isDone = submittedIds.has(w.id);
                            return (
-                              <div key={stage.id} className="card" style={{ marginBottom: '0.5rem', padding: '0.5rem' }}>
-                                 <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '0.25rem 0.4rem', color: '#475569' }}>
-                                    {stage.emoji} {stage.label}
+                              <button key={w.id} onClick={() => setSelectedWorksheetId(w.id)}
+                                 style={{
+                                    padding: '0.5rem 0.6rem', textAlign: 'left',
+                                    border: isSelected ? '2px solid ' + (currentCourse.branding?.primaryColor || '#16a34a') : '1px solid #e2e8f0',
+                                    background: isSelected ? (currentCourse.branding?.primaryColor || '#16a34a') + '11' : '#fff',
+                                    borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem',
+                                    display: 'flex', alignItems: 'center', gap: 6
+                                 }}>
+                                 <span style={{ fontSize: '1.1rem' }}>{w.icon || '📝'}</span>
+                                 <span style={{ flex: 1 }}>{w.labelTH || w.label}</span>
+                                 {isDone && <span style={{ background: '#16a34a', color: '#fff', padding: '0.1rem 0.35rem', borderRadius: 8, fontSize: '0.65rem', fontWeight: 700 }}>✓</span>}
+                              </button>
+                           );
+                        };
+                        const hasStages = Array.isArray(currentCourse.stages) && currentCourse.stages.length > 0;
+                        if (hasStages) {
+                           // Grouped by stage (existing courses with stages defined)
+                           return currentCourse.stages.map(stage => {
+                              const wsInStage = (currentCourse.worksheets || []).filter(w => w.stageId === stage.id);
+                              if (wsInStage.length === 0) return null;
+                              return (
+                                 <div key={stage.id} className="card" style={{ marginBottom: '0.5rem', padding: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '0.25rem 0.4rem', color: '#475569' }}>
+                                       {stage.emoji} {stage.label}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                       {wsInStage.map(renderWsBtn)}
+                                    </div>
                                  </div>
+                              );
+                           });
+                        } else {
+                           // Flat list — courses without stages (31910-2002, 31910-2004, 31910-2013, etc.)
+                           return (
+                              <div className="card" style={{ marginBottom: '0.5rem', padding: '0.5rem' }}>
                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {wsInStage.map(w => {
-                                       const isSelected = selectedWorksheetId === w.id;
-                                       const isDone = submittedIds.has(w.id);
-                                       return (
-                                          <button key={w.id} onClick={() => setSelectedWorksheetId(w.id)}
-                                             style={{
-                                                padding: '0.5rem 0.6rem', textAlign: 'left',
-                                                border: isSelected ? '2px solid ' + (currentCourse.branding?.primaryColor || '#16a34a') : '1px solid #e2e8f0',
-                                                background: isSelected ? '#f0fdf4' : '#fff',
-                                                borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem',
-                                                display: 'flex', alignItems: 'center', gap: 6
-                                             }}>
-                                             <span style={{ fontSize: '1.1rem' }}>{w.icon || '📝'}</span>
-                                             <span style={{ flex: 1 }}>{w.labelTH || w.label}</span>
-                                             {isDone && <span style={{ background: '#16a34a', color: '#fff', padding: '0.1rem 0.35rem', borderRadius: 8, fontSize: '0.65rem', fontWeight: 700 }}>✓</span>}
-                                          </button>
-                                       );
-                                    })}
+                                    {(currentCourse.worksheets || []).map(renderWsBtn)}
                                  </div>
                               </div>
                            );
-                        })
-                     )}
+                        }
+                     })()}
                      {/* ── Progress + Final Submit ── */}
                      {effectiveWsTeamId && (currentCourse.worksheets || []).length > 0 && (() => {
                         const totalWs = currentCourse.worksheets.length;
@@ -3802,7 +4391,29 @@ export default function App() {
                               </div>
                            )}
 
-                           <GenericForm schema={ws} value={worksheetFormDraft} onChange={setWorksheetFormDraft} disabled={wsViewOnly} />
+                           <GenericForm schema={ws} value={worksheetFormDraft} onChange={(v) => { wsFormDirtyRef.current = true; setWorksheetFormDraft(v); }} disabled={wsViewOnly} />
+
+                           {/* ── Save result banner ── */}
+                           {wsSaveResult && (
+                             <div style={{
+                               marginTop: '1rem',
+                               padding: '0.75rem 1rem',
+                               borderRadius: 8,
+                               display: 'flex', alignItems: 'center', gap: 10,
+                               background: wsSaveResult.ok ? '#f0fdf4' : '#fef2f2',
+                               border: `1.5px solid ${wsSaveResult.ok ? '#86efac' : '#fca5a5'}`,
+                               fontSize: '0.85rem',
+                               color: wsSaveResult.ok ? '#166534' : '#991b1b',
+                             }}>
+                               <span style={{ fontSize: '1.3rem' }}>{wsSaveResult.ok ? '✅' : '❌'}</span>
+                               <div>
+                                 <strong>{wsSaveResult.ok ? 'บันทึกสำเร็จ' : 'บันทึกไม่สำเร็จ'}</strong>
+                                 <span style={{ marginLeft: 8, fontWeight: 400 }}>{wsSaveResult.msg}</span>
+                               </div>
+                               <span style={{ marginLeft: 'auto', fontSize: '0.72rem', opacity: 0.65 }}>{wsSaveResult.at}</span>
+                               <button onClick={() => setWsSaveResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, opacity: 0.5, padding: 0 }}>✕</button>
+                             </div>
+                           )}
 
                            {/* Grading panel — teacher / facilitator / sage */}
                            {canGrade && submittedIds.has(ws.id) && (() => {
@@ -3838,6 +4449,20 @@ export default function App() {
                                           {wScoreSaving ? '⏳...' : hasScore ? '🔄 อัปเดตคะแนน' : '💾 บันทึกคะแนน'}
                                        </button>
                                     </div>
+                                    {wScoreSaveResult && (
+                                      <div style={{
+                                        marginTop: '0.6rem', padding: '0.5rem 0.75rem', borderRadius: 6,
+                                        display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem',
+                                        background: wScoreSaveResult.ok ? '#f0fdf4' : '#fef2f2',
+                                        border: `1px solid ${wScoreSaveResult.ok ? '#86efac' : '#fca5a5'}`,
+                                        color: wScoreSaveResult.ok ? '#166534' : '#991b1b',
+                                      }}>
+                                        <span>{wScoreSaveResult.ok ? '✅' : '❌'}</span>
+                                        <span>{wScoreSaveResult.msg}</span>
+                                        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', opacity: 0.6 }}>{wScoreSaveResult.at}</span>
+                                        <button onClick={() => setWScoreSaveResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', opacity: 0.5, padding: 0 }}>✕</button>
+                                      </div>
+                                    )}
                                  </div>
                               );
                            })()}
@@ -3853,6 +4478,130 @@ export default function App() {
             </motion.div>
             );
           })()}
+
+          {activeTab === 'course-select' && (
+            <motion.div key="course-select" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="lane">
+                <div className="lane-header bg-primary-light" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>📚 เลือกหลักสูตร — หลักสูตรที่เปิดสอน</span>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{coursesAll.length} หลักสูตร</span>
+                </div>
+                <div className="lane-content">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+                    {coursesAll.map(course => {
+                      const isActive = course.id === currentCourseId;
+                      const pc = course.branding?.primaryColor || '#0891b2';
+                      return (
+                        <div key={course.id} className="card" style={{
+                          border: isActive ? `2.5px solid ${pc}` : '1.5px solid #e2e8f0',
+                          borderRadius: 12,
+                          padding: 0,
+                          overflow: 'hidden',
+                          boxShadow: isActive ? `0 4px 20px ${pc}33` : undefined,
+                          transition: 'box-shadow 0.2s',
+                        }}>
+                          {/* Header strip */}
+                          <div style={{ background: pc, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: '2rem' }}>{course.branding?.logoEmoji || '📚'}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3 }}>{course.nameTH || course.name}</div>
+                              {course.nameEN && <div style={{ color: '#ffffffbb', fontSize: '0.75rem' }}>{course.nameEN}</div>}
+                            </div>
+                            {isActive && (
+                              <span style={{ background: '#fff', color: pc, fontWeight: 700, fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: 20 }}>✓ กำลังใช้งาน</span>
+                            )}
+                            {course.isDefault && !isActive && (
+                              <span style={{ background: '#fbbf24', color: '#78350f', fontWeight: 700, fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: 20 }}>⭐ ค่าเริ่มต้น</span>
+                            )}
+                          </div>
+                          {/* Body */}
+                          <div style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {/* Meta row */}
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              {course.credits && (
+                                <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.72rem', padding: '0.2rem 0.5rem', borderRadius: 6, fontWeight: 600 }}>
+                                  🕐 หน่วยกิต {course.credits}
+                                </span>
+                              )}
+                              {course.curriculum && (
+                                <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.68rem', padding: '0.2rem 0.5rem', borderRadius: 6 }}>
+                                  {course.curriculum}
+                                </span>
+                              )}
+                              {Array.isArray(course.standards) && course.standards.length > 0 && (
+                                <span style={{ background: '#eff6ff', color: '#1d4ed8', fontSize: '0.68rem', padding: '0.2rem 0.5rem', borderRadius: 6 }}>
+                                  📋 {course.standards.join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                            {/* Learning outcomes */}
+                            {course.learningOutcomes && (
+                              <div style={{ background: '#f0fdf4', borderLeft: '3px solid #22c55e', padding: '0.4rem 0.6rem', borderRadius: 4, fontSize: '0.78rem', color: '#166534' }}>
+                                🎯 <strong>ผลลัพธ์การเรียนรู้:</strong> {course.learningOutcomes}
+                              </div>
+                            )}
+                            {/* Description */}
+                            {course.description && (
+                              <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: 1.55 }}>{course.description}</p>
+                            )}
+                            {/* Objectives */}
+                            {Array.isArray(course.objectives) && course.objectives.length > 0 && (
+                              <div>
+                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>จุดประสงค์รายวิชา</div>
+                                <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.75rem', color: '#64748b', lineHeight: 1.7 }}>
+                                  {course.objectives.map((obj, i) => <li key={i}>{obj}</li>)}
+                                </ol>
+                              </div>
+                            )}
+                            {/* Competencies */}
+                            {Array.isArray(course.competencies) && course.competencies.length > 0 && (
+                              <div>
+                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>สมรรถนะรายวิชา</div>
+                                <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.75rem', color: '#64748b', lineHeight: 1.7 }}>
+                                  {course.competencies.map((c, i) => <li key={i}>{c}</li>)}
+                                </ol>
+                              </div>
+                            )}
+                            {/* Worksheets count */}
+                            {course.worksheets?.length > 0 && (
+                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                📝 {course.worksheets.length} Worksheets
+                                {course.stages?.length > 0 && ` · ${course.stages.length} Stages`}
+                              </div>
+                            )}
+                            {/* CTA */}
+                            <button
+                              onClick={() => {
+                                switchCourse(course.id);
+                                // After switching, go to worksheets if available, else stay
+                                if (course.worksheets?.length > 0) setActiveTab('worksheets');
+                                else setActiveTab('teacher-dashboard');
+                              }}
+                              disabled={isActive}
+                              style={{
+                                marginTop: 4,
+                                padding: '0.5rem 1rem',
+                                background: isActive ? '#e2e8f0' : pc,
+                                color: isActive ? '#94a3b8' : '#fff',
+                                border: 'none',
+                                borderRadius: 8,
+                                cursor: isActive ? 'default' : 'pointer',
+                                fontWeight: 700,
+                                fontSize: '0.82rem',
+                                transition: 'background 0.15s',
+                              }}
+                            >
+                              {isActive ? '✓ วิชานี้กำลังใช้งานอยู่' : `เลือกวิชานี้ →`}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {activeTab === 'help' && (
             <motion.div key="help" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lane manual-print">
@@ -4344,7 +5093,18 @@ export default function App() {
 
       {/* ─── Team Edit Modal ─── */}
       {teamModal && (() => {
-        const canEdit = user?.role === 'admin' || user?.role === 'teacher' || user?.role === 'facilitator' ||
+        // ─── canEdit rules ──────────────────────────────────────────────
+        // admin → เสมอ
+        // teacher/facilitator → ต้องเป็น teacher_id ของทีมนี้ หรืออยู่ใน instructorIds ของหลักสูตรที่ทีมนี้ลงทะเบียน
+        // student → เฉพาะทีมของตัวเอง
+        const isAssignedTeacher = (user?.role === 'teacher' || user?.role === 'facilitator') &&
+          (String(teamModal.teacher_id) === String(user?.id) ||
+           (() => {
+             const teamCourseIds = Array.isArray(teamModal.courseIds) ? teamModal.courseIds
+               : teamModal.courseId ? [teamModal.courseId] : ['green-rayong'];
+             return coursesAll.some(c => teamCourseIds.includes(c.id) && Array.isArray(c.instructorIds) && c.instructorIds.includes(user?.id));
+           })());
+        const canEdit = user?.role === 'admin' || isAssignedTeacher ||
                         String(teamModal.id) === String(user?.team_id || user?.teamId);
         const originalMemberIds = teamStudents.filter(s => String(s.team_id || s.teamId) === String(teamModal.id)).map(s => s.id);
         // teacher list: prefer users[] (admin has it) else teamTeachers
@@ -4365,6 +5125,7 @@ export default function App() {
               photo:     teamModalEdit.photo,
               leader_id: teamModalEdit.leaderId,
               teacher_id: teamModalEdit.teacherId,
+              courseIds: teamModalEdit.courseIds || [],
             });
 
             // 2. Member changes (only if canEdit and role allows writing user docs)
@@ -4392,34 +5153,21 @@ export default function App() {
         const selectedMemberObjs = teamModalEdit.memberIds.map(id => teamStudents.find(s => s.id === id)).filter(Boolean);
 
         return (
-          <>
-            {/* backdrop */}
-            <div
-              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9990 }}
-              onClick={() => setTeamModal(null)}
-            />
-            {/* modal box */}
-            <div style={{
-              position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-              background: '#fff', borderRadius: '14px', padding: '1.5rem',
-              width: 'min(92vw, 540px)', maxHeight: '88vh', overflowY: 'auto',
-              zIndex: 9991, boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
-              display: 'flex', flexDirection: 'column', gap: '1rem',
-            }}>
-
-              {/* header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {teamModalEdit.photo && (
-                    <img src={teamModalEdit.photo} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary)' }} onError={e => { e.target.style.display='none'; }} />
-                  )}
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>{teamModal.name}</div>
-                    <div style={{ fontSize: '0.7rem', color: canEdit ? '#16a34a' : '#94a3b8' }}>{canEdit ? '✏️ แก้ไขได้' : '👁 ดูอย่างเดียว'}</div>
-                  </div>
+          <Modal
+            onClose={() => setTeamModal(null)}
+            width="min(92vw, 540px)"
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {teamModalEdit.photo && (
+                  <img src={teamModalEdit.photo} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary)' }} onError={e => { e.target.style.display='none'; }} />
+                )}
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>{teamModal.name}</div>
+                  <div style={{ fontSize: '0.7rem', color: canEdit ? '#16a34a' : '#94a3b8' }}>{canEdit ? '✏️ แก้ไขได้' : '👁 ดูอย่างเดียว'}</div>
                 </div>
-                <button onClick={() => setTeamModal(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 34, height: 34, cursor: 'pointer', fontSize: '1rem', fontWeight: 700, color: '#64748b' }}>✕</button>
               </div>
+            }
+          >
 
               <hr style={{ margin: 0, borderColor: '#f1f5f9' }} />
 
@@ -4540,6 +5288,41 @@ export default function App() {
                 )}
               </div>
 
+              {/* courseIds — admin only */}
+              {user?.role === 'admin' && (
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.4rem' }}>📚 หลักสูตรที่ทีมนี้ลงทะเบียน</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {coursesAll.map(c => {
+                      const checked = (teamModalEdit.courseIds || []).includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => setTeamModalEdit(p => ({
+                            ...p,
+                            courseIds: checked
+                              ? (p.courseIds || []).filter(id => id !== c.id)
+                              : [...(p.courseIds || []), c.id],
+                          }))}
+                          style={{
+                            padding: '0.3rem 0.7rem', borderRadius: '20px', fontSize: '0.78rem', cursor: 'pointer',
+                            background: checked ? 'var(--color-primary)' : '#f1f5f9',
+                            color: checked ? '#fff' : '#475569',
+                            border: `1px solid ${checked ? 'var(--color-primary)' : '#e2e8f0'}`,
+                            fontWeight: checked ? 600 : 400,
+                          }}
+                        >
+                          {checked ? '✓ ' : ''}{c.name || c.id}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(teamModalEdit.courseIds || []).length === 0 && (
+                    <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.3rem' }}>⚠️ ต้องเลือกอย่างน้อย 1 หลักสูตร</div>
+                  )}
+                </div>
+              )}
+
               {/* footer buttons */}
               {canEdit && (
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
@@ -4564,8 +5347,7 @@ export default function App() {
                   เฉพาะสมาชิกทีมหรืออาจารย์เท่านั้นที่แก้ไขได้
                 </div>
               )}
-            </div>
-          </>
+          </Modal>
         );
       })()}
 
@@ -4621,6 +5403,60 @@ export default function App() {
             </div>
          );
       })()}
+
+      {/* ─── Change Password Modal ──────────────────────────────────────── */}
+      {showChangePwd && (
+        <Modal
+          title="🔒 เปลี่ยนรหัสผ่าน"
+          subtitle={`ผู้ใช้: ${user?.name} (${user?.role})`}
+          width="min(92vw, 380px)"
+          onClose={() => { setShowChangePwd(false); setChangePwdStatus(null); setChangePwdMsg(''); setChangePwdForm({ current: '', next: '', confirm: '' }); }}
+          noClose={changePwdStatus === 'saving'}
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>รหัสผ่านเดิม</label>
+              <input type="password" value={changePwdForm.current}
+                onChange={e => setChangePwdForm(p => ({ ...p, current: e.target.value }))}
+                placeholder="รหัสผ่านปัจจุบัน"
+                style={{ padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>รหัสผ่านใหม่ (≥ 4 ตัว)</label>
+              <input type="password" value={changePwdForm.next}
+                onChange={e => setChangePwdForm(p => ({ ...p, next: e.target.value }))}
+                placeholder="รหัสผ่านใหม่"
+                style={{ padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>ยืนยันรหัสผ่านใหม่</label>
+              <input type="password" value={changePwdForm.confirm}
+                onChange={e => setChangePwdForm(p => ({ ...p, confirm: e.target.value }))}
+                placeholder="ยืนยันรหัสผ่านใหม่"
+                style={{ padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.875rem' }} />
+            </div>
+
+            {changePwdMsg && (
+              <div style={{ padding: '0.5rem 0.75rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
+                background: changePwdStatus === 'ok' ? '#f0fdf4' : '#fef2f2',
+                color: changePwdStatus === 'ok' ? '#16a34a' : '#dc2626',
+                border: `1px solid ${changePwdStatus === 'ok' ? '#bbf7d0' : '#fecaca'}` }}>
+                {changePwdMsg}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+              <button onClick={() => { setShowChangePwd(false); setChangePwdStatus(null); setChangePwdMsg(''); setChangePwdForm({ current: '', next: '', confirm: '' }); }}
+                disabled={changePwdStatus === 'saving'}
+                style={{ padding: '0.5rem 1rem', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: '0.875rem' }}>
+                ยกเลิก
+              </button>
+              <button onClick={handleChangePwd} disabled={changePwdStatus === 'saving'}
+                style={{ padding: '0.5rem 1.25rem', borderRadius: 6, border: 'none', background: changePwdStatus === 'saving' ? '#94a3b8' : 'var(--color-primary)', color: '#fff', cursor: changePwdStatus === 'saving' ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>
+                {changePwdStatus === 'saving' ? 'กำลังบันทึก…' : 'บันทึก'}
+              </button>
+            </div>
+        </Modal>
+      )}
 
     </div>
   );
