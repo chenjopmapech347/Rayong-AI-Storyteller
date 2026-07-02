@@ -4,7 +4,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  getAuth
+  getAuth,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  updatePassword as fbUpdatePassword,
 } from "firebase/auth";
 import {
   collection,
@@ -752,8 +755,21 @@ export async function changeOwnPassword(userId, currentPassword, newPassword) {
   const stored = snap.data().password;
   if (stored !== currentPassword) throw new Error('รหัสผ่านเดิมไม่ถูกต้อง');
   if (!newPassword || newPassword.length < 4) throw new Error('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร');
+
+  // อัปเดต Firebase Auth ด้วย (re-auth → updatePassword)
+  const auth = getAuth();
+  const fbUser = auth.currentUser;
+  if (fbUser) {
+    const email = snap.data().email || `${snap.data().username}@eco.com`;
+    const credential = EmailAuthProvider.credential(email, currentPassword);
+    await reauthenticateWithCredential(fbUser, credential);
+    await fbUpdatePassword(fbUser, newPassword);
+  }
+
+  // อัปเดต Firestore
   await updateDoc(doc(db, 'users', userId), { password: newPassword });
-  // อัปเดต localStorage ด้วย
+
+  // อัปเดต localStorage
   try {
     const cached = JSON.parse(localStorage.getItem('eco_user') || '{}');
     if (cached.id === userId) {
