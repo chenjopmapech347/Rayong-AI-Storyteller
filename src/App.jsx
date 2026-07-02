@@ -462,6 +462,8 @@ export default function App() {
       secondaryColor: course.branding?.secondaryColor || '#0ea5e9',
       logoEmoji: course.branding?.logoEmoji || '🌿',
       instructorIds: Array.isArray(course.instructorIds) ? course.instructorIds : [],
+      subjectIds: Array.isArray(course.subjectIds) ? course.subjectIds : [],
+      primarySubjectId: course.primarySubjectId || '',
     });
   };
   const saveEditCourse = async () => {
@@ -471,6 +473,8 @@ export default function App() {
         name: editCourseDraft.name,
         methodology: [editCourseDraft.methodology],
         instructorIds: editCourseDraft.instructorIds || [],
+        subjectIds: editCourseDraft.subjectIds || [],
+        primarySubjectId: editCourseDraft.primarySubjectId || '',
         branding: {
           brandName: editCourseDraft.name,
           brandTagline: editCourseDraft.methodology + ' Learning',
@@ -3022,6 +3026,75 @@ export default function App() {
                                                       {currentIds.length > 0 && (
                                                          <div style={{ fontSize: '0.68rem', color: '#1d4ed8', marginTop: 5 }}>
                                                             ✅ {pool.filter(u => currentIds.includes(u.id)).map(u => u.name).join(', ')}
+                                                         </div>
+                                                      )}
+                                                   </div>
+                                                );
+                                             })()}
+
+                                             {/* ─── รายวิชาบูรณาการ ──────────────────────────── */}
+                                             {(() => {
+                                                const selIds = editCourseDraft.subjectIds || [];
+                                                const toggleSubj = (sid) => {
+                                                   const next = selIds.includes(sid) ? selIds.filter(x => x !== sid) : [...selIds, sid];
+                                                   const primary = next.includes(editCourseDraft.primarySubjectId) ? editCourseDraft.primarySubjectId : (next[0] || '');
+                                                   setEditCourseDraft({ ...editCourseDraft, subjectIds: next, primarySubjectId: primary });
+                                                };
+                                                return (
+                                                   <div style={{ marginTop: 10 }}>
+                                                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                                                         📖 รายวิชาบูรณาการ ({selIds.length} วิชา)
+                                                      </div>
+                                                      {subjects.length === 0 ? (
+                                                         <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>ยังไม่มีรายวิชา — ไปเพิ่มที่แท็บ "📖 รายวิชา" ก่อน</p>
+                                                      ) : (
+                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                            {subjects.map(s => {
+                                                               const selected = selIds.includes(s.id);
+                                                               const isPrimary = editCourseDraft.primarySubjectId === s.id;
+                                                               return (
+                                                                  <button key={s.id} onClick={() => toggleSubj(s.id)}
+                                                                     style={{
+                                                                        padding: '0.3rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
+                                                                        fontWeight: selected ? 700 : 400,
+                                                                        background: isPrimary ? '#dbeafe' : selected ? '#f0fdf4' : '#f8fafc',
+                                                                        color: isPrimary ? '#1d4ed8' : selected ? '#166534' : '#64748b',
+                                                                        border: `1.5px solid ${isPrimary ? '#93c5fd' : selected ? '#bbf7d0' : '#e2e8f0'}`,
+                                                                     }}>
+                                                                     {isPrimary ? '⭐ ' : selected ? '✓ ' : ''}{s.name}
+                                                                     {s.credits && <span style={{ fontSize: '0.65rem', opacity: 0.7, marginLeft: 3 }}>({s.credits})</span>}
+                                                                  </button>
+                                                               );
+                                                            })}
+                                                         </div>
+                                                      )}
+                                                      {selIds.length > 0 && (
+                                                         <div style={{ marginTop: 8 }}>
+                                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>⭐ วิชาหลัก (กดเพื่อเลือก)</div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                               {selIds.map(sid => {
+                                                                  const s = subjects.find(x => x.id === sid);
+                                                                  if (!s) return null;
+                                                                  const isPrimary = editCourseDraft.primarySubjectId === sid;
+                                                                  return (
+                                                                     <button key={sid} onClick={() => setEditCourseDraft({ ...editCourseDraft, primarySubjectId: sid })}
+                                                                        style={{
+                                                                           padding: '0.25rem 0.65rem', borderRadius: 20, fontSize: '0.72rem', cursor: 'pointer',
+                                                                           background: isPrimary ? '#dbeafe' : '#f8fafc',
+                                                                           color: isPrimary ? '#1d4ed8' : '#64748b',
+                                                                           border: `1.5px solid ${isPrimary ? '#93c5fd' : '#e2e8f0'}`,
+                                                                           fontWeight: isPrimary ? 700 : 400,
+                                                                        }}>
+                                                                        {isPrimary ? '⭐ ' : ''}{s.name}
+                                                                     </button>
+                                                                  );
+                                                               })}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 4 }}>
+                                                               {editCourseDraft.primarySubjectId
+                                                                  ? `⭐ วิชาหลัก: ${subjects.find(x => x.id === editCourseDraft.primarySubjectId)?.name || ''} · รายวิชาร่วม: ${selIds.filter(x => x !== editCourseDraft.primarySubjectId).map(x => subjects.find(s => s.id === x)?.name).filter(Boolean).join(', ') || '-'}`
+                                                                  : 'กดเลือกวิชาหลักด้านบน'}
+                                                            </div>
                                                          </div>
                                                       )}
                                                    </div>
