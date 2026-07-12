@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, Leaf, Rocket, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { login, seedFirebase, resetUserPassword, subscribeToAppConfig } from './api';
+import { EMAIL_DOMAIN } from './constants/config';
 import { useToast } from './Toast';
 import { useEffect } from 'react';
 
@@ -150,7 +151,7 @@ export default function LoginPage({ onLogin }) {
           <button
             type="button"
             onClick={async () => {
-              const guess = username.includes('@') ? username : (username ? `${username}@eco.com` : '');
+              const guess = username.includes('@') ? username : (username ? `${username}${EMAIL_DOMAIN}` : '');
               const email = window.prompt('กรอก email ที่จะส่งลิงก์รีเซ็ตรหัสผ่าน:', guess);
               if (!email || !email.trim()) return;
               try {

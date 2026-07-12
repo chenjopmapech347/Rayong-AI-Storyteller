@@ -30,6 +30,7 @@ import {
   createUserWithEmailAndPassword 
 } from "firebase/auth";
 import { auth, db, storage } from "./firebase";
+import { EMAIL_DOMAIN, STORAGE_KEY } from "./constants/config";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 
 // ─── Starter Good Prompts (22 prompts) ─────────────────
@@ -449,7 +450,7 @@ function inferRoleFromUsername(username) {
 
 export async function login(username, password) {
   // Note: Firebase uses email. We append a domain if the user only provides a username.
-  const email = username.includes('@') ? username : `${username}@eco.com`;
+  const email = username.includes('@') ? username : `${username}${EMAIL_DOMAIN}`;
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
@@ -477,13 +478,13 @@ export async function login(username, password) {
   }
 
   const userData = { id: user.uid, ...userDoc.data() };
-  localStorage.setItem('eco_user', JSON.stringify(userData));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
   return userData;
 }
 
 export async function logout() {
   await signOut(auth);
-  localStorage.removeItem('eco_user');
+  localStorage.removeItem(STORAGE_KEY);
 }
 
 // Send a Firebase password-reset email.
@@ -493,7 +494,7 @@ export async function resetUserPassword(email) {
   return { ok: true };
 }
 
-export const getToken = () => localStorage.getItem('eco_user'); // Dummy for compatibility
+export const getToken = () => localStorage.getItem(STORAGE_KEY); // Dummy for compatibility
 
 // ─── Dashboard ───────────────────────────────────────────
 // ─── Real-Time Listeners ──────────────────────────────────
@@ -702,7 +703,7 @@ export async function adminCreateUser(u) {
   const { username, password, name, role } = u;
   if (!username || !name) throw new Error('username + name ต้องไม่ว่าง');
   const teamId = u.team_id ?? u.teamId ?? null;
-  const email = u.email && u.email.includes('@') ? u.email : `${username}@eco.com`;
+  const email = u.email && u.email.includes('@') ? u.email : `${username}${EMAIL_DOMAIN}`;
   const pw    = password || 'changeMe123';
 
   // 1. Create Auth account on a secondary app (won't kick admin out).
@@ -760,7 +761,7 @@ export async function changeOwnPassword(userId, currentPassword, newPassword) {
   const auth = getAuth();
   const fbUser = auth.currentUser;
   if (fbUser) {
-    const email = snap.data().email || `${snap.data().username}@eco.com`;
+    const email = snap.data().email || `${snap.data().username}${EMAIL_DOMAIN}`;
     const credential = EmailAuthProvider.credential(email, currentPassword);
     await reauthenticateWithCredential(fbUser, credential);
     await fbUpdatePassword(fbUser, newPassword);
@@ -771,10 +772,10 @@ export async function changeOwnPassword(userId, currentPassword, newPassword) {
 
   // อัปเดต localStorage
   try {
-    const cached = JSON.parse(localStorage.getItem('eco_user') || '{}');
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     if (cached.id === userId) {
       cached.password = newPassword;
-      localStorage.setItem('eco_user', JSON.stringify(cached));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
     }
   } catch {}
 }
@@ -862,7 +863,7 @@ export async function deleteGoodPrompt(id) {
 //   status: 'approved' | 'rejected' | 'pending'
 //   reason: required when status === 'rejected'
 export async function setTeamApproval(teamId, status, reason = '') {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   if (!['approved', 'rejected', 'pending'].includes(status)) {
     throw new Error('status must be approved | rejected | pending');
   }
@@ -908,7 +909,7 @@ export function safeDocId(s) {
 //   teacher → 'teacher'
 //   sage → 'sage'
 export async function saveTeamScores(teamId, scores, overallComment, evaluatorRoleOverride) {
-  const user = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const user = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const evaluatorId = user.id;
   let evaluatorRole = evaluatorRoleOverride || user.role;
   // Canonical role mapping (R5 Individual Summary + Performance Overview Matrix expect these)
@@ -992,7 +993,7 @@ export function dimensionToScoreCategory(dim) {
 }
 
 export async function getMyTeamScores(teamId) {
-  const user = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const user = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const q = query(collection(db, "team_scores"), where("evaluator_id", "==", user.id), where("team_id", "==", teamId));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1039,7 +1040,7 @@ export function subscribeToTeamScoresRaw(callback) {
 //
 // scores arg shape: { [targetUserId]: { [dimension]: number, ... }, ... }
 export async function savePeerScores(scores, comment) {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   if (!me.id) throw new Error('savePeerScores: ผู้ประเมินไม่ได้เข้าสู่ระบบ');
   let saved = 0;
   for (const [targetUserId, dimScores] of Object.entries(scores)) {
@@ -1066,7 +1067,7 @@ export async function savePeerScores(scores, comment) {
 // Anonymizes evaluator_id for non-admin readers.
 export function subscribeToPeerScores(callback) {
   return onSnapshot(collection(db, "peer_scores"), (snap) => {
-    const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+    const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     const isAdmin = me.role === 'admin';
     const rows = snap.docs.map(d => {
       const data = d.data();
@@ -1086,7 +1087,7 @@ export function subscribeToPeerScores(callback) {
 // Returns the set of targetUserIds the current user has already evaluated
 // (used to show "✓ ประเมินแล้ว" badges).
 export async function getMyPeerSubmittedTargets() {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   if (!me.id) return [];
   const q = query(collection(db, "peer_scores"), where("evaluator_id", "==", me.id));
   const snap = await getDocs(q);
@@ -1151,7 +1152,7 @@ export function subscribeToPhases(callback) {
 }
 
 export async function createPhase(data) {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const ref = await addDoc(collection(db, "phases"), {
     label:    data.label || 'Untitled Phase',
     order:    typeof data.order === 'number' ? data.order : 999,
@@ -1360,7 +1361,7 @@ function buildMockAssessScores(payload) {
 // `documents` collection. Anyone signed-in can read; teacher/admin can upload.
 export async function uploadDocument(file, meta = {}) {
   if (!file) throw new Error('file is required');
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const uploaded = await uploadFile('documents', file);
   const ref = await addDoc(collection(db, 'documents'), {
     name:        meta.name || file.name,
@@ -1403,7 +1404,7 @@ export function subscribeToDocuments(callback) {
 export async function saveFeedback(targetType, targetId, content, opts = {}) {
   if (!['team', 'student'].includes(targetType)) throw new Error('targetType must be team | student');
   if (!targetId) throw new Error('targetId required');
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const evaluatorId   = opts.evaluatorId   || me.id   || 'unknown';
   const evaluatorName = opts.evaluatorName || me.name || 'Unknown';
   const evaluatorRole = opts.evaluatorRole || me.role || 'teacher';
@@ -1421,7 +1422,7 @@ export async function saveFeedback(targetType, targetId, content, opts = {}) {
 }
 
 export async function deleteFeedback(targetType, targetId, evaluatorId) {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const eid = evaluatorId || me.id;
   await deleteDoc(doc(db, 'feedback', `${targetType}_${targetId}_${eid}`));
 }
@@ -1525,7 +1526,7 @@ function scanTextForEthics(text, source, sourceId) {
 
 // Run ethics audit for one team. Persists flags in `moderation_flags` collection.
 export async function runEthicsAudit(team, submissions) {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const allMatches = [];
 
   // 1. Scan collector interview
@@ -1600,7 +1601,7 @@ export function subscribeToModerationFlags(callback) {
 }
 
 export async function setModerationFlagStatus(flagId, status, note = '') {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   await updateDoc(doc(db, 'moderation_flags', flagId), {
     status,
     review_note:     note || null,
@@ -1631,7 +1632,7 @@ export async function aiAuditTeam(teamId, payload) {
   // ถ้าไม่มี API Key/Proxy → ใช้ Mock Audit ที่สร้างจาก heuristic locally (ไม่เรียก network เลย)
   const useMockMode = !apiKey && !proxy;
 
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
   // Heuristic pre-analysis (no AI call)
   const ROLE_HINTS    = /\b(act as|you are|imagine you|in the role of|as a|as an)\b/i;
@@ -2056,7 +2057,7 @@ export async function createCourse(courseId, data) {
   if (!courseId || !/^[a-z0-9-]{3,40}$/.test(courseId)) {
     throw new Error('Invalid courseId — use lowercase letters, digits, hyphens (3-40 chars)');
   }
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   await setDoc(doc(db, 'courses', courseId), {
     ...data,
     id: courseId,
@@ -2170,7 +2171,7 @@ export async function seedLegacyGreenRayongCourse(courseData) {
 // fill the same worksheet under different courses without conflict.
 
 export async function saveWorksheetSubmission(teamId, courseId, worksheetId, data) {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const safeWsId = String(worksheetId).replace(/[^\w-]/g, '_');
   const submissionId = `${String(teamId)}_${courseId}_${safeWsId}`;
   await setDoc(doc(db, 'submissions', submissionId), {
@@ -2187,7 +2188,7 @@ export async function saveWorksheetSubmission(teamId, courseId, worksheetId, dat
 }
 
 export async function saveWorksheetScore(teamId, courseId, worksheetId, { score, comment }) {
-  const me = JSON.parse(localStorage.getItem('eco_user') || '{}');
+  const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const safeWsId = String(worksheetId).replace(/[^\w-]/g, '_');
   const submissionId = `${String(teamId)}_${courseId}_${safeWsId}`;
   await setDoc(doc(db, 'submissions', submissionId), {

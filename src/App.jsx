@@ -35,6 +35,7 @@ import { COURSE_SEEDS } from './courseSeeds';
 import { makeT } from './constants/i18n';
 import { DEFAULT_BRANDING, BRAND_PRESETS, applyBrandColors } from './constants/branding';
 import { ETHICS_CATEGORIES, SEVERITY_META } from './constants/ethics';
+import { APP_URL, STORAGE_KEY } from './constants/config';
 import {
   SCORE_DIMENSIONS, EVALUATOR_ROLES, RUBRIC_LEVEL_LABELS,
   LEGACY_GREEN_RAYONG_COURSE, BUILTIN_COURSES, mergeCourse, getTeamCourseIds
@@ -1034,7 +1035,7 @@ export default function App() {
   const [teamModalSaving, setTeamModalSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('eco_user');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const u = JSON.parse(saved);
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1068,7 +1069,7 @@ export default function App() {
       // If team has no courseIds (defaults to green-rayong), we do NOT auto-switch so that
       // students stay on whatever course they (or the page default) already selected.
       if (!hasAutoSwitchedCourse.current) {
-        const me = JSON.parse(localStorage.getItem('eco_user') || 'null');
+        const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
         const activeCourseId = (() => { try { return localStorage.getItem('rep_active_course') || ''; } catch { return ''; } })();
         if (me && t?.length) {
           const myTeamId = me.team_id || me.teamId;
@@ -1155,7 +1156,7 @@ export default function App() {
     if (!user?.id) return;
     const unsub = subscribeToUserDoc(user.id, (updated) => {
       setUser(updated);
-      localStorage.setItem('eco_user', JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     });
     return () => unsub();
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3865,7 +3866,7 @@ export default function App() {
                      const rows = (teams || []).filter(Boolean).map(tm => {
                         const dims = getTeamRubric(tm);
                         const rolesAvg = {};
-                        ['self','peer','teacher','sage','ai'].forEach(r => {
+                        EVALUATOR_ROLES.forEach(r => {
                            const vals = dims.map(d => matrixCell(tm.id, r, d)).filter(v => v != null);
                            rolesAvg[r] = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
                         });
@@ -3882,7 +3883,7 @@ export default function App() {
                                  <tr style={{ background: '#f1f5f9' }}>
                                     <th style={{ padding: '0.5rem', textAlign: 'left' }}>ทีม</th>
                                     <th style={{ padding: '0.5rem', textAlign: 'left' }}>หลักสูตร</th>
-                                    {['self','peer','teacher','sage','ai'].map(r => (
+                                    {EVALUATOR_ROLES.map(r => (
                                        <th key={r} style={{ padding: '0.5rem', textAlign: 'center' }}>{t('eval_' + r)}</th>
                                     ))}
                                     <th style={{ padding: '0.5rem', textAlign: 'center' }}>⭐ รวม</th>
@@ -3895,7 +3896,7 @@ export default function App() {
                                     <tr key={i} style={{ borderTop: '1px solid #e2e8f0' }}>
                                        <td style={{ padding: '0.5rem', fontWeight: 600 }}>{r.team}</td>
                                        <td style={{ padding: '0.5rem', fontSize: '0.7rem', color: '#64748b' }}>{r.courseId || '—'}</td>
-                                       {['self','peer','teacher','sage','ai'].map(role => {
+                                       {EVALUATOR_ROLES.map(role => {
                                           const v = r[role];
                                           const c = cellColor(v);
                                           return <td key={role} style={{ padding: '0.5rem', textAlign: 'center', background: c.bg, color: c.fg, fontWeight: 600 }}>{v == null ? '—' : v.toFixed(1)}</td>;
@@ -4070,14 +4071,14 @@ export default function App() {
                   {/* ───── R6: Portfolio (Public Showcase) ───── */}
                   {reportType === 'R6' && (
                      <div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>[Public Link: https://ai-storyteller-9dc3a.web.app/]</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>[Public Link: {APP_URL}/]</p>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                            {(teams || []).filter(Boolean).map(tm => {
                               const gw = (allSubmissionsModeration || []).find(s => String(s.team_id) === String(tm.id) && s.step === 'gateway')?.content || {};
                               const overall = matrixOverall(tm.id);
                               const c = cellColor(overall);
                               // QR code via free public API (no npm dep required)
-                              const portfolioUrl = `https://ai-storyteller-9dc3a.web.app/?team=${encodeURIComponent(tm.id)}`;
+                              const portfolioUrl = `${APP_URL}/?team=${encodeURIComponent(tm.id)}`;
                               const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&margin=4&data=${encodeURIComponent(portfolioUrl)}`;
                               return (
                                  <div key={tm.id} className="card" style={{ borderLeft: `4px solid ${c.fg}`, padding: '1rem', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -4564,7 +4565,7 @@ export default function App() {
                      <h3 style={{ color: appConfig.primaryColor, borderBottom: `3px solid ${appConfig.primaryColor}`, paddingBottom: 6 }}>🚀 1. เริ่มต้นใช้งาน (Quick Start)</h3>
                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
                         {[
-                           { n: 1, icon: '🌐', title: 'เปิดเว็บ',      desc: 'เข้า ai-storyteller-9dc3a.web.app' },
+                           { n: 1, icon: '🌐', title: 'เปิดเว็บ',      desc: `เข้า ${APP_URL.replace('https://', '')}` },
                            { n: 2, icon: '🔐', title: 'เข้าสู่ระบบ',   desc: 'ใช้ username + password ที่ครูสร้างให้' },
                            { n: 3, icon: '📚', title: 'เลือกหลักสูตร', desc: 'ดร็อปดาวน์ใน header (ถ้ามี ≥ 2 หลักสูตร)' },
                            { n: 4, icon: '🎯', title: 'ดู Mission',    desc: 'รับโจทย์จาก Mission Inbox' },
