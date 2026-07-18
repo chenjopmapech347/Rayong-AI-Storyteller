@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>R-Eco-Pilot · System Flowchart</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Sarabun', 'Segoe UI', sans-serif;
+    font-size: 15px;
+    background: #f8fafc;
+    color: #1e293b;
+    padding: 2rem;
+  }
+  h1 { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.25rem; color: #1e293b; }
+  .subtitle { text-align: center; font-size: 0.875rem; color: #64748b; margin-bottom: 2rem; }
+  .version-badge {
+    display: inline-block; background: #16a34a; color: #fff;
+    padding: 2px 10px; border-radius: 20px; font-size: 0.75rem;
+    font-weight: 600; margin-left: 8px; vertical-align: middle;
+  }
+
+  /* ── Flowchart containers ── */
+  .fc-section { margin-bottom: 2.5rem; }
+  .fc-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 0.75rem;
+  }
+
+  /* Flow row */
+  .flow-row {
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: wrap; gap: 0; margin-bottom: 0;
+  }
+  .flow-row + .flow-row { margin-top: 0; }
+
+  /* Boxes */
+  .box {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 0.6rem 1rem;
+    border-radius: 8px; font-size: 0.8125rem; font-weight: 600;
+    min-width: 130px; position: relative;
+    border: 2px solid transparent;
+  }
+  .box .icon { font-size: 1.25rem; margin-bottom: 3px; }
+  .box .label { line-height: 1.3; }
+  .box .sub { font-size: 0.65rem; font-weight: 400; color: inherit; opacity: 0.75; margin-top: 2px; }
+
+  .box-start    { background: #1e293b; color: #fff; border-color: #1e293b; border-radius: 24px; min-width: 80px; }
+  .box-action   { background: #fff; border-color: #e2e8f0; color: #334155; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .box-decision { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+  .box-student  { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+  .box-teacher  { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+  .box-sage     { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+  .box-admin    { background: #faf5ff; border-color: #c4b5fd; color: #6d28d9; }
+  .box-end      { background: #16a34a; color: #fff; border-color: #15803d; border-radius: 24px; min-width: 80px; }
+
+  /* Arrows */
+  .arrow { display: flex; align-items: center; color: #94a3b8; font-size: 1.1rem; padding: 0 4px; }
+  .arrow-down {
+    display: flex; flex-direction: column; align-items: center;
+    color: #94a3b8; font-size: 0.9rem; padding: 3px 0; line-height: 1;
+  }
+
+  /* Role columns grid */
+  .roles-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .role-col { display: flex; flex-direction: column; gap: 0; }
+  .role-header {
+    text-align: center; padding: 0.6rem;
+    border-radius: 8px 8px 0 0; font-weight: 700; font-size: 0.8125rem;
+    border: 2px solid; border-bottom: none;
+  }
+  .rh-student { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  .rh-teacher { background: #dcfce7; border-color: #86efac; color: #15803d; }
+  .rh-sage    { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+  .rh-admin   { background: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
+
+  .role-tabs { display: flex; flex-direction: column; }
+  .tab-chip {
+    padding: 0.45rem 0.75rem; font-size: 0.775rem;
+    border-left: 2px solid; border-right: 2px solid; border-bottom: 1px solid;
+    display: flex; align-items: center; gap: 6px;
+    line-height: 1.3;
+  }
+  .tab-chip:last-child { border-bottom: 2px solid; border-radius: 0 0 8px 8px; }
+
+  .tc-student { border-color: #93c5fd; background: #f8fbff; color: #1e40af; }
+  .tc-teacher { border-color: #86efac; background: #f7fdf9; color: #166534; }
+  .tc-sage    { border-color: #fcd34d; background: #fffef8; color: #78350f; }
+  .tc-admin   { border-color: #c4b5fd; background: #faf9ff; color: #5b21b6; }
+  .tc-cond    { opacity: 0.6; font-style: italic; }
+
+  /* Score weights */
+  .score-row {
+    display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;
+    margin: 0.75rem 0;
+  }
+  .score-pill {
+    padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+  }
+  .sp-self    { background: #dbeafe; color: #1e40af; }
+  .sp-peer    { background: #dcfce7; color: #166534; }
+  .sp-teacher { background: #f0fdf4; color: #15803d; }
+  .sp-sage    { background: #fef3c7; color: #92400e; }
+  .sp-ai      { background: #faf5ff; color: #6d28d9; }
+
+  /* Legend */
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 1.5rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #64748b; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 2px solid; }
+
+  /* Center connector */
+  .center-col { display: flex; flex-direction: column; align-items: center; }
+  .branch-line {
+    width: calc(100% - 40px); height: 2px; background: #e2e8f0;
+    position: relative; margin: 0 20px;
+  }
+  .branch-tick {
+    display: flex; justify-content: space-between;
+    padding: 0 calc(12.5% - 8px);
+  }
+  .tick { width: 2px; height: 16px; background: #e2e8f0; }
+
+  /* Rubric table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
+  th { background: #f1f5f9; padding: 0.4rem 0.6rem; text-align: left; font-weight: 600; font-size: 0.75rem; color: #475569; }
+  td { padding: 0.4rem 0.6rem; border-top: 1px solid #e2e8f0; }
+
+  @media print {
+    body { background: #fff; padding: 1cm; }
+    .box-action { box-shadow: none; }
+  }
+  @media (max-width: 800px) {
+    .roles-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 500px) {
+    .roles-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🌿 R-Eco-Pilot <span class="version-badge">v2.0</span></h1>
+<p class="subtitle">System Flowchart · คู่มือกระบวนการ (Green Rayong: 4-Identities AI Storytellers)</p>
+
+<!-- ══ SECTION 1: Login ══ -->
+<div class="fc-section">
+  <div class="fc-label">① เริ่มต้นระบบ</div>
+  <div class="flow-row">
+    <div class="box box-start"><div class="label">เริ่มต้น</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-action"><div class="icon">🌐</div><div class="label">เปิดเว็บไซต์</div><div class="sub">ai-storyteller-9dc3a.web.app</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-action"><div class="icon">🔐</div><div class="label">หน้า Login</div><div class="sub">username + password</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-decision"><div class="icon">❓</div><div class="label">ตรวจสอบ Role</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-action" style="min-width:150px"><div class="icon">📚</div><div class="label">เลือกหลักสูตร</div><div class="sub">ถ้ามี ≥ 2 หลักสูตร</div></div>
+  </div>
+</div>
+
+<!-- ══ SECTION 2: Role Branches ══ -->
+<div class="fc-section">
+  <div class="fc-label">② เมนูตาม Role</div>
+  <div class="roles-grid">
+
+    <!-- Student -->
+    <div class="role-col">
+      <div class="role-header rh-student">👨‍🎓 นักเรียน (Student)</div>
+      <div class="role-tabs">
+        <div class="tab-chip tc-student">👥 Explorer — จัดทีม + Mascot</div>
+        <div class="tab-chip tc-student">📥 Inbox — รับ Mission</div>
+        <div class="tab-chip tc-student">📸 Collector — ลงพื้นที่ + GPS</div>
+        <div class="tab-chip tc-student tc-cond">📝 Worksheets (n) — ใบงาน*</div>
+        <div class="tab-chip tc-student">📤 Submissions — ส่งงาน 7 ขั้น</div>
+        <div class="tab-chip tc-student">⭐ Evaluate — Self + Peer</div>
+        <div class="tab-chip tc-student">🏆 Report R6 — Portfolio + QR</div>
+        <div class="tab-chip tc-student">❓ Help</div>
+      </div>
+    </div>
+
+    <!-- Teacher -->
+    <div class="role-col">
+      <div class="role-header rh-teacher">👩‍🏫 ครู (Teacher)</div>
+      <div class="role-tabs">
+        <div class="tab-chip tc-teacher">📊 Dashboard — Live Feed + Teams</div>
+        <div class="tab-chip tc-teacher">🎯 Mission Builder — สร้างโจทย์</div>
+        <div class="tab-chip tc-teacher">📤 Submissions — ดูงานทุกทีม</div>
+        <div class="tab-chip tc-teacher">🛡️ AI Audit — ตรวจ Prompt Quality</div>
+        <div class="tab-chip tc-teacher">🎤 Pitching — ให้คะแนน 5 ด้าน</div>
+        <div class="tab-chip tc-teacher">📈 Reports — R1-R6</div>
+        <div class="tab-chip tc-teacher tc-cond">📝 Worksheets (n)*</div>
+        <div class="tab-chip tc-teacher">❓ Help</div>
+      </div>
+    </div>
+
+    <!-- Sage -->
+    <div class="role-col">
+      <div class="role-header rh-sage">🧓 ปราชญ์ (Sage)</div>
+      <div class="role-tabs">
+        <div class="tab-chip tc-sage">🎤 Pitching — ให้คะแนน Local Wisdom</div>
+        <div class="tab-chip tc-sage tc-cond">📝 Worksheets (n)*</div>
+        <div class="tab-chip tc-sage">🏆 Report R6 — ดูผลงาน</div>
+        <div class="tab-chip tc-sage">❓ Help</div>
+      </div>
+    </div>
+
+    <!-- Admin -->
+    <div class="role-col">
+      <div class="role-header rh-admin">⚙️ Admin</div>
+      <div class="role-tabs">
+        <div class="tab-chip tc-admin">⚙️ Admin — จัดการ 7 sub-tabs</div>
+        <div class="tab-chip tc-admin">👥 Teams — CRUD users + CSV import</div>
+        <div class="tab-chip tc-admin">📊 Dashboard — Real-time overview</div>
+        <div class="tab-chip tc-admin">📤 Submissions — ดูทุก submission</div>
+        <div class="tab-chip tc-admin">🛡️ AI Audit — Full audit report</div>
+        <div class="tab-chip tc-admin">🎤 Pitching — จัดการคะแนน</div>
+        <div class="tab-chip tc-admin">📈 Reports — R1-R6 cross-team</div>
+        <div class="tab-chip tc-admin tc-cond">📝 Worksheets (n)*</div>
+        <div class="tab-chip tc-admin">❓ Help</div>
+      </div>
+    </div>
+
+  </div>
+  <p style="text-align:center;font-size:0.725rem;color:#94a3b8;margin-top:0.75rem">* Worksheets จะแสดงเฉพาะเมื่อหลักสูตรปัจจุบันมี worksheet อย่างน้อย 1 ใบ</p>
+</div>
+
+<!-- ══ SECTION 3: Student Journey ══ -->
+<div class="fc-section">
+  <div class="fc-label">③ เส้นทางนักเรียน (Student Journey)</div>
+  <div class="flow-row" style="flex-wrap:wrap; gap:4px; justify-content:flex-start; padding: 0 1rem">
+    <div class="box box-student" style="min-width:110px"><div class="icon">👥</div><div class="label">ตั้งทีม</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-student" style="min-width:110px"><div class="icon">📥</div><div class="label">รับ Mission</div><div class="sub">เลือก 1 ใน 4 Identity</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-student" style="min-width:110px"><div class="icon">📸</div><div class="label">ลงพื้นที่</div><div class="sub">สัมภาษณ์ปราชญ์</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-student" style="min-width:130px"><div class="icon">🤖</div><div class="label">ใช้ AI</div><div class="sub">Prompt + บันทึก Audit Log</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-student" style="min-width:130px"><div class="icon">📝</div><div class="label">กรอก Worksheets</div><div class="sub">7 ขั้น (Green Rayong)</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-student" style="min-width:110px"><div class="icon">⭐</div><div class="label">ประเมินตนเอง</div><div class="sub">Self + Peer</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-student" style="min-width:110px"><div class="icon">🎤</div><div class="label">Pitching</div><div class="sub">นำเสนอ 7 นาที</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-end" style="min-width:110px"><div class="label">Portfolio R6</div></div>
+  </div>
+</div>
+
+<!-- ══ SECTION 4: Scoring ══ -->
+<div class="fc-section">
+  <div class="fc-label">④ สัดส่วนคะแนน (100%)</div>
+  <div class="score-row">
+    <div class="score-pill sp-self">Self&nbsp;10%</div>
+    <div style="color:#94a3b8;font-size:1.2rem;line-height:2">+</div>
+    <div class="score-pill sp-peer">Peer&nbsp;15%</div>
+    <div style="color:#94a3b8;font-size:1.2rem;line-height:2">+</div>
+    <div class="score-pill sp-teacher">Teacher&nbsp;35%</div>
+    <div style="color:#94a3b8;font-size:1.2rem;line-height:2">+</div>
+    <div class="score-pill sp-sage">Sage&nbsp;25%</div>
+    <div style="color:#94a3b8;font-size:1.2rem;line-height:2">+</div>
+    <div class="score-pill sp-ai">AI&nbsp;15%</div>
+    <div style="color:#94a3b8;font-size:1.2rem;line-height:2">=&nbsp;<strong>100%</strong></div>
+  </div>
+  <p style="text-align:center;font-size:0.75rem;color:#64748b">เป้าหมาย: ≥ 4.0/5.0 ทุกด้าน = TPQI Level 4 (Impact Creator)</p>
+</div>
+
+<!-- ══ SECTION 5: Rubric ══ -->
+<div class="fc-section">
+  <div class="fc-label">⑤ Rubric 5 ด้าน (Green Rayong)</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:25%">ด้าน</th>
+        <th>เกณฑ์</th>
+        <th style="width:15%;text-align:center">ระดับสูงสุด</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>🤖 AI Prompting</strong></td><td>Role-based + Context + Format · Audit Log ครบทุก prompt</td><td style="text-align:center">5 — ดีเยี่ยม</td></tr>
+      <tr><td><strong>🧓 Local Wisdom</strong></td><td>สัมภาษณ์ปราชญ์จริง · Cross-check ไม่มี Hallucination</td><td style="text-align:center">5 — ดีเยี่ยม</td></tr>
+      <tr><td><strong>💡 Creativity</strong></td><td>ไอเดียใหม่ · ใช้ AI ช่วย Iterate ไม่ใช่ Copy</td><td style="text-align:center">5 — ดีเยี่ยม</td></tr>
+      <tr><td><strong>💼 Business Plan</strong></td><td>BMC ครบ · Cost/Price/Customer · SROI</td><td style="text-align:center">5 — ดีเยี่ยม</td></tr>
+      <tr><td><strong>📖 Storytelling</strong></td><td>2 ภาษา · Soft Power ระยอง · Engagement</td><td style="text-align:center">5 — ดีเยี่ยม</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══ SECTION 6: 4 Identities ══ -->
+<div class="fc-section">
+  <div class="fc-label">⑥ 4 Identities — Green Rayong</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem">
+    <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:8px;padding:0.75rem;text-align:center">
+      <div style="font-size:2rem">🌳</div>
+      <div style="font-weight:700;color:#166534;margin-top:4px">สวน</div>
+      <div style="font-size:0.7rem;color:#166534;margin-top:2px">Garden / Orchard</div>
+    </div>
+    <div style="background:#f0fdf4;border:2px solid #15803d;border-radius:8px;padding:0.75rem;text-align:center">
+      <div style="font-size:2rem">🌲</div>
+      <div style="font-weight:700;color:#14532d;margin-top:4px">ป่า</div>
+      <div style="font-size:0.7rem;color:#14532d;margin-top:2px">Forest / Mountain</div>
+    </div>
+    <div style="background:#fffbeb;border:2px solid #ca8a04;border-radius:8px;padding:0.75rem;text-align:center">
+      <div style="font-size:2rem">🌾</div>
+      <div style="font-weight:700;color:#92400e;margin-top:4px">นา</div>
+      <div style="font-size:0.7rem;color:#92400e;margin-top:2px">Rice Field / Farm</div>
+    </div>
+    <div style="background:#eff6ff;border:2px solid #0ea5e9;border-radius:8px;padding:0.75rem;text-align:center">
+      <div style="font-size:2rem">🌊</div>
+      <div style="font-weight:700;color:#0369a1;margin-top:4px">เล</div>
+      <div style="font-size:0.7rem;color:#0369a1;margin-top:2px">Sea / Coastal</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SECTION 7: Admin Sub-tabs ══ -->
+<div class="fc-section">
+  <div class="fc-label">⑦ Admin Panel — 7 Sub-tabs</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem">
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.6rem">
+      <div style="font-size:1.1rem">👥</div>
+      <div style="font-weight:700;font-size:0.8rem;color:#5b21b6;margin-top:2px">Management</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-top:2px">CRUD users + teams · Import CSV · Reset password</div>
+    </div>
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.6rem">
+      <div style="font-size:1.1rem">📅</div>
+      <div style="font-weight:700;font-size:0.8rem;color:#5b21b6;margin-top:2px">Session</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-top:2px">Phase manager · Open/Close · Deadline</div>
+    </div>
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.6rem">
+      <div style="font-size:1.1rem">🛡️</div>
+      <div style="font-weight:700;font-size:0.8rem;color:#5b21b6;margin-top:2px">Moderation</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-top:2px">Cultural Ethics Audit · 6 หมวด 17 rules</div>
+    </div>
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.6rem">
+      <div style="font-size:1.1rem">📚</div>
+      <div style="font-weight:700;font-size:0.8rem;color:#5b21b6;margin-top:2px">Courses ⭐</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-top:2px">Multi-course CRUD · Schema Editor · Import seeds</div>
+    </div>
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.6rem">
+      <div style="font-size:1.1rem">🎨</div>
+      <div style="font-weight:700;font-size:0.8rem;color:#5b21b6;margin-top:2px">Branding</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-top:2px">White-label · 4 presets · Custom brand + สี</div>
+    </div>
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.6rem">
+      <div style="font-size:1.1rem">⚙️</div>
+      <div style="font-weight:700;font-size:0.8rem;color:#5b21b6;margin-top:2px">Settings</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-top:2px">Claude API · Looker · Backup · Top-up users</div>
+    </div>
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:0.6rem">
+      <div style="font-size:1.1rem">📊</div>
+      <div style="font-weight:700;font-size:0.8rem;color:#5b21b6;margin-top:2px">Reports</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-top:2px">R1-R6 cross-team · course-aware rubric</div>
+    </div>
+    <div style="background:#f0fdf4;border:1px dashed #86efac;border-radius:6px;padding:0.6rem;display:flex;align-items:center;justify-content:center">
+      <div style="font-size:0.7rem;color:#15803d;text-align:center;font-style:italic">ตั้งค่าระบบครั้งแรก:<br>Settings → Seed Data<br>→ Top-up Users</div>
+    </div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#eff6ff;border-color:#93c5fd"></div> Student</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f0fdf4;border-color:#86efac"></div> Teacher</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fef3c7;border-color:#fcd34d"></div> Sage</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#faf5ff;border-color:#c4b5fd"></div> Admin</div>
+  <div class="legend-item"><div style="width:24px;height:2px;border-top:2px dashed #94a3b8"></div> Conditional (worksheet)</div>
+</div>
+
+<p style="text-align:center;font-size:0.7rem;color:#94a3b8;margin-top:1.5rem">
+  R-Eco-Pilot v2.0 · Green Rayong: 4-Identities AI Storytellers · Firebase + React ·
+  <a href="https://ai-storyteller-9dc3a.web.app" style="color:#16a34a">ai-storyteller-9dc3a.web.app</a>
+</p>
+
+</body>
+</html>
