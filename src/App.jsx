@@ -1350,27 +1350,27 @@ export default function App() {
         )}
         {user?.role === 'student' && (
           <>
-            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> {t('Explorer UI')}</div>
-            <div className={`tab-item ${activeTab === 'mission-inbox' ? 'active' : ''}`} onClick={() => setActiveTab('mission-inbox')}><Inbox size={16} /> {t('Mission Inbox')}</div>
-            <div className={`tab-item ${activeTab === 'collector' ? 'active' : ''}`} onClick={() => setActiveTab('collector')}><Camera size={16} /> {t('On-site Collector')}</div>
+            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> {t('Explorer')}</div>
+            <div className={`tab-item ${activeTab === 'mission-inbox' ? 'active' : ''}`} onClick={() => setActiveTab('mission-inbox')}><Inbox size={16} /> {t('Inbox')}</div>
+            <div className={`tab-item ${activeTab === 'collector' ? 'active' : ''}`} onClick={() => setActiveTab('collector')}><Camera size={16} /> {t('Collector')}</div>
             {currentCourse?.worksheets?.length > 0 ? (
-              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> ส่งงาน / Worksheets ({currentCourse.worksheets.length})</div>
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
             ) : (
-              <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
+              <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submissions')}</div>
             )}
-            <div className={`tab-item ${activeTab === 'evaluation-hub' ? 'active' : ''}`} onClick={() => setActiveTab('evaluation-hub')}><Star size={16} /> {t('Evaluation Hub')}</div>
+            <div className={`tab-item ${activeTab === 'evaluation-hub' ? 'active' : ''}`} onClick={() => setActiveTab('evaluation-hub')}><Star size={16} /> {t('Evaluate')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
         {(user?.role === 'teacher' || user?.role === 'facilitator') && (
           <>
-            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> {t('Real-Time Dashboard')}</div>
+            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> {t('Dashboard')}</div>
             <div className={`tab-item ${activeTab === 'mission-builder' ? 'active' : ''}`} onClick={() => setActiveTab('mission-builder')}><Target size={16} /> {t('Mission Builder')}</div>
-            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
-            <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
-            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
-            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Report (R1-R6)')}</div>
+            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submissions')}</div>
+            <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit')}</div>
+            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching')}</div>
+            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Reports')}</div>
             {currentCourse?.worksheets?.length > 0 && (
               <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
             )}
@@ -1380,22 +1380,22 @@ export default function App() {
         {user?.role === 'sage' && (
           <>
             {currentCourse?.worksheets?.length > 0 && (
-              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> ให้คะแนน Worksheets ({currentCourse.worksheets.length})</div>
+              <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
             )}
-            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
+            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching')}</div>
             <div className={`tab-item ${activeTab === 'public-portfolio' ? 'active' : ''}`} onClick={() => setActiveTab('public-portfolio')}><Award size={16} /> {t('Report (R6)')}</div>
             <div className={`tab-item ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}><HelpCircle size={16} /> {t('Help')}</div>
           </>
         )}
         {user?.role === 'admin' && (
           <>
-            <div className={`tab-item ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}><Settings size={16} /> {t('Admin Panel')}</div>
-            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> {t('Team Management')}</div>
-            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> {t('Real-Time Dashboard')}</div>
-            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submission Gateway')}</div>
-            <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit Logbook')}</div>
-            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching Evaluator')}</div>
-            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Reports R1-R6')}</div>
+            <div className={`tab-item ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}><Settings size={16} /> {t('Admin')}</div>
+            <div className={`tab-item ${activeTab === 'team-setup' ? 'active' : ''}`} onClick={() => setActiveTab('team-setup')}><Users size={16} /> {t('Teams')}</div>
+            <div className={`tab-item ${activeTab === 'teacher-dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-dashboard')}><Monitor size={16} /> {t('Dashboard')}</div>
+            <div className={`tab-item ${activeTab === 'gateway' ? 'active' : ''}`} onClick={() => setActiveTab('gateway')}><Send size={16} /> {t('Submissions')}</div>
+            <div className={`tab-item ${activeTab === 'ai-audit-log' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit-log')}><ShieldCheck size={16} /> {t('AI Audit')}</div>
+            <div className={`tab-item ${activeTab === 'pitch-evaluator' ? 'active' : ''}`} onClick={() => setActiveTab('pitch-evaluator')}><Star size={16} /> {t('Pitching')}</div>
+            <div className={`tab-item ${activeTab === 'teacher-reports' ? 'active' : ''}`} onClick={() => setActiveTab('teacher-reports')}><FileSpreadsheet size={16} /> {t('Reports')}</div>
             {currentCourse?.worksheets?.length > 0 && (
               <div className={`tab-item ${activeTab === 'worksheets' ? 'active' : ''}`} onClick={() => setActiveTab('worksheets')}><BookOpen size={16} /> Worksheets ({currentCourse.worksheets.length})</div>
             )}
