@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "ai-storyteller-9dc3a",
     "public": "dist",
     "ignore": [
       "firebase.json",
