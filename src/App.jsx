@@ -1049,6 +1049,11 @@ export default function App() {
   const [newUser, setNewUser] = useState({ name: '', username: '', password: '', role: 'student', teamId: '' });
   const [newTeam, setNewTeam] = useState({ name: '', teacherId: '' });
 
+  // ─── Rename Team Modal ────────────────────────────────────────────────────
+  const [renameTeamModal, setRenameTeamModal] = useState(null); // { id, name } | null
+  const [renameTeamInput, setRenameTeamInput] = useState('');
+  const [renameTeamSaving, setRenameTeamSaving] = useState(false);
+
   // ─── Team Edit Modal ───────────────────────────────────────────────────────
   const [teamModal, setTeamModal] = useState(null); // team doc | null
   const [teamModalEdit, setTeamModalEdit] = useState({ photo: '', leaderId: '', teacherId: '', memberIds: [], memberSearch: '' });
@@ -2473,15 +2478,7 @@ export default function App() {
                                                    {t.name}
                                                    <button
                                                       title="เปลี่ยนชื่อกลุ่ม"
-                                                      onClick={async () => {
-                                                         const next = window.prompt('เปลี่ยนชื่อกลุ่ม:', t.name);
-                                                         if (!next || !next.trim() || next.trim() === t.name) return;
-                                                         try {
-                                                            await adminUpdateTeam(t.id, { ...t, name: next.trim() });
-                                                            const updated = await getTeams();
-                                                            setTeams(updated);
-                                                         } catch (err) { alert('เปลี่ยนชื่อไม่สำเร็จ: ' + err.message); }
-                                                      }}
+                                                      onClick={() => { setRenameTeamModal({ id: t.id, name: t.name }); setRenameTeamInput(t.name); }}
                                                       style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', lineHeight: 1 }}
                                                    >✏️</button>
                                                 </div>
@@ -4543,6 +4540,57 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* ─── Rename Team Modal ─── */}
+      {renameTeamModal && (
+        <Modal
+          title="✏️ เปลี่ยนชื่อกลุ่ม"
+          subtitle={`ชื่อเดิม: ${renameTeamModal.name}`}
+          onClose={() => !renameTeamSaving && setRenameTeamModal(null)}
+          noClose={renameTeamSaving}
+          width="min(92vw, 400px)"
+        >
+          <input
+            autoFocus
+            className="login-input"
+            value={renameTeamInput}
+            onChange={e => setRenameTeamInput(e.target.value)}
+            onKeyDown={async e => {
+              if (e.key === 'Enter') e.target.blur();
+            }}
+            placeholder="ชื่อกลุ่มใหม่"
+            style={{ width: '100%' }}
+          />
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+            <button
+              className="card"
+              onClick={() => setRenameTeamModal(null)}
+              disabled={renameTeamSaving}
+              style={{ padding: '0.45rem 1rem', margin: 0, fontSize: '0.875rem' }}
+            >ยกเลิก</button>
+            <button
+              className="login-btn"
+              disabled={renameTeamSaving || !renameTeamInput.trim() || renameTeamInput.trim() === renameTeamModal.name}
+              style={{ width: 'auto', padding: '0.45rem 1.25rem' }}
+              onClick={async () => {
+                setRenameTeamSaving(true);
+                try {
+                  await adminUpdateTeam(renameTeamModal.id, { name: renameTeamInput.trim() });
+                  const updated = await getTeams();
+                  setTeams(updated);
+                  setRenameTeamModal(null);
+                } catch (err) {
+                  alert('เปลี่ยนชื่อไม่สำเร็จ: ' + err.message);
+                } finally {
+                  setRenameTeamSaving(false);
+                }
+              }}
+            >
+              {renameTeamSaving ? '⏳ กำลังบันทึก...' : '✅ บันทึก'}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {/* ─── Team Edit Modal ─── */}
       {teamModal && (() => {
