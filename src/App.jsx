@@ -2469,7 +2469,22 @@ export default function App() {
                                        <div key={t.id} className="card" style={{ padding: '0.75rem 1rem' }}>
                                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                              <div>
-                                                <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>{t.name}</div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                   {t.name}
+                                                   <button
+                                                      title="เปลี่ยนชื่อกลุ่ม"
+                                                      onClick={async () => {
+                                                         const next = window.prompt('เปลี่ยนชื่อกลุ่ม:', t.name);
+                                                         if (!next || !next.trim() || next.trim() === t.name) return;
+                                                         try {
+                                                            await adminUpdateTeam(t.id, { ...t, name: next.trim() });
+                                                            const updated = await getTeams();
+                                                            setTeams(updated);
+                                                         } catch (err) { alert('เปลี่ยนชื่อไม่สำเร็จ: ' + err.message); }
+                                                      }}
+                                                      style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', lineHeight: 1 }}
+                                                   >✏️</button>
+                                                </div>
                                                 <div style={{ fontSize: '0.75rem', color: assignedTeacher ? 'var(--color-primary)' : '#94a3b8' }}>
                                                    👨‍🏫 {assignedTeacher ? assignedTeacher.name : 'ยังไม่มีครูผู้ดูแล'}
                                                 </div>
