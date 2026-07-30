@@ -1,4 +1,5 @@
 // src/App.jsx — Fully Restored ALL Main Headings & Steps (Light UI)
+import logoDataUrl from './assets/logoData.js';
 import { useState, useEffect, useRef } from 'react';
 import {
   Send,
@@ -1264,7 +1265,7 @@ export default function App() {
         <div className="ldt-header">
           <div className="ldt-title-wrap">
             <img
-               src="/logo.png"
+               src={logoDataUrl}
                alt="logo"
                style={{ height: 64, width: 'auto', objectFit: 'contain', display: 'block', flexShrink: 0 }}
             />

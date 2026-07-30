@@ -1,4 +1,5 @@
 // TabHelp.jsx — ในแอป R-Eco-Pilot
+import logoDataUrl from '../assets/logoData.js';
 // คู่มือการใช้งาน / User Manual (printable)
 //
 // Props:
@@ -30,7 +31,7 @@ export default function TabHelp({ appConfig, t }) {
         {/* ── Cover Card ── */}
         <div className="card" style={{ background: `linear-gradient(135deg, ${appConfig.primaryColor}22 0%, ${appConfig.secondaryColor}22 100%)`, border: `2px solid ${appConfig.primaryColor}`, textAlign: 'center', padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-            <img src="/logo.png" alt="logo" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
+            <img src={logoDataUrl} alt="logo" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
           </div>
           <h2 style={{ color: appConfig.primaryColor, margin: '0.5rem 0' }}>{appConfig.brandName}</h2>
           <p style={{ color: '#475569', fontSize: '0.9rem' }}>{appConfig.brandTagline}</p>

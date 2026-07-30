@@ -1,4 +1,5 @@
 // src/LoginPage.jsx — Restored Light UI
+import logoDataUrl from './assets/logoData.js';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, Leaf, Rocket, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -86,7 +87,7 @@ export default function LoginPage({ onLogin }) {
       >
         <div className="login-logo" style={{ justifyContent: 'center', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
           <img
-            src="/logo.png"
+            src={logoDataUrl}
             alt={branding.brandName}
             style={{ width: '240px', height: 'auto', objectFit: 'contain', marginBottom: '0.5rem' }}
           />
