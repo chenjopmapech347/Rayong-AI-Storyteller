@@ -1,5 +1,5 @@
 // src/App.jsx — Fully Restored ALL Main Headings & Steps (Light UI)
-import logoDataUrl from './assets/logoData.js';
+import logoDataUrl from './assets/logoData3.js';
 import { useState, useEffect, useRef } from 'react';
 import {
   Send,

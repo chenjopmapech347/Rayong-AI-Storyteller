@@ -1,5 +1,5 @@
 // src/LoginPage.jsx — Restored Light UI
-import logoDataUrl from './assets/logoData.js';
+import logoDataUrl from './assets/logoData3.js';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, Leaf, Rocket, AlertCircle, CheckCircle2 } from 'lucide-react';

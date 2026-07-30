@@ -1,5 +1,5 @@
 // TabHelp.jsx — ในแอป R-Eco-Pilot
-import logoDataUrl from '../assets/logoData.js';
+import logoDataUrl from '../assets/logoData3.js';
 // คู่มือการใช้งาน / User Manual (printable)
 //
 // Props:
