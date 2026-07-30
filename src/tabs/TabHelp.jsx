@@ -29,7 +29,9 @@ export default function TabHelp({ appConfig, t }) {
 
         {/* ── Cover Card ── */}
         <div className="card" style={{ background: `linear-gradient(135deg, ${appConfig.primaryColor}22 0%, ${appConfig.secondaryColor}22 100%)`, border: `2px solid ${appConfig.primaryColor}`, textAlign: 'center', padding: '2rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 4 }}>{appConfig.logoEmoji} 📖</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+            <img src="/logo.png" alt="logo" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
+          </div>
           <h2 style={{ color: appConfig.primaryColor, margin: '0.5rem 0' }}>{appConfig.brandName}</h2>
           <p style={{ color: '#475569', fontSize: '0.9rem' }}>{appConfig.brandTagline}</p>
           <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#64748b' }}>

@@ -1263,8 +1263,8 @@ export default function App() {
       <header className="live-dashboard-top">
         <div className="ldt-header">
           <div className="ldt-title-wrap">
-            <div className="ldt-logo-icon" style={{ background: appConfig.primaryColor }}>
-               <span style={{ fontSize: 18 }}>{appConfig.logoEmoji || '🌿'}</span>
+            <div className="ldt-logo-icon" style={{ background: 'transparent', padding: 0, overflow: 'hidden' }}>
+               <img src="/logo.png" alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
             <div>
               <div className="ldt-title" style={{ color: appConfig.primaryColor }}>{appConfig.brandName}: {!user ? (lang === 'th' ? 'มุมมองสาธารณะ' : 'Public Dashboard') : (user.role === 'student' ? (lang === 'th' ? 'จัดการทีม' : 'Explorer UI') : (lang === 'th' ? 'แดชบอร์ดผู้ประเมิน' : 'Assessor UI'))}</div>

@@ -84,12 +84,12 @@ export default function LoginPage({ onLogin }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="login-logo">
-          <div className="login-logo-icon"><Leaf size={28} /></div>
-          <div>
-            <div className="login-logo-title">{branding.brandName}</div>
-            <div className="login-logo-sub">{branding.brandTagline}</div>
-          </div>
+        <div className="login-logo" style={{ justifyContent: 'center', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+          <img
+            src="/logo.png"
+            alt={branding.brandName}
+            style={{ width: '240px', height: 'auto', objectFit: 'contain', marginBottom: '0.5rem' }}
+          />
         </div>
 
         <h2 style={{ marginBottom: '0.5rem' }}>เข้าสู่ระบบ</h2>
