@@ -28,12 +28,12 @@ export const RUBRIC_LEVEL_LABELS = ['ปรับปรุง', 'พอใช้
 export const LEGACY_GREEN_RAYONG_COURSE = {
   schemaVersion: 1,
   id: 'green-rayong',
-  name: 'Green Rayong 4-Identities AI Storytellers',
-  nameTH: 'Green Rayong 4-Identities AI Storytellers',
+  name: 'ขั้นตอน/กระบวนการสร้างนวัตกรรม',
+  nameTH: 'ขั้นตอน/กระบวนการสร้างนวัตกรรม',
   methodology: ['4-Identities'],
   isDefault: true,
   branding: {
-    brandName: 'Green Rayong',
+    brandName: 'ขั้นตอน/กระบวนการสร้างนวัตกรรม',
     brandTagline: '4-Identities AI Storytellers',
     logoEmoji: '🌿',
     primaryColor: '#16a34a',
@@ -71,7 +71,7 @@ export const LEGACY_GREEN_RAYONG_COURSE = {
     {
       id: 'wisdom', icon: '🧓', stageId: 'gateway', order: 1,
       labelTH: 'ภูมิปัญญาท้องถิ่น (Local Wisdom)', label: 'Local Wisdom',
-      instructionTH: 'บันทึกภูมิปัญญาที่ได้จากปราชญ์ + อ้างอิงแหล่งที่มา · เป็นหัวใจของ Green Rayong',
+      instructionTH: 'บันทึกภูมิปัญญาที่ได้จากปราชญ์ + อ้างอิงแหล่งที่มา · เป็นหัวใจของกระบวนการสร้างนวัตกรรม',
       fields: [
         { id: 'team', type: 'text', label: 'ชื่อทีม', required: true },
         { id: 'date', type: 'date', label: 'วันที่บันทึก', required: true },

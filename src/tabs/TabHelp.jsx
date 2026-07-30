@@ -99,12 +99,12 @@ export default function TabHelp({ appConfig, t }) {
             📚 2. Multi-Course System ⭐ ใหม่ v2.0
           </h3>
           <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>
-            R-Eco-Pilot ตอนนี้ไม่ใช่แค่ "Green Rayong" — เป็น <strong>Innovation Learning Platform</strong> รองรับหลายกรอบแนวคิด
+            R-Eco-Pilot ตอนนี้เป็น <strong>Innovation Learning Platform</strong> รองรับหลายกรอบแนวคิด
           </p>
           <h4 style={{ marginTop: '1rem', color: '#5b21b6' }}>🎓 หลักสูตรที่มาพร้อมระบบ</h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 8, marginTop: 8 }}>
             <div style={{ padding: '0.75rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6 }}>
-              <div style={{ fontSize: '1.3rem' }}>🌿 Green Rayong (default)</div>
+              <div style={{ fontSize: '1.3rem' }}>🌿 ขั้นตอน/กระบวนการสร้างนวัตกรรม (default)</div>
               <div style={{ fontSize: '0.75rem', color: '#166534', marginTop: 4 }}>4-Identities (สวน/ป่า/นา/เล) · AI Storytelling · 7 worksheets</div>
             </div>
             <div style={{ padding: '0.75rem', background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 6 }}>
@@ -144,7 +144,7 @@ export default function TabHelp({ appConfig, t }) {
             <li><strong>ศูนย์ประเมิน (Evaluation Hub)</strong> — Self-assessment (5 ด้าน) + Peer evaluation</li>
             <li><strong>รายงาน R6</strong> — ดู portfolio ของทีม + QR code แชร์ได้</li>
           </ul>
-          <h4 style={{ marginTop: '1rem', color: '#0369a1' }}>🎯 4 Identities ของ Green Rayong</h4>
+          <h4 style={{ marginTop: '1rem', color: '#0369a1' }}>🎯 4 Identities ของกระบวนการสร้างนวัตกรรม</h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: '0.5rem' }}>
             {[
               { emoji: '🌳', name: 'สวน', color: '#16a34a' },
@@ -281,7 +281,7 @@ export default function TabHelp({ appConfig, t }) {
           </h3>
           <h4 style={{ marginTop: '1rem', color: '#991b1b' }}>📝 Checklist ก่อน Pitching</h4>
           <ul style={{ paddingLeft: '1.5rem', fontSize: '0.85rem', lineHeight: 1.8 }}>
-            <li>✅ <strong>ผลงานครบทุก worksheet</strong> ใน Worksheets tab (Green Rayong = 7 · Design Thinking = 19)</li>
+            <li>✅ <strong>ผลงานครบทุก worksheet</strong> ใน Worksheets tab (ขั้นตอน/กระบวนการสร้างนวัตกรรม = 7 · Design Thinking = 19)</li>
             <li>✅ <strong>AI Audit Log ครบ</strong> ทุก prompt ที่ใช้ (เปิด AI Audit Logbook ดู score)</li>
             <li>✅ <strong>Self + Peer Evaluation</strong> เสร็จก่อนวัน Pitching</li>
             <li>✅ <strong>BMC สมบูรณ์</strong> — cost, price, customer, channel</li>

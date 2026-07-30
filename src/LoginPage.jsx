@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 
 // Local copy of branding helper — หลีกเลี่ยง circular import กับ App.jsx
 const DEFAULT_BRANDING_LP = {
-  brandName: 'Green Rayong',
+  brandName: 'ขั้นตอน/กระบวนการสร้างนวัตกรรม',
   brandTagline: '4-Identities AI Storytellers',
   logoEmoji: '🌿'
 };

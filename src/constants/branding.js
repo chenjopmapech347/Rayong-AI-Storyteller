@@ -3,20 +3,20 @@
 // 4 ready-to-use presets cover common Thai regions; admin can also build custom.
 
 export const DEFAULT_BRANDING = {
-  brandName     : 'Green Rayong',
+  brandName     : 'ขั้นตอน/กระบวนการสร้างนวัตกรรม',
   brandTagline  : '4-Identities AI Storytellers',
   logoEmoji     : '🌿',
   region        : 'ระยอง',
   province      : 'ระยอง',
   primaryColor  : '#16a34a',
   secondaryColor: '#0ea5e9',
-  pitchName     : 'Green Rayong Challenge',
+  pitchName     : 'ขั้นตอน/กระบวนการสร้างนวัตกรรม Challenge',
   schoolName    : '',
   footerText    : 'พัฒนาเพื่อการศึกษา IoT + ภูมิปัญญาท้องถิ่น',
 };
 
 export const BRAND_PRESETS = [
-  { name: 'Green Rayong (Default)', logoEmoji: '🌿', region: 'ระยอง',     province: 'ระยอง',     primaryColor: '#16a34a', secondaryColor: '#0ea5e9' },
+  { name: 'ขั้นตอน/กระบวนการสร้างนวัตกรรม (Default)', logoEmoji: '🌿', region: 'ระยอง',     province: 'ระยอง',     primaryColor: '#16a34a', secondaryColor: '#0ea5e9' },
   { name: 'Green Doi Saket',        logoEmoji: '🌲', region: 'ดอยสะเก็ด', province: 'เชียงใหม่', primaryColor: '#059669', secondaryColor: '#dc2626' },
   { name: 'Green Phuket',           logoEmoji: '🏝️', region: 'ภูเก็ต',     province: 'ภูเก็ต',     primaryColor: '#0891b2', secondaryColor: '#f59e0b' },
   { name: 'Green Ayutthaya',        logoEmoji: '🛕', region: 'อยุธยา',     province: 'อยุธยา',     primaryColor: '#a16207', secondaryColor: '#7c2d12' },

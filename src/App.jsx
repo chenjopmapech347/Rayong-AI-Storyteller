@@ -949,7 +949,7 @@ export default function App() {
     try { localStorage.setItem('rep_branding', JSON.stringify(next)); } catch { /* ignore */ }
   };
   const resetBranding = () => {
-    if (!window.confirm('Reset เป็น Brand Default (Green Rayong)?')) return;
+    if (!window.confirm('Reset เป็น Brand Default (ขั้นตอน/กระบวนการสร้างนวัตกรรม)?')) return;
     saveBranding({ ...DEFAULT_BRANDING });
   };
   const applyPreset = (p) => {
