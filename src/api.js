@@ -735,6 +735,7 @@ export async function adminCreateUser(u) {
     role: role || 'student',
     email,
     team_id: teamId,
+    password: pw,            // store so changeOwnPassword can verify later
     created_at: serverTimestamp()
   });
 
@@ -754,7 +755,8 @@ export async function changeOwnPassword(userId, currentPassword, newPassword) {
   const snap = await getDoc(doc(db, 'users', userId));
   if (!snap.exists()) throw new Error('ไม่พบข้อมูลผู้ใช้');
   const stored = snap.data().password;
-  if (stored !== currentPassword) throw new Error('รหัสผ่านเดิมไม่ถูกต้อง');
+  // If password not stored in Firestore (e.g. legacy admin), skip check — rely on Firebase Auth re-auth below.
+  if (stored !== undefined && stored !== null && stored !== currentPassword) throw new Error('รหัสผ่านเดิมไม่ถูกต้อง');
   if (!newPassword || newPassword.length < 4) throw new Error('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร');
 
   // อัปเดต Firebase Auth ด้วย (re-auth → updatePassword)
