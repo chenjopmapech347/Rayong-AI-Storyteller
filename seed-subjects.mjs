@@ -312,6 +312,15 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+function getCategory(code) {
+  if (code.startsWith('30000-2')) return 'กิจกรรม';
+  if (code.startsWith('30000-1')) return 'สามัญ';
+  if (code.startsWith('30001-'))  return 'พื้นฐานวิชาชีพ';
+  if (code.startsWith('31910-0')) return 'วิชาชีพพื้นฐาน';
+  if (code.startsWith('31910-1') || code.startsWith('31910-2')) return 'วิชาชีพ';
+  return 'อื่นๆ';
+}
+
 const [,, userArg, password] = process.argv;
 const email = userArg.includes("@") ? userArg : userArg + "@eco.com";
 if (!email || !password) {
@@ -332,6 +341,7 @@ async function seed() {
         name: s.name,
         credits: s.credits,
         semester: s.semester,
+        category: getCategory(s.code),
         standardRef: '',
         learningOutcome: '',
         objectives: '',
