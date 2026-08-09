@@ -49,6 +49,9 @@ import InstructorPicker from './components/InstructorPicker';
 import TabNav from './tabs/TabNav';
 import TabHelp from './tabs/TabHelp';
 import TabAiAuditLog from './tabs/TabAiAuditLog';
+import ResearchSurveyView from './tabs/ResearchSurveyView';
+import ResearchEvalView from './tabs/ResearchEvalView';
+import ResearchResultsView from './tabs/ResearchResultsView';
 import {
   logout,
   getUsers,
@@ -4492,6 +4495,21 @@ export default function App() {
                 </div>
               </div>
             </motion.div>
+          )}
+
+          {/* ── งานวิจัยนวัตกรรม — Student (กรอกแบบสอบถาม) ── */}
+          {activeTab === 'research-survey' && (
+            <ResearchSurveyView user={user} db={db} />
+          )}
+
+          {/* ── งานวิจัยนวัตกรรม — Teacher/Facilitator (ประเมิน) ── */}
+          {activeTab === 'research-eval' && (
+            <ResearchEvalView user={user} db={db} />
+          )}
+
+          {/* ── งานวิจัยนวัตกรรม — Admin (ภาพรวม) ── */}
+          {activeTab === 'research-results' && (
+            <ResearchResultsView user={user} db={db} />
           )}
 
           {/* ── Help tab (see src/tabs/TabHelp.jsx) ── */}

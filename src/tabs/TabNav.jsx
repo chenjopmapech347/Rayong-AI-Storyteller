@@ -12,6 +12,7 @@
 import {
   Send, Users, Monitor, Settings, Inbox, Camera, Target, Star,
   FileSpreadsheet, ShieldCheck, HelpCircle, BookOpen, Award, LayoutDashboard,
+  FlaskConical,
 } from 'lucide-react';
 
 export default function TabNav({ user, activeTab, setActiveTab, currentCourse, coursesAll, t }) {
@@ -77,6 +78,9 @@ export default function TabNav({ user, activeTab, setActiveTab, currentCourse, c
           <div className={tabCls('public-portfolio')} onClick={() => setActiveTab('public-portfolio')}>
             <Award size={16} /> {t('Report (R6)')}
           </div>
+          <div className={tabCls('research-survey')} onClick={() => setActiveTab('research-survey')}>
+            <FlaskConical size={16} /> งานวิจัยนวัตกรรม
+          </div>
           <div className={tabCls('help')} onClick={() => setActiveTab('help')}>
             <HelpCircle size={16} /> {t('Help')}
           </div>
@@ -103,6 +107,9 @@ export default function TabNav({ user, activeTab, setActiveTab, currentCourse, c
           </div>
           <div className={tabCls('teacher-reports')} onClick={() => setActiveTab('teacher-reports')}>
             <FileSpreadsheet size={16} /> {t('Reports')}
+          </div>
+          <div className={tabCls('research-eval')} onClick={() => setActiveTab('research-eval')}>
+            <FlaskConical size={16} /> งานวิจัยนวัตกรรม
           </div>
           {WorksheetsTab}
           <div className={tabCls('help')} onClick={() => setActiveTab('help')}>
@@ -150,6 +157,9 @@ export default function TabNav({ user, activeTab, setActiveTab, currentCourse, c
           </div>
           <div className={tabCls('teacher-reports')} onClick={() => setActiveTab('teacher-reports')}>
             <FileSpreadsheet size={16} /> {t('Reports')}
+          </div>
+          <div className={tabCls('research-results')} onClick={() => setActiveTab('research-results')}>
+            <FlaskConical size={16} /> งานวิจัยนวัตกรรม
           </div>
           {WorksheetsTab}
           <div className={tabCls('help')} onClick={() => setActiveTab('help')}>
