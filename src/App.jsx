@@ -152,6 +152,8 @@ export default function App() {
   // ════════════════════════════════════════════════════════════════════
 
   const [user, setUser] = useState(null);
+  const [kickedOut, setKickedOut] = useState(false);  // true ถ้าถูก session ใหม่ดีดออก
+  const sessionIdRef = useRef(null);                   // session token ของ tab นี้
   const [activeTab, setActiveTab] = useState('teacher-dashboard');
   const [adminSubTab, setAdminSubTab] = useState('management');
   const [reportType, setReportType] = useState('R1');
@@ -1070,6 +1072,8 @@ export default function App() {
       const u = JSON.parse(saved);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(u);
+      // Restore session token so the watcher can compare it against Firestore
+      if (u?.sessionId) sessionIdRef.current = u.sessionId;
       // Pick a default tab that the user's role actually has
       if (u?.role === 'student')      setActiveTab('team-setup');
       else if (u?.role === 'sage')    setActiveTab('pitch-evaluator');
@@ -1181,10 +1185,22 @@ export default function App() {
     }
   }, [activeTab, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Sync user doc แบบ real-time (รับ team_id ที่ Admin กำหนดทันที) ──────────
+  // ── Sync user doc แบบ real-time + Single-session enforcement ────────────────
+  // เมื่อ Firestore users/{uid} เปลี่ยน:
+  //   1. อัปเดต user state (team_id, role ฯลฯ)
+  //   2. ถ้า currentSessionId ใน Firestore ≠ sessionIdRef (login จากเครื่องอื่น) → ดีดออก
   useEffect(() => {
     if (!user?.id) return;
     const unsub = subscribeToUserDoc(user.id, (updated) => {
+      const myId = sessionIdRef.current;
+      if (myId && updated.currentSessionId && updated.currentSessionId !== myId) {
+        // Session ถูก login จากเครื่องอื่นแทนที่ — ดีดออก
+        sessionIdRef.current = null;
+        logout();
+        setUser(null);
+        setKickedOut(true);
+        return; // ไม่อัปเดต localStorage ด้วย doc ใหม่
+      }
       setUser(updated);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     });
@@ -1217,8 +1233,10 @@ export default function App() {
   }, [selectedTeam, user]);
 
   const handleLogout = () => {
+    sessionIdRef.current = null;
     logout();
     setUser(null);
+    setKickedOut(false);
     hasAutoSwitchedCourse.current = false;    // reset so next login auto-picks team course again
     hasAutoSwitchedToDefault.current = false; // reset so next login auto-picks default course again
   };
@@ -1239,11 +1257,32 @@ export default function App() {
   };
 
   if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>กำลังเข้าสู่ระบบ...</div>;
+
+  // ── ถูกดีดออกเพราะ login จากเครื่องอื่น ────────────────────────────────────
+  if (kickedOut) return (
+    <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', flexDirection: 'column', gap: 16 }}>
+      <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 12, padding: '2rem 2.5rem', maxWidth: 380, textAlign: 'center', boxShadow: '0 4px 24px #0001' }}>
+        <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🔒</div>
+        <h2 style={{ margin: '0 0 8px', color: '#dc2626', fontSize: '1.125rem' }}>ถูกออกจากระบบ</h2>
+        <p style={{ margin: '0 0 20px', color: '#64748b', fontSize: '0.875rem', lineHeight: 1.6 }}>
+          บัญชีนี้ถูกเข้าใช้งานจากเครื่องอื่น<br />
+          ระบบอนุญาตให้เข้าใช้งานได้เพียง <strong>1 เครื่อง</strong> ต่อครั้ง
+        </p>
+        <button
+          className="login-btn"
+          onClick={() => { setKickedOut(false); }}
+          style={{ width: '100%' }}
+        >
+          เข้าสู่ระบบอีกครั้ง
+        </button>
+      </div>
+    </div>
+  );
   if (showLogin && !user) {
     return (
       <div style={{ position: 'relative' }}>
         <button onClick={() => setShowLogin(false)} className="login-btn" style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 10, background: '#64748b' }}>ยกเลิก / กลับไปดู Dashboard</button>
-        <LoginPage onLogin={(u) => { setUser(u); setShowLogin(false); }} />
+        <LoginPage onLogin={(u) => { sessionIdRef.current = u.sessionId || null; setKickedOut(false); setUser(u); setShowLogin(false); }} />
       </div>
     );
   }
@@ -1447,7 +1486,7 @@ export default function App() {
                   <p style={{ fontSize: '0.75rem', textAlign: 'center', color: '#64748b' }}>สรุปขีดความสามารถเฉลี่ยของทุกทีมในขณะนี้ · เข้าสู่ระบบเพื่อดูรายละเอียดและบันทึกคะแนน</p>
                </div>
             </div>
-            <LoginPage onLogin={setUser} />
+            <LoginPage onLogin={(u) => { sessionIdRef.current = u.sessionId || null; setKickedOut(false); setUser(u); }} />
           </div>
             );
         })()}

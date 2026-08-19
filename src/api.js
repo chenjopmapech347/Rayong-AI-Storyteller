@@ -477,7 +477,14 @@ export async function login(username, password) {
     userDoc = await getDoc(doc(db, "users", user.uid));
   }
 
-  const userData = { id: user.uid, ...userDoc.data() };
+  // ── Single-session enforcement ──────────────────────────────────────────
+  // Generate a unique session token and write it to Firestore.
+  // App.jsx listens on this doc; if currentSessionId changes (i.e. another
+  // device logs in), the previous session is automatically kicked out.
+  const sessionId = crypto.randomUUID();
+  await setDoc(doc(db, 'users', user.uid), { currentSessionId: sessionId }, { merge: true });
+
+  const userData = { id: user.uid, sessionId, ...userDoc.data() };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
   return userData;
 }
