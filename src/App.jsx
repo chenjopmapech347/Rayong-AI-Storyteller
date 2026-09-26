@@ -41,6 +41,7 @@ import {
   SCORE_DIMENSIONS, EVALUATOR_ROLES, RUBRIC_LEVEL_LABELS,
   LEGACY_GREEN_RAYONG_COURSE, BUILTIN_COURSES, mergeCourse, getTeamCourseIds
 } from './constants/courses';
+import VersionBanner from './components/VersionBanner';
 import StatBox from './components/StatBox';
 import RadarChart from './components/RadarChart';
 import GenericForm, { FIELD_TYPES } from './components/GenericForm';
@@ -257,13 +258,14 @@ export default function App() {
     try { localStorage.setItem('rep_active_course', id); } catch { /* ignore */ }
     setSelectedWorksheetId(null); // close any open worksheet when switching
   };
-  // ─── Auto-switch to default course for admin / teacher / sage ────────────
-  // Declared after switchCourse to avoid TDZ. Fires once per session (guarded
-  // by ref) so these roles always open on the isDefault course in Firestore.
+  // ─── Auto-switch to default course (all users + public view) ────────────
+  // Fires once per session (guarded by ref). Works even when user is null so
+  // the public dashboard always lands on the isDefault course, not 'green-rayong'.
   useEffect(() => {
     if (hasAutoSwitchedToDefault.current) return;
-    if (!user || !coursesAll.length) return;
-    if (!['admin', 'teacher', 'sage', 'facilitator'].includes(user.role)) return;
+    if (!coursesAll.length) return;
+    // For logged-in users: skip students (they switch via their team course logic)
+    if (user && !['admin', 'teacher', 'sage', 'facilitator'].includes(user.role)) return;
     const defaultCourse = coursesAll.find(c => c.isDefault);
     if (defaultCourse) switchCourse(defaultCourse.id);
     hasAutoSwitchedToDefault.current = true;
@@ -1260,29 +1262,42 @@ export default function App() {
 
   // ── ถูกดีดออกเพราะ login จากเครื่องอื่น ────────────────────────────────────
   if (kickedOut) return (
-    <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 12, padding: '2rem 2.5rem', maxWidth: 380, textAlign: 'center', boxShadow: '0 4px 24px #0001' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🔒</div>
-        <h2 style={{ margin: '0 0 8px', color: '#dc2626', fontSize: '1.125rem' }}>ถูกออกจากระบบ</h2>
-        <p style={{ margin: '0 0 20px', color: '#64748b', fontSize: '0.875rem', lineHeight: 1.6 }}>
-          บัญชีนี้ถูกเข้าใช้งานจากเครื่องอื่น<br />
-          ระบบอนุญาตให้เข้าใช้งานได้เพียง <strong>1 เครื่อง</strong> ต่อครั้ง
-        </p>
-        <button
-          className="login-btn"
-          onClick={() => { setKickedOut(false); }}
-          style={{ width: '100%' }}
-        >
-          เข้าสู่ระบบอีกครั้ง
-        </button>
+    <>
+      <VersionBanner />
+      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', flexDirection: 'column', gap: 16 }}>
+        <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 12, padding: '2rem 2.5rem', maxWidth: 380, textAlign: 'center', boxShadow: '0 4px 24px #0001' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🔒</div>
+          <h2 style={{ margin: '0 0 8px', color: '#dc2626', fontSize: '1.125rem' }}>ถูกออกจากระบบ</h2>
+          <p style={{ margin: '0 0 20px', color: '#64748b', fontSize: '0.875rem', lineHeight: 1.6 }}>
+            บัญชีนี้ถูกเข้าใช้งานจากเครื่องอื่น<br />
+            ระบบอนุญาตให้เข้าใช้งานได้เพียง <strong>1 เครื่อง</strong> ต่อครั้ง
+          </p>
+          <button
+            className="login-btn"
+            onClick={() => { setKickedOut(false); setShowLogin(true); }}
+            style={{ width: '100%' }}
+          >
+            เข้าสู่ระบบอีกครั้ง
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
   if (showLogin && !user) {
     return (
       <div style={{ position: 'relative' }}>
+        <VersionBanner />
         <button onClick={() => setShowLogin(false)} className="login-btn" style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 10, background: '#64748b' }}>ยกเลิก / กลับไปดู Dashboard</button>
-        <LoginPage onLogin={(u) => { sessionIdRef.current = u.sessionId || null; setKickedOut(false); setUser(u); setShowLogin(false); }} />
+        <LoginPage onLogin={(u) => {
+          sessionIdRef.current = u.sessionId || null;
+          setKickedOut(false);
+          setUser(u);
+          setShowLogin(false);
+          if (u?.role === 'student')      setActiveTab('team-setup');
+          else if (u?.role === 'sage')    setActiveTab('pitch-evaluator');
+          else if (u?.role === 'admin')   setActiveTab('admin');
+          else                            setActiveTab('teacher-dashboard');
+        }} />
       </div>
     );
   }
@@ -1309,14 +1324,14 @@ export default function App() {
             <img
                src={logoDataUrl}
                alt="logo"
-               style={{ height: 64, width: 'auto', objectFit: 'contain', display: 'block', flexShrink: 0 }}
+               style={{ height: 40, width: 'auto', objectFit: 'contain', display: 'block', flexShrink: 0 }}
             />
             <div>
               <div className="ldt-title" style={{ color: appConfig.primaryColor }}>{appConfig.brandName}: {!user ? (lang === 'th' ? 'มุมมองสาธารณะ' : 'Public Dashboard') : (user.role === 'student' ? (lang === 'th' ? 'จัดการทีม' : 'Explorer UI') : (lang === 'th' ? 'แดชบอร์ดผู้ประเมิน' : 'Assessor UI'))}</div>
               <div className="ldt-sub">{appConfig.brandTagline} | {!user ? (lang === 'th' ? 'โหมดบุคคลทั่วไป' : 'Public Mode') : (lang === 'th' ? `ระบบนิเวศการเรียนรู้ ${user.role === 'student' ? 'นักเรียน' : 'ครู/Facilitator'}` : `Learning Ecosystem · ${user.role === 'student' ? 'Student' : 'Teacher/Facilitator'}`)}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
              {/* ─── Pitching Timer launcher (always visible) ─── */}
              <button onClick={() => setPitchTimerOpen(true)} className="card" style={{ padding: '0.4rem 0.6rem', margin: 0, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, border: '1px solid #cbd5e1', background: '#fff' }} title="Pitching Timer (7 min)">
                 ⏱️ Timer
@@ -1370,7 +1385,7 @@ export default function App() {
         </div>
 
         {/* Global Real-Time Stats Dashboard */}
-        <div className="ldt-stats" style={{ marginTop: '0.5rem' }}>
+        <div className="ldt-stats" style={{ marginTop: '0.375rem' }}>
           <StatBox icon={Users} value={safeStats.totalTeams} label="Teams" colorClass="bg-blue-light" />
           <StatBox icon={CheckCircle2} value={safeStats.submitted} label="Submitted" colorClass="bg-primary-light" />
           <StatBox icon={Activity} value={safeStats.pending} label="In Progress" colorClass="bg-amber-light" />
@@ -1378,7 +1393,7 @@ export default function App() {
         </div>
 
         {/* Global Live Feed Ticker */}
-        <div style={{ marginTop: '1rem', padding: '0.5rem 0.75rem', background: 'rgba(241, 245, 249, 0.5)', borderRadius: '8px', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+        <div style={{ marginTop: '0.375rem', padding: '0.375rem 0.625rem', background: 'rgba(241, 245, 249, 0.5)', borderRadius: '8px', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.625rem', fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--color-border)', paddingRight: '10px' }}>
               <Activity size={12} className="live-dot" /> LIVE FEED
            </div>
@@ -1401,6 +1416,9 @@ export default function App() {
            </div>
         </div>
       </header>
+
+      {/* ── Version check banner ── */}
+      <VersionBanner />
 
       {/* ── Tab Navigation (extracted to TabNav.jsx) ── */}
       <TabNav
@@ -1486,7 +1504,15 @@ export default function App() {
                   <p style={{ fontSize: '0.75rem', textAlign: 'center', color: '#64748b' }}>สรุปขีดความสามารถเฉลี่ยของทุกทีมในขณะนี้ · เข้าสู่ระบบเพื่อดูรายละเอียดและบันทึกคะแนน</p>
                </div>
             </div>
-            <LoginPage onLogin={(u) => { sessionIdRef.current = u.sessionId || null; setKickedOut(false); setUser(u); }} />
+            <LoginPage onLogin={(u) => {
+              sessionIdRef.current = u.sessionId || null;
+              setKickedOut(false);
+              setUser(u);
+              if (u?.role === 'student')      setActiveTab('team-setup');
+              else if (u?.role === 'sage')    setActiveTab('pitch-evaluator');
+              else if (u?.role === 'admin')   setActiveTab('admin');
+              else                            setActiveTab('teacher-dashboard');
+            }} />
           </div>
             );
         })()}

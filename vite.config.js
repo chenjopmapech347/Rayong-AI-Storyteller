@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, writeFileSync } from 'fs'
 
 // ─── Auto-generate version info ───────────────────────────
 // ใช้แทรกเข้า bundle ตอน build เพื่อแสดงใน Footer
@@ -21,6 +21,18 @@ try {
     }
   }
 } catch { /* ignore — fall back to 'dev' */ }
+
+// ─── Write public/version.json ────────────────────────────
+// ไฟล์นี้จะถูก deploy ขึ้น Firebase Hosting ทุกครั้ง
+// app จะ fetch มาเทียบกับ __BUILD_TIME__ ที่ bake ไว้ใน bundle
+// ถ้าไม่ตรง = ผู้ใช้เปิด version เก่า (browser cache)
+try {
+  writeFileSync('./public/version.json', JSON.stringify({
+    version: pkg.version || '0.0.0',
+    buildTime,
+    gitHash,
+  }, null, 2))
+} catch { /* ignore write errors in CI */ }
 
 // https://vite.dev/config/
 export default defineConfig({
