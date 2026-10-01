@@ -42,6 +42,8 @@ import {
   LEGACY_GREEN_RAYONG_COURSE, BUILTIN_COURSES, mergeCourse, getTeamCourseIds
 } from './constants/courses';
 import VersionBanner from './components/VersionBanner';
+import TeamModal from './components/TeamModal';
+import AdminModerationPanel from './components/AdminModerationPanel';
 import StatBox from './components/StatBox';
 import RadarChart from './components/RadarChart';
 import GenericForm, { FIELD_TYPES } from './components/GenericForm';
@@ -174,9 +176,7 @@ export default function App() {
   // Note: `teams` is already declared further below; we add only ethics-specific state here.
   const [moderationFlags, setModerationFlags] = useState([]);
   const [allSubmissionsModeration, setAllSubmissionsModeration] = useState([]);
-  const [flagFilterSeverity, setFlagFilterSeverity] = useState('all'); // all|high|medium|low
-  const [flagFilterStatus, setFlagFilterStatus] = useState('pending'); // all|pending|approved|fixed|rejected
-  const [flagFilterCategory, setFlagFilterCategory] = useState('all'); // all|<cat>
+
   const [auditRunning, setAuditRunning] = useState(false);
 
   // ════════════════════════════════════════════════════════════════════
@@ -1063,10 +1063,8 @@ export default function App() {
   const [renameTeamSaving, setRenameTeamSaving] = useState(false);
 
   // ─── Team Edit Modal ───────────────────────────────────────────────────────
-  const [teamModal, setTeamModal] = useState(null); // team doc | null
-  const [teamModalEdit, setTeamModalEdit] = useState({ photo: '', leaderId: '', teacherId: '', memberIds: [], memberSearch: '' });
+  const [teamModal, setTeamModal] = useState(null); // team doc | null — edit state lives inside TeamModal
   const [teamTeachers, setTeamTeachers] = useState([]);
-  const [teamModalSaving, setTeamModalSaving] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -1643,17 +1641,7 @@ export default function App() {
                             <div
                               key={t.id}
                               style={{ border: `2px solid ${isMyTeam ? 'var(--color-primary)' : '#e2e8f0'}`, borderRadius: '10px', overflow: 'hidden', background: '#fff', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
-                              onClick={() => {
-                                setTeamModal(t);
-                                setTeamModalEdit({
-                                  photo: t.photo || '',
-                                  leaderId: t.leader_id || '',
-                                  teacherId: t.teacher_id || '',
-                                  memberIds: members.map(m => m.id),
-                                  memberSearch: '',
-                                  courseIds: Array.isArray(t.courseIds) ? t.courseIds : t.courseId ? [t.courseId] : ['green-rayong'],
-                                });
-                              }}
+                              onClick={() => setTeamModal(t)}
                               onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)'}
                               onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
                             >
@@ -2142,17 +2130,7 @@ export default function App() {
                                           background: isMyTeam ? 'var(--color-primary-light, #f0fdf4)' : '#fff',
                                           cursor: 'pointer',
                                        }}
-                                       onClick={() => {
-                                          setTeamModal(t);
-                                          setTeamModalEdit({
-                                             photo: t.photo || '',
-                                             leaderId: t.leader_id || '',
-                                             teacherId: t.teacher_id || '',
-                                             memberIds: members.map(m => m.id),
-                                             memberSearch: '',
-                                             courseIds: Array.isArray(t.courseIds) ? t.courseIds : t.courseId ? [t.courseId] : ['green-rayong'],
-                                          });
-                                       }}
+                                       onClick={() => setTeamModal(t)}
                                     >
                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
                                           {t.photo && <img src={t.photo} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => e.target.style.display='none'} />}
@@ -2660,130 +2638,15 @@ export default function App() {
                            )}
                         </div>
                      )}
-                     {adminSubTab === 'moderation' && (() => {
-                        const filtered = moderationFlags.filter(f =>
-                          (flagFilterSeverity === 'all' || f.severity === flagFilterSeverity) &&
-                          (flagFilterStatus   === 'all' || f.status   === flagFilterStatus  ) &&
-                          (flagFilterCategory === 'all' || f.category === flagFilterCategory)
-                        );
-                        const byTeam = filtered.reduce((acc, f) => {
-                          const k = `${f.team_name || f.team_id}|${f.team_id}`;
-                          (acc[k] = acc[k] || []).push(f);
-                          return acc;
-                        }, {});
-                        const counts = {
-                          total  : moderationFlags.length,
-                          high   : moderationFlags.filter(f => f.severity === 'high').length,
-                          medium : moderationFlags.filter(f => f.severity === 'medium').length,
-                          low    : moderationFlags.filter(f => f.severity === 'low').length,
-                          pending: moderationFlags.filter(f => f.status === 'pending').length,
-                        };
-                        return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          {/* Header */}
-                          <div className="card" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                                <div>
-                                   <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#92400e' }}>🛡️ Cultural Respect &amp; Ethics Audit</h5>
-                                   <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#92400e' }}>เกณฑ์เน้น: เคารพปราชญ์ · ปกป้องความเป็นส่วนตัว · ความถูกต้องของภูมิปัญญา · จริยธรรม AI</p>
-                                </div>
-                                <button onClick={handleRunAudit} disabled={auditRunning} className="login-btn" style={{ background: '#dc2626', width: 'auto', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}>
-                                   {auditRunning ? '⏳ กำลัง Audit...' : '🔍 Run Ethics Audit on All Teams'}
-                                </button>
-                             </div>
-                             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                                <span style={{ padding: '0.2rem 0.6rem', background: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>ทั้งหมด {counts.total}</span>
-                                <span style={{ padding: '0.2rem 0.6rem', background: SEVERITY_META.high.color,   color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>High {counts.high}</span>
-                                <span style={{ padding: '0.2rem 0.6rem', background: SEVERITY_META.medium.color, color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>Medium {counts.medium}</span>
-                                <span style={{ padding: '0.2rem 0.6rem', background: SEVERITY_META.low.color,    color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>Low {counts.low}</span>
-                                <span style={{ padding: '0.2rem 0.6rem', background: '#64748b', color: '#fff', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600 }}>⏳ รอตรวจ {counts.pending}</span>
-                             </div>
-                          </div>
-
-                          {/* Filters */}
-                          <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', fontSize: '0.75rem' }}>
-                             <strong style={{ marginRight: 4 }}>กรอง:</strong>
-                             <select value={flagFilterStatus}   onChange={e => setFlagFilterStatus(e.target.value)} style={{ padding: '0.35rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
-                                <option value="pending">รอตรวจ</option>
-                                <option value="all">ทุกสถานะ</option>
-                                <option value="approved">Approved</option>
-                                <option value="fixed">Fixed</option>
-                                <option value="rejected">Rejected</option>
-                             </select>
-                             <select value={flagFilterSeverity} onChange={e => setFlagFilterSeverity(e.target.value)} style={{ padding: '0.35rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
-                                <option value="all">ทุกความรุนแรง</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                             </select>
-                             <select value={flagFilterCategory} onChange={e => setFlagFilterCategory(e.target.value)} style={{ padding: '0.35rem', borderRadius: 6, border: '1px solid #cbd5e1' }}>
-                                <option value="all">ทุกหมวด</option>
-                                {Object.entries(ETHICS_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
-                             </select>
-                          </div>
-
-                          {/* Flag list grouped by team */}
-                          {filtered.length === 0 ? (
-                             <div className="card" style={{ textAlign: 'center', borderStyle: 'dashed', padding: '2rem' }}>
-                                <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
-                                   {moderationFlags.length === 0 ? '🎉 ยังไม่มีการรัน Audit — กดปุ่ม "Run Ethics Audit" ด้านบน' : 'ไม่มี flag ที่ตรงกับ filter ปัจจุบัน'}
-                                </p>
-                             </div>
-                          ) : (
-                             Object.entries(byTeam).map(([key, flags]) => {
-                                const teamName = key.split('|')[0];
-                                return (
-                                  <div key={key} className="card" style={{ borderLeft: `3px solid ${SEVERITY_META[flags[0].severity]?.color || '#64748b'}` }}>
-                                     <h5 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.9rem' }}>
-                                        👥 {teamName} <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 400 }}>({flags.length} flag)</span>
-                                     </h5>
-                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: '0.75rem' }}>
-                                        {flags.map(f => {
-                                           const sev = SEVERITY_META[f.severity] || SEVERITY_META.low;
-                                           const cat = ETHICS_CATEGORIES[f.category] || { label: f.category, emoji: '•' };
-                                           return (
-                                              <div key={f.id} style={{ padding: '0.6rem', background: sev.bg, borderRadius: 6, borderLeft: `4px solid ${sev.color}`, fontSize: '0.8rem' }}>
-                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-                                                    <div style={{ flex: 1, minWidth: 200 }}>
-                                                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                                                          <span style={{ padding: '0.1rem 0.4rem', background: sev.color, color: '#fff', borderRadius: 4, fontSize: '0.65rem', fontWeight: 600 }}>{sev.label}</span>
-                                                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{cat.emoji} {cat.label}</span>
-                                                          <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>· {f.source}/{f.source_id}</span>
-                                                       </div>
-                                                       <div style={{ marginTop: '0.35rem', fontWeight: 500 }}>{f.desc}</div>
-                                                       {f.evidence && <div style={{ marginTop: '0.35rem', padding: '0.3rem 0.5rem', background: 'rgba(255,255,255,0.6)', borderRadius: 4, fontFamily: 'monospace', fontSize: '0.7rem', color: '#475569' }}>{f.evidence}</div>}
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: 4 }}>
-                                                       <button onClick={() => setModerationFlagStatus(f.id, 'approved').catch(e => alert(e?.message || e))} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #16a34a', background: '#f0fdf4', color: '#16a34a', borderRadius: 4, cursor: 'pointer' }}>✓ Approve</button>
-                                                       <button onClick={() => setModerationFlagStatus(f.id, 'fixed').catch(e => alert(e?.message || e))}    style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #0891b2', background: '#ecfeff', color: '#0891b2', borderRadius: 4, cursor: 'pointer' }}>🔧 Fixed</button>
-                                                       <button onClick={() => setModerationFlagStatus(f.id, 'rejected').catch(e => alert(e?.message || e))} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #dc2626', background: '#fef2f2', color: '#dc2626', borderRadius: 4, cursor: 'pointer' }}>✗ Reject</button>
-                                                       <button onClick={() => { if (window.confirm('ลบ flag นี้?')) deleteModerationFlag(f.id).catch(e => alert(e?.message || e)); }} style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem', border: '1px solid #94a3b8', background: '#fff', color: '#64748b', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
-                                                    </div>
-                                                 </div>
-                                              </div>
-                                           );
-                                        })}
-                                     </div>
-                                  </div>
-                                );
-                             })
-                          )}
-
-                          {/* Rules reference */}
-                          <details className="card" style={{ background: '#f8fafc' }}>
-                             <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>📖 เกณฑ์ตรวจสอบ — 6 หมวด (กดเพื่อขยาย)</summary>
-                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: '0.75rem' }}>
-                                {Object.entries(ETHICS_CATEGORIES).map(([k, v]) => (
-                                   <div key={k} style={{ padding: '0.5rem', background: '#fff', borderRadius: 6, fontSize: '0.75rem' }}>
-                                      <strong>{v.emoji} {v.label}</strong>
-                                      <div style={{ color: '#64748b', fontSize: '0.7rem', marginTop: 4 }}>{v.hint}</div>
-                                   </div>
-                                ))}
-                             </div>
-                          </details>
-                        </div>
-                        );
-                     })()}
+                     {adminSubTab === 'moderation' && (
+                        <AdminModerationPanel
+                          moderationFlags={moderationFlags}
+                          auditRunning={auditRunning}
+                          onRunAudit={handleRunAudit}
+                          onSetStatus={setModerationFlagStatus}
+                          onDelete={deleteModerationFlag}
+                        />
+                     )}
                      {adminSubTab === 'courses' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                            {/* Header */}
@@ -4679,264 +4542,20 @@ export default function App() {
       )}
 
       {/* ─── Team Edit Modal ─── */}
-      {teamModal && (() => {
-        // ─── canEdit rules ──────────────────────────────────────────────
-        // admin → เสมอ
-        // teacher/facilitator → ต้องเป็น teacher_id ของทีมนี้ หรืออยู่ใน instructorIds ของหลักสูตรที่ทีมนี้ลงทะเบียน
-        // student → เฉพาะทีมของตัวเอง
-        const isAssignedTeacher = (user?.role === 'teacher' || user?.role === 'facilitator') &&
-          (String(teamModal.teacher_id) === String(user?.id) ||
-           (() => {
-             const teamCourseIds = Array.isArray(teamModal.courseIds) ? teamModal.courseIds
-               : teamModal.courseId ? [teamModal.courseId] : ['green-rayong'];
-             return coursesAll.some(c => teamCourseIds.includes(c.id) && Array.isArray(c.instructorIds) && c.instructorIds.includes(user?.id));
-           })());
-        const canEdit = user?.role === 'admin' || isAssignedTeacher ||
-                        String(teamModal.id) === String(user?.team_id || user?.teamId);
-        const originalMemberIds = teamStudents.filter(s => String(s.team_id || s.teamId) === String(teamModal.id)).map(s => s.id);
-        // teacher list: prefer users[] (admin has it) else teamTeachers
-        const teacherList = (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'facilitator')).length > 0
-          ? (users || []).filter(u => u && (u.role === 'teacher' || u.role === 'facilitator'))
-          : teamTeachers;
-
-        const filteredStudents = teamStudents.filter(s => {
-          const q = (teamModalEdit.memberSearch || '').toLowerCase();
-          return !q || (s.name || '').toLowerCase().includes(q) || (s.username || '').toLowerCase().includes(q) || (s.nickname || '').toLowerCase().includes(q);
-        });
-
-        const handleTeamModalSave = async () => {
-          setTeamModalSaving(true);
-          try {
-            // 1. Update team doc
-            await adminUpdateTeam(teamModal.id, {
-              photo:     teamModalEdit.photo,
-              leader_id: teamModalEdit.leaderId,
-              teacher_id: teamModalEdit.teacherId,
-              courseIds: teamModalEdit.courseIds || [],
-            });
-
-            // 2. Member changes (only if canEdit and role allows writing user docs)
-            if (canEdit) {
-              const added   = teamModalEdit.memberIds.filter(id => !originalMemberIds.includes(id));
-              const removed = originalMemberIds.filter(id => !teamModalEdit.memberIds.includes(id));
-              for (const uid of added)   await adminUpdateUser(uid, { team_id: teamModal.id });
-              for (const uid of removed) await adminUpdateUser(uid, { team_id: null });
-            }
-
-            // 3. Refresh state
-            const updatedTeams = await getTeams();
+      {teamModal && (
+        <TeamModal
+          team={teamModal}
+          teamStudents={teamStudents}
+          users={users}
+          coursesAll={coursesAll}
+          user={user}
+          onClose={() => setTeamModal(null)}
+          onSaveSuccess={(updatedTeams, allStudents) => {
             setTeams(updatedTeams);
-            const allUsers = await getUsers();
-            setTeamStudents(allUsers.filter(u => u.role === 'student'));
-
-            setTeamModal(null);
-          } catch (err) {
-            alert('บันทึกไม่สำเร็จ: ' + err.message);
-          } finally {
-            setTeamModalSaving(false);
-          }
-        };
-
-        const selectedMemberObjs = teamModalEdit.memberIds.map(id => teamStudents.find(s => s.id === id)).filter(Boolean);
-
-        return (
-          <Modal
-            onClose={() => setTeamModal(null)}
-            width="min(92vw, 540px)"
-            title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {teamModalEdit.photo && (
-                  <img src={teamModalEdit.photo} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-primary)' }} onError={e => { e.target.style.display='none'; }} />
-                )}
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>{teamModal.name}</div>
-                  <div style={{ fontSize: '0.7rem', color: canEdit ? '#16a34a' : '#94a3b8' }}>{canEdit ? '✏️ แก้ไขได้' : '👁 ดูอย่างเดียว'}</div>
-                </div>
-              </div>
-            }
-          >
-
-              <hr style={{ margin: 0, borderColor: '#f1f5f9' }} />
-
-              {/* photo */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>📸 รูปภาพทีม (URL)</label>
-                {canEdit ? (
-                  <input
-                    className="login-input"
-                    value={teamModalEdit.photo}
-                    onChange={e => setTeamModalEdit(p => ({ ...p, photo: e.target.value }))}
-                    placeholder="https://..."
-                    style={{ fontSize: '0.8125rem' }}
-                  />
-                ) : (
-                  <div style={{ fontSize: '0.8125rem', color: '#475569' }}>{teamModalEdit.photo || '—'}</div>
-                )}
-              </div>
-
-              {/* teacher */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>👨‍🏫 ครูพี่เลี้ยงทีม</label>
-                {canEdit ? (
-                  <select
-                    className="login-input"
-                    value={teamModalEdit.teacherId}
-                    onChange={e => setTeamModalEdit(p => ({ ...p, teacherId: e.target.value }))}
-                    style={{ fontSize: '0.8125rem' }}
-                  >
-                    <option value="">— ยังไม่กำหนด —</option>
-                    {teacherList.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                ) : (
-                  <div style={{ fontSize: '0.8125rem', color: '#475569' }}>
-                    {teacherList.find(u => u.id === teamModalEdit.teacherId)?.name || '—'}
-                  </div>
-                )}
-              </div>
-
-              {/* members */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>👥 สมาชิกทีม ({teamModalEdit.memberIds.length} คน)</label>
-                  {canEdit && (
-                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>เลือก / ยกเลิกเลือก</span>
-                  )}
-                </div>
-                {canEdit && (
-                  <input
-                    className="login-input"
-                    value={teamModalEdit.memberSearch}
-                    onChange={e => setTeamModalEdit(p => ({ ...p, memberSearch: e.target.value }))}
-                    placeholder="🔍 ค้นหาชื่อ..."
-                    style={{ marginBottom: '0.4rem', fontSize: '0.8125rem' }}
-                  />
-                )}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', background: '#fafafa' }}>
-                  {canEdit ? (
-                    filteredStudents.length === 0 ? (
-                      <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>ไม่พบนักเรียน</div>
-                    ) : (
-                      filteredStudents.map(s => {
-                        const checked = teamModalEdit.memberIds.includes(s.id);
-                        return (
-                          <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.4rem 0.75rem', cursor: 'pointer', background: checked ? '#eff6ff' : 'transparent', borderBottom: '1px solid #f1f5f9' }}>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={ev => setTeamModalEdit(p => ({
-                                ...p,
-                                memberIds: ev.target.checked
-                                  ? [...p.memberIds, s.id]
-                                  : p.memberIds.filter(id => id !== s.id),
-                                // clear leader if removed
-                                leaderId: !ev.target.checked && p.leaderId === s.id ? '' : p.leaderId,
-                              }))}
-                              style={{ width: 15, height: 15, accentColor: 'var(--color-primary)', flexShrink: 0 }}
-                            />
-                            <span style={{ fontSize: '0.875rem', fontWeight: checked ? 600 : 400 }}>{s.name}</span>
-                            {s.nickname && <span style={{ fontSize: '0.7rem', color: '#64748b' }}>({s.nickname})</span>}
-                            <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.username}</span>
-                          </label>
-                        );
-                      })
-                    )
-                  ) : (
-                    selectedMemberObjs.length === 0
-                      ? <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem' }}>ยังไม่มีสมาชิก</div>
-                      : selectedMemberObjs.map(s => (
-                          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.4rem 0.75rem', borderBottom: '1px solid #f1f5f9' }}>
-                            <span style={{ fontSize: '0.875rem' }}>{s.name}{s.nickname ? ` (${s.nickname})` : ''}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.username}</span>
-                          </div>
-                        ))
-                  )}
-                </div>
-              </div>
-
-              {/* leader */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.3rem' }}>👑 หัวหน้าทีม</label>
-                {canEdit ? (
-                  <select
-                    className="login-input"
-                    value={teamModalEdit.leaderId}
-                    onChange={e => setTeamModalEdit(p => ({ ...p, leaderId: e.target.value }))}
-                    style={{ fontSize: '0.8125rem' }}
-                  >
-                    <option value="">— ยังไม่กำหนด —</option>
-                    {(teamModalEdit.memberIds.length > 0 ? selectedMemberObjs : teamStudents).map(s => (
-                      <option key={s.id} value={s.id}>{s.name}{s.nickname ? ` (${s.nickname})` : ''}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div style={{ fontSize: '0.8125rem', color: teamModalEdit.leaderId ? '#d97706' : '#94a3b8', fontWeight: teamModalEdit.leaderId ? 600 : 400 }}>
-                    {selectedMemberObjs.find(s => s.id === teamModalEdit.leaderId)?.name || '—'}
-                  </div>
-                )}
-              </div>
-
-              {/* courseIds — admin only */}
-              {user?.role === 'admin' && (
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '0.4rem' }}>📚 หลักสูตรที่ทีมนี้ลงทะเบียน</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    {coursesAll.map(c => {
-                      const checked = (teamModalEdit.courseIds || []).includes(c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => setTeamModalEdit(p => ({
-                            ...p,
-                            courseIds: checked
-                              ? (p.courseIds || []).filter(id => id !== c.id)
-                              : [...(p.courseIds || []), c.id],
-                          }))}
-                          style={{
-                            padding: '0.3rem 0.7rem', borderRadius: '20px', fontSize: '0.78rem', cursor: 'pointer',
-                            background: checked ? 'var(--color-primary)' : '#f1f5f9',
-                            color: checked ? '#fff' : '#475569',
-                            border: `1px solid ${checked ? 'var(--color-primary)' : '#e2e8f0'}`,
-                            fontWeight: checked ? 600 : 400,
-                          }}
-                        >
-                          {checked ? '✓ ' : ''}{c.name || c.id}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {(teamModalEdit.courseIds || []).length === 0 && (
-                    <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.3rem' }}>⚠️ ต้องเลือกอย่างน้อย 1 หลักสูตร</div>
-                  )}
-                </div>
-              )}
-
-              {/* footer buttons */}
-              {canEdit && (
-                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
-                  <button
-                    onClick={() => setTeamModal(null)}
-                    style={{ padding: '0.45rem 1.1rem', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', fontSize: '0.875rem', color: '#64748b' }}
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    onClick={handleTeamModalSave}
-                    disabled={teamModalSaving}
-                    className="login-btn"
-                    style={{ padding: '0.45rem 1.25rem', width: 'auto', fontSize: '0.875rem', opacity: teamModalSaving ? 0.7 : 1 }}
-                  >
-                    {teamModalSaving ? '⏳ กำลังบันทึก...' : '💾 บันทึก'}
-                  </button>
-                </div>
-              )}
-              {!canEdit && (
-                <div style={{ textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8', paddingTop: '0.25rem' }}>
-                  เฉพาะสมาชิกทีมหรืออาจารย์เท่านั้นที่แก้ไขได้
-                </div>
-              )}
-          </Modal>
-        );
-      })()}
+            setTeamStudents(allStudents);
+          }}
+        />
+      )}
 
       {/* ─── Pitching Timer Modal Overlay (E quick win) ─── */}
       {pitchTimerOpen && (() => {
