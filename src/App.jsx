@@ -1404,7 +1404,7 @@ export default function App() {
                  style={{ display: 'inline-flex', gap: '2rem' }}
               >
                  {feed.length > 0 ? feed.map((f, i) => {
-                    const teamObj = (teams || []).find(t => t && (String(t.id) === String(f.team_id) || t.name === f.team_name));
+                    const teamObj = (teams || []).find(t => t && String(t.id) === String(f.team_id));
                     const displayName = f.team_name || teamObj?.name || (f.team_id ? `ทีม ${f.team_id}` : 'ทีม');
                     return (
                        <span key={i} style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
@@ -2083,7 +2083,7 @@ export default function App() {
                               </h4>
                               <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
                                  {feed.map((f, i) => {
-                                    const teamObj = (teams || []).find(t => t && (String(t.id) === String(f.team_id) || t.name === f.team_name));
+                                    const teamObj = (teams || []).find(t => t && String(t.id) === String(f.team_id));
                                     const displayName = f.team_name || teamObj?.name || (f.team_id ? `ทีม ${f.team_id}` : 'ทีม');
                                     return (
                                        <div key={i} style={{ fontSize: '0.8125rem', borderBottom: '1px solid #f1f5f9', padding: '0.8rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
