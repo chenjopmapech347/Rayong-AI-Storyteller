@@ -229,16 +229,11 @@ export default function App() {
         setCoursesSeeded(true);
         seedLegacyGreenRayongCourse(LEGACY_GREEN_RAYONG_COURSE).catch(() => {});
       }
-      // If student never set a course (no localStorage entry), default to first course in DB
-      // This avoids hardcoded green-rayong as the default for new users.
-      const stored = (() => { try { return localStorage.getItem('rep_active_course'); } catch { return null; } })();
-      if (!stored && rows.length > 0) {
-        // Prefer first non-legacy course if available
+      // Auto-pick first non-legacy course from Firebase on first load (no localStorage)
+      if (!hasAutoPickedInitialCourse.current && rows.length > 0) {
         const preferred = rows.find(c => c.id !== 'green-rayong') || rows[0];
-        if (preferred) {
-          setCurrentCourseId(preferred.id);
-          try { localStorage.setItem('rep_active_course', preferred.id); } catch { /* ignore */ }
-        }
+        if (preferred) setCurrentCourseId(preferred.id);
+        hasAutoPickedInitialCourse.current = true;
       }
     });
     return () => unsub?.();
@@ -246,16 +241,13 @@ export default function App() {
   }, []);
 
   // ─── Active Course (v2.0 Phase 7) — drives student worksheet UI + Pitching rubric ───
-  const [currentCourseId, setCurrentCourseId] = useState(() => {
-    try { return localStorage.getItem('rep_active_course') || 'green-rayong'; } catch { return 'green-rayong'; }
-  });
+  const [currentCourseId, setCurrentCourseId] = useState('green-rayong'); // Firebase sets the real value on load
   const [selectedWorksheetId, setSelectedWorksheetId] = useState(null);
   const [worksheetSubmissions, setWorksheetSubmissions] = useState([]);
   const [worksheetFormDraft, setWorksheetFormDraft] = useState({});
   const [worksheetSaving, setWorksheetSaving] = useState(false);
   const switchCourse = (id) => {
     setCurrentCourseId(id);
-    try { localStorage.setItem('rep_active_course', id); } catch { /* ignore */ }
     setSelectedWorksheetId(null); // close any open worksheet when switching
   };
   // ─── Auto-switch to default course (all users + public view) ────────────
@@ -833,6 +825,8 @@ export default function App() {
   const hasAutoSwitchedCourse = useRef(false);
   // ── Auto-switch to default course for admin/teacher/sage (once per session) ─
   const hasAutoSwitchedToDefault = useRef(false);
+  // ── Initial course auto-pick from Firebase courses list (once per session) ──
+  const hasAutoPickedInitialCourse = useRef(false);
   // ── Guard refs for worksheet draft loading ──────────────────────────────────────────────────
   const loadedWsIdRef = useRef(null);   // the worksheetId that was last loaded into the form
   // wsFormDirtyRef: set to true the moment the user starts typing.
@@ -1104,14 +1098,13 @@ export default function App() {
       // students stay on whatever course they (or the page default) already selected.
       if (!hasAutoSwitchedCourse.current) {
         const me = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-        const activeCourseId = (() => { try { return localStorage.getItem('rep_active_course') || ''; } catch { return ''; } })();
         if (me && t?.length) {
           const myTeamId = me.team_id || me.teamId;
           const myTeam = t.find(x => x && String(x.id) === String(myTeamId));
           if (myTeam) {
-            // Only switch if team has EXPLICIT courseIds set by admin (not the default fallback)
+            // Always switch to team's assigned course on first load (Firebase is source of truth)
             const hasExplicit = Array.isArray(myTeam.courseIds) && myTeam.courseIds.length > 0;
-            if (hasExplicit && !myTeam.courseIds.includes(activeCourseId)) {
+            if (hasExplicit) {
               setTimeout(() => switchCourse(myTeam.courseIds[0]), 0);
             }
             hasAutoSwitchedCourse.current = true;
@@ -1237,8 +1230,9 @@ export default function App() {
     logout();
     setUser(null);
     setKickedOut(false);
-    hasAutoSwitchedCourse.current = false;    // reset so next login auto-picks team course again
-    hasAutoSwitchedToDefault.current = false; // reset so next login auto-picks default course again
+    hasAutoSwitchedCourse.current = false;     // reset so next login auto-picks team course again
+    hasAutoSwitchedToDefault.current = false;  // reset so next login auto-picks default course again
+    hasAutoPickedInitialCourse.current = false; // reset so next login re-picks from Firebase courses
   };
 
   const handleSave = async (tabName, data) => {
