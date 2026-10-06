@@ -9,7 +9,7 @@
  * ติดตั้ง: วาง <VersionBanner /> ไว้ใกล้ top ของ App return (ก่อน loading check)
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // ─── ค่าที่ bake เข้า bundle ตอน build ──────────────────
 /* global __BUILD_TIME__, __APP_VERSION__ */
@@ -115,8 +115,28 @@ export default function VersionBanner() {
   const [serverInfo, setServerInfo] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);   // PWA deferred prompt
+  const [installDone, setInstallDone]     = useState(false);  // hide after installed
   const device = detectDevice();
   const info = INSTRUCTIONS[device] || INSTRUCTIONS['other'];
+
+  // ─── PWA install prompt listener ─────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();           // ป้องกัน Chrome แสดง prompt อัตโนมัติ
+      setInstallPrompt(e);          // เก็บ event ไว้ trigger เอง
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setInstallDone(true);
+    setInstallPrompt(null);
+  };
 
   useEffect(() => {
     if (!BUNDLE_BUILD_TIME) return; // dev mode — ไม่ต้องเช็ค
@@ -157,22 +177,49 @@ export default function VersionBanner() {
 
   // ─── เวอร์ชั่นปัจจุบัน ────────────────────────────────
   if (status === 'current') {
+    // ถ้า dismissed และไม่มี install prompt ให้แสดง → ซ่อนทั้งหมด
+    if (dismissed && (!installPrompt || installDone)) return null;
     return (
       <div style={{
         position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
-        background: '#f0fdf4', border: '1px solid #86efac',
-        borderRadius: 10, padding: '0.5rem 0.75rem',
-        display: 'flex', alignItems: 'center', gap: 8,
-        fontSize: '0.75rem', color: '#166534', boxShadow: '0 2px 8px #0001',
-        animation: 'fadeIn 0.3s',
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8,
       }}>
-        <span>✅ เวอร์ชั่นล่าสุด</span>
-        <span style={{ color: '#4ade80', fontWeight: 600 }}>v{BUNDLE_VERSION}</span>
-        <button
-          onClick={() => setDismissed(true)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: 4, color: '#16a34a', fontSize: '1rem', lineHeight: 1 }}
-          title="ปิด"
-        >×</button>
+        {/* ─── ปุ่มติดตั้ง PWA ─── */}
+        {installPrompt && !installDone && (
+          <button
+            onClick={handleInstall}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '0.5rem 0.9rem',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff', border: 'none', borderRadius: 10,
+              fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
+              boxShadow: '0 2px 10px #6366f133',
+              whiteSpace: 'nowrap',
+            }}
+            title="ติดตั้งแอปบนอุปกรณ์ของคุณ"
+          >
+            📲 ติดตั้งแอป
+          </button>
+        )}
+        {/* ─── เวอร์ชั่น badge ─── */}
+        {!dismissed && (
+          <div style={{
+            background: '#f0fdf4', border: '1px solid #86efac',
+            borderRadius: 10, padding: '0.5rem 0.75rem',
+            display: 'flex', alignItems: 'center', gap: 8,
+            fontSize: '0.75rem', color: '#166534', boxShadow: '0 2px 8px #0001',
+            animation: 'fadeIn 0.3s',
+          }}>
+            <span>✅ เวอร์ชั่นล่าสุด</span>
+            <span style={{ color: '#4ade80', fontWeight: 600 }}>v{BUNDLE_VERSION}</span>
+            <button
+              onClick={() => setDismissed(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: 4, color: '#16a34a', fontSize: '1rem', lineHeight: 1 }}
+              title="ปิด"
+            >×</button>
+          </div>
+        )}
       </div>
     );
   }
@@ -200,6 +247,16 @@ export default function VersionBanner() {
             เวอร์ชั่นใหม่: <strong>v{serverInfo?.version}</strong> (build {formatDate(serverInfo?.buildTime)})
           </div>
         </div>
+        {installPrompt && !installDone && (
+          <button
+            onClick={e => { e.stopPropagation(); handleInstall(); }}
+            style={{
+              padding: '0.35rem 0.75rem', background: '#6366f1', color: '#fff',
+              border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer',
+              fontSize: '0.75rem', whiteSpace: 'nowrap', flexShrink: 0,
+            }}
+          >📲 ติดตั้งแอป</button>
+        )}
         <span style={{ fontSize: '0.75rem', color: '#92400e' }}>{expanded ? '▼ ซ่อน' : '▲ ดูวิธีแก้'}</span>
         <button
           onClick={e => { e.stopPropagation(); setDismissed(true); }}
